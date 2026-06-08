@@ -1,0 +1,2233 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapeo de Renombrado · Grupo 5 · SESGA REYSER</title>
+<style>
+  :root{
+    --bg:#f5f6fb; --surface:#ffffff; --ink:#181b27; --muted:#697086;
+    --line:#e6e8f0; --soft:#f0f2f8;
+    --raiz:#6d28d9; --raiz-bg:#ede9fe;
+    --entidad:#1d4ed8; --entidad-bg:#dbeafe;
+    --evento:#b45309; --evento-bg:#fdecc8;
+    --catalogo:#047857; --catalogo-bg:#d1fae5;
+    --accent:#4f46e5;
+    --shadow:0 1px 2px rgba(20,23,40,.06),0 8px 24px rgba(20,23,40,.06);
+    --shadow-lg:0 12px 40px rgba(20,23,40,.16);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+    font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+  code,.mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace}
+
+  header.top{background:linear-gradient(120deg,#0f172a 0%,#312e81 55%,#4338ca 100%);color:#fff;
+    padding:46px 0 40px}
+  header.top .eyebrow{letter-spacing:.18em;text-transform:uppercase;font-size:12px;
+    color:#c7d2fe;font-weight:700;margin:0 0 10px}
+  header.top h1{margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em}
+  header.top p.sub{margin:10px 0 0;color:#dfe3f7;max-width:760px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+  .chip{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
+    color:#eef0ff;padding:5px 12px;border-radius:999px;font-size:12.5px;font-weight:600}
+
+  section{padding:44px 0}
+  .eyebrow{letter-spacing:.16em;text-transform:uppercase;font-size:11.5px;color:var(--accent);
+    font-weight:800;margin:0 0 6px}
+  h2{font-size:21px;font-weight:800;margin:0 0 4px;letter-spacing:-.01em}
+  .lead{color:var(--muted);margin:0 0 24px;max-width:780px}
+
+  .dominio{background:linear-gradient(120deg,#111827,#1e1b4b);color:#fff;border-radius:16px;
+    padding:22px 26px;display:flex;align-items:center;gap:18px;box-shadow:var(--shadow)}
+  .dominio .k{font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:#a5b4fc;font-weight:700}
+  .dominio .v{font-size:22px;font-weight:800;margin-top:2px}
+  .dominio .tag{margin-left:auto;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);
+    padding:6px 14px;border-radius:999px;font-size:13px;font-weight:600}
+
+  .caps{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+  .cap{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px 22px;box-shadow:var(--shadow)}
+  .cap h3{margin:0;font-size:13px;font-family:inherit}
+  .cap .capname{font-family:"SFMono-Regular",Consolas,monospace;font-size:16px;font-weight:700;color:var(--ink)}
+  .cap .role{color:var(--muted);font-size:13px;margin:3px 0 16px}
+  .grp{margin:0 0 12px}
+  .grp .lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:7px;display:block}
+  .ents{display:flex;flex-wrap:wrap;gap:7px}
+  .ent{font-family:"SFMono-Regular",Consolas,monospace;font-size:12.5px;font-weight:600;
+    padding:4px 10px;border-radius:8px;border:1px solid transparent}
+
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;
+    padding:3px 9px;border-radius:999px;letter-spacing:.02em;white-space:nowrap}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .t-raiz{color:var(--raiz);background:var(--raiz-bg)} .d-raiz{background:var(--raiz)}
+  .t-entidad{color:var(--entidad);background:var(--entidad-bg)} .d-entidad{background:var(--entidad)}
+  .t-evento{color:var(--evento);background:var(--evento-bg)} .d-evento{background:var(--evento)}
+  .t-catalogo{color:var(--catalogo);background:var(--catalogo-bg)} .d-catalogo{background:var(--catalogo)}
+  .ent.t-raiz{border-color:#ddd6fe} .ent.t-entidad{border-color:#bfdbfe}
+  .ent.t-evento{border-color:#fcd9a0} .ent.t-catalogo{border-color:#a7f3d0}
+
+  .legend{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin:0 0 22px;
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 18px}
+  .legend .item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);font-weight:600}
+  .legend .hint{margin-left:auto;font-size:12.5px;color:var(--muted)}
+  .legend .hint b{color:var(--accent)}
+
+  .glos{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+  .gcard{background:var(--surface);border:1px solid var(--line);border-left-width:4px;border-radius:12px;padding:16px 17px;box-shadow:var(--shadow)}
+  .gcard .badge{margin-bottom:9px}
+  .gcard p{margin:0 0 8px;font-size:13px;color:var(--muted);line-height:1.5}
+  .gcard .ej{font-size:12px;color:var(--ink)}
+  .gcard .ej b{font-family:"SFMono-Regular",Consolas,monospace;font-weight:600;color:var(--ink)}
+  .gcard.g-raiz{border-left-color:var(--raiz)}
+  .gcard.g-entidad{border-left-color:var(--entidad)}
+  .gcard.g-evento{border-left-color:var(--evento)}
+  .gcard.g-catalogo{border-left-color:var(--catalogo)}
+  .matriz{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+  .card{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:16px 17px;box-shadow:var(--shadow);transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;cursor:default}
+  .card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:#cdd2e8;z-index:40}
+  .card .row1{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+  .card .cap-tag{font-size:11px;color:var(--muted);font-weight:700}
+  .card h4{margin:0;font-family:"SFMono-Regular",Consolas,monospace;font-size:17px;font-weight:700;letter-spacing:-.01em}
+  .card .from{font-size:12px;color:var(--muted);margin-top:4px}
+  .card .from .mono{color:#94a0b8;text-decoration:line-through;text-decoration-color:#cfd5e6}
+
+  .pop{position:absolute;left:0;right:0;top:calc(100% + 10px);background:#0f1424;color:#e7e9f5;
+    border-radius:12px;padding:15px 16px;box-shadow:var(--shadow-lg);opacity:0;visibility:hidden;
+    transform:translateY(-6px);transition:opacity .16s ease,transform .16s ease,visibility .16s;
+    z-index:60;pointer-events:none}
+  .card:hover .pop{opacity:1;visibility:visible;transform:translateY(0)}
+  .pop::before{content:"";position:absolute;top:-6px;left:26px;width:12px;height:12px;background:#0f1424;transform:rotate(45deg)}
+  .pop .h{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#9aa6e8;font-weight:800;margin:0 0 4px}
+  .pop p{margin:0 0 12px;font-size:13px;line-height:1.5;color:#dfe2f4}
+  .pop p:last-child{margin-bottom:0}
+
+  .tabla-comp{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+  .tabla-comp thead th{background:#101426;color:#eaecf7;text-align:left;font-size:11.5px;letter-spacing:.06em;
+    text-transform:uppercase;padding:13px 16px;font-weight:700}
+  .tabla-comp td{padding:13px 16px;border-top:1px solid var(--line);vertical-align:top;font-size:13.5px}
+  .tabla-comp tbody tr:nth-child(even){background:var(--soft)}
+  .tabla-comp .mono{font-family:"SFMono-Regular",Consolas,monospace;font-weight:600}
+  .old{color:#9aa3b8;text-decoration:line-through;text-decoration-color:#cdd3e3}
+  .new{color:var(--accent)}
+  .arrow{color:#c0c5d8;padding:0 4px}
+  .why{color:var(--muted)}
+  .nochg{display:inline-block;font-size:10.5px;font-weight:700;color:var(--catalogo);
+    background:var(--catalogo-bg);padding:2px 8px;border-radius:999px}
+
+  .subt{font-size:13px;color:var(--muted);margin:34px 0 12px;font-weight:700;
+    letter-spacing:.04em;text-transform:uppercase}
+
+  .dgrm{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);margin-bottom:18px;overflow:hidden}
+  .dgrm-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--line);background:var(--soft)}
+  .dgrm-bar .ttl{font-family:"SFMono-Regular",Consolas,monospace;font-weight:700;font-size:14px}
+  .dgrm-bar .cap{font-size:12px;color:var(--muted)}
+  .dgrm-bar .ctrls{margin-left:auto;display:flex;gap:6px}
+  .dgrm-bar button{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;cursor:pointer;line-height:1}
+  .dgrm-bar button:hover{border-color:var(--accent);color:var(--accent)}
+  .dgrm-view{overflow:auto;max-height:560px;padding:18px;background-color:#fbfbfe;background-image:radial-gradient(circle at 1px 1px,#e7e9f3 1px,transparent 0);background-size:22px 22px}
+  .dgrm-scale{transform-origin:top left;transition:transform .15s ease;display:inline-block;min-width:100%}
+  .dgrm .mermaid{margin:0}
+  .dgrm .mermaid svg{max-width:100%;height:auto;display:block}
+  .dgrm.full{position:fixed;inset:0;z-index:1000;border-radius:0;margin:0;display:flex;flex-direction:column}
+  .dgrm.full .dgrm-view{max-height:none;flex:1}
+  .code{margin-bottom:18px}
+  .code summary{cursor:pointer;font-family:"SFMono-Regular",Consolas,monospace;font-weight:700;font-size:14px;padding:12px 16px;background:var(--soft);border:1px solid var(--line);border-radius:12px;list-style:none}
+  .code summary::-webkit-details-marker{display:none}
+  .code summary::before{content:"▸  ";color:var(--accent)}
+  .code[open] summary::before{content:"▾  "}
+  .code pre.sql{margin:8px 0 0;background:#0f1424;color:#cdd3e6;border-radius:12px;padding:18px 20px;overflow:visible;white-space:pre-wrap;word-break:break-word;font:13px/1.7 "SFMono-Regular",Consolas,monospace;box-shadow:var(--shadow)}
+  .code pre.sql .c{position:relative;color:#c4b5fd;font-weight:600;cursor:help;border-bottom:1px dotted #595c78}
+  .code pre.sql .c:hover{color:#ddd6fe}
+  .code pre.sql .c:hover::after{content:attr(data-tip);position:absolute;left:0;top:1.8em;z-index:70;width:280px;white-space:normal;background:#fff;color:#181b27;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:400 12px/1.5 "Segoe UI",sans-serif;box-shadow:var(--shadow-lg)}
+  .sp-intro{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:center;margin:0 0 20px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 18px}
+  .sp-intro .item{font-size:13px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:7px}
+  .sp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px;align-items:start}
+  .spcard{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;transition:border-color .15s ease,box-shadow .15s ease}
+  .spcard[open]{grid-column:1/-1;border-color:#cdd2e8;box-shadow:var(--shadow-lg)}
+  .spcard>summary{cursor:pointer;list-style:none;padding:15px 16px}
+  .spcard>summary::-webkit-details-marker{display:none}
+  .spcard .sp-top{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+  .spcard .sp-cap{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:999px}
+  .sp-cap.ai{color:var(--entidad);background:var(--entidad-bg)}
+  .sp-cap.cm{color:var(--raiz);background:var(--raiz-bg)}
+  .spcard .sp-ver{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--accent)}
+  .spcard:not([open]) .sp-ver::after{content:"  \25B8"}
+  .spcard[open] .sp-ver::after{content:"  \25BE"}
+  .spcard .spname{font-family:"SFMono-Regular",Consolas,monospace;font-size:15.5px;font-weight:700;letter-spacing:-.01em}
+  .spcard .spcaso{color:var(--muted);font-size:12.5px;margin-top:3px}
+  .sp-body{padding:2px 16px 16px;border-top:1px solid var(--line)}
+  .sp-body .h{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:800;margin:14px 0 5px}
+  .sp-body p{margin:0 0 7px;font-size:13px;color:var(--muted);line-height:1.5}
+  .sp-body b{color:var(--ink)}
+  .sp-body ul{margin:0 0 7px;padding-left:18px;font-size:13px;color:var(--muted);line-height:1.55}
+  .sp-body pre.sql{margin:10px 0 0;background:#0f1424;color:#cdd3e6;border-radius:10px;padding:16px 18px;overflow:auto;white-space:pre;font:12.5px/1.6 "SFMono-Regular",Consolas,monospace;box-shadow:var(--shadow)}
+  .sp-note{background:#fff8ec;border:1px solid #f5d9a8;border-radius:10px;padding:10px 13px;font-size:12.5px;color:#92651a;line-height:1.5;margin:12px 0 0}
+  .defensa{display:grid;gap:10px}
+  .qa{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+  .qa>summary{cursor:pointer;list-style:none;padding:14px 16px;font-weight:700;font-size:14px;display:flex;gap:11px;align-items:flex-start;color:var(--ink)}
+  .qa>summary::-webkit-details-marker{display:none}
+  .qa>summary::before{content:"?";flex:0 0 auto;width:21px;height:21px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+  .qa[open]>summary{border-bottom:1px solid var(--line)}
+  .qa .resp{padding:13px 16px 15px 48px;font-size:13.5px;color:var(--muted);line-height:1.55}
+  .qa .resp b{color:var(--ink)}
+  footer{border-top:1px solid var(--line);padding:26px 0 50px;color:var(--muted);font-size:12.5px}
+  footer b{color:var(--ink)}
+
+  @media(max-width:760px){.caps{grid-template-columns:1fr}.dominio{flex-direction:column;align-items:flex-start;gap:6px}.dominio .tag{margin-left:0}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <p class="eyebrow">Plataforma SESGA REYSER · CODEPLEX</p>
+    <h1>Mapeo de Renombrado a Lenguaje Ubicuo &amp; DDD</h1>
+    <p class="sub">Matriz del rol de cada tabla y comparativa estructural Antes → Después para las capacidades del Grupo 5. Diseño basado en el Informe General, los contratos en Excel, el DDL v5 y las convenciones del proyecto.</p>
+    <div class="chips">
+      <span class="chip">Grupo 5 · Jose &amp; Gerson</span>
+      <span class="chip">CockroachDB</span>
+      <span class="chip">13 tablas · 2 capacidades</span>
+      <span class="chip">13 tablas · 10 procedimientos</span>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Tu territorio</p>
+    <h2>Dominio, capacidades y entidades</h2>
+    <p class="lead">El contrato es la raíz del negocio; nuestro dominio gobierna lo que el contrato consume en activos e inversión, y cómo sella su rentabilidad cada mes.</p>
+
+    <div class="dominio">
+      <div>
+        <div class="k">Tu dominio</div>
+        <div class="v">Activos, Inversión y Cierre Mensual</div>
+      </div>
+      <span class="tag">Core operacional-financiero</span>
+    </div>
+
+    <div class="caps">
+      <div class="cap">
+        <div class="capname">activos-e-inversion</div>
+        <div class="role">Controla el capital inmovilizado: alta, asignación a contrato, trabajo, traslados, recuperación de inversión y herramientas.</div>
+
+        <div class="grp"><span class="lbl">Raíz de Agregado</span>
+          <div class="ents"><span class="ent t-raiz">activo</span><span class="ent t-raiz">herramienta</span></div></div>
+        <div class="grp"><span class="lbl">Entidad</span>
+          <div class="ents"><span class="ent t-entidad">activo_asignacion_contrato</span><span class="ent t-entidad">activo_registro_trabajo</span></div></div>
+        <div class="grp"><span class="lbl">Evento (inmutable)</span>
+          <div class="ents"><span class="ent t-evento">activo_traslado</span><span class="ent t-evento">recuperacion_inversion_mensual</span><span class="ent t-evento">herramienta_movimiento</span></div></div>
+        <div class="grp"><span class="lbl">Catálogo</span>
+          <div class="ents"><span class="ent t-catalogo">tipo_adquisicion_activo</span><span class="ent t-catalogo">clasificacion_activo</span><span class="ent t-catalogo">tipo_herramienta</span></div></div>
+      </div>
+
+      <div class="cap">
+        <div class="capname">cierre-mensual</div>
+        <div class="role">El evento nuclear que consolida producción, costos, recuperación y penalidades en la rentabilidad del contrato por periodo.</div>
+
+        <div class="grp"><span class="lbl">Raíz de Agregado</span>
+          <div class="ents"><span class="ent t-raiz">cierre_mensual</span></div></div>
+        <div class="grp"><span class="lbl">Entidad</span>
+          <div class="ents"><span class="ent t-entidad">penalidad</span><span class="ent t-entidad">provision</span></div></div>
+        <div class="grp"><span class="lbl">Evento (inmutable)</span>
+          <div class="ents"><span class="ent" style="color:#94a0b8;border-color:var(--line)">— consume eventos de activos-e-inversion —</span></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <p class="eyebrow">Tipos DDD</p>
+    <h2>¿Qué significa cada tipo?</h2>
+    <p class="lead">Cuatro clasificaciones que definen cómo se comporta cada tabla y qué reglas la rigen.</p>
+    <div class="glos">
+      <div class="gcard g-raiz">
+        <span class="badge t-raiz"><span class="dot d-raiz"></span>Raíz de Agregado</span>
+        <p>Entidad principal y puerta de entrada a un grupo de objetos que se modifican juntos. Nadie toca el grupo sin pasar por ella: protege las reglas de consistencia del agregado.</p>
+        <p class="ej">Ej.: <b>activo</b>, <b>herramienta</b>, <b>cierre_mensual</b></p>
+      </div>
+      <div class="gcard g-entidad">
+        <span class="badge t-entidad"><span class="dot d-entidad"></span>Entidad</span>
+        <p>Objeto con identidad propia y única (UUID) que persiste en el tiempo aunque cambien sus atributos. Vive dentro de un agregado.</p>
+        <p class="ej">Ej.: <b>activo_asignacion_contrato</b>, <b>penalidad</b>, <b>provision</b></p>
+      </div>
+      <div class="gcard g-evento">
+        <span class="badge t-evento"><span class="dot d-evento"></span>Evento inmutable</span>
+        <p>Registro de un hecho que ya ocurrió. No se edita ni se borra (append-only): es la fuente de la trazabilidad histórica.</p>
+        <p class="ej">Ej.: <b>recuperacion_inversion_mensual</b>, <b>activo_traslado</b>, <b>herramienta_movimiento</b></p>
+      </div>
+      <div class="gcard g-catalogo">
+        <span class="badge t-catalogo"><span class="dot d-catalogo"></span>Catálogo</span>
+        <p>Lista de referencia casi estática que clasifica o tipifica a otras entidades. Cambia poco y tiene mantenedor por empresa.</p>
+        <p class="ej">Ej.: <b>tipo_adquisicion_activo</b>, <b>clasificacion_activo</b>, <b>tipo_herramienta</b></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <p class="eyebrow">Modelo de datos</p>
+    <h2>Diagrama de nuestras capacidades</h2>
+    <p class="lead">Estructura y relaciones de las 13 tablas del Grupo 5, coloreadas por tipo DDD. Las cajas en gris punteado pertenecen a otras capacidades: las consumimos por FK, no las tocamos. Usa los controles para ampliar, reducir o ver en pantalla completa.</p>
+    <div class="legend" style="margin-bottom:18px">
+      <span class="item"><span class="dot d-raiz"></span>Raíz de Agregado</span>
+      <span class="item"><span class="dot d-entidad"></span>Entidad</span>
+      <span class="item"><span class="dot d-evento"></span>Evento</span>
+      <span class="item"><span class="dot d-catalogo"></span>Catálogo</span>
+      <span class="item"><span class="dot" style="background:#9aa3b8"></span>Otra capacidad (FK)</span>
+    </div>
+
+    <div class="dgrm">
+      <div class="dgrm-bar">
+        <span class="ttl">activos-e-inversion</span><span class="cap">10 tablas propias</span>
+        <span class="ctrls">
+          <button data-z="out" title="Reducir">−</button>
+          <button data-z="in" title="Ampliar">+</button>
+          <button data-z="reset" title="Restablecer">Reset</button>
+          <button data-z="full" title="Pantalla completa">Expandir</button>
+        </span>
+      </div>
+      <div class="dgrm-view"><div class="dgrm-scale"><pre class="mermaid">
+graph LR
+classDef raiz fill:#ede9fe,stroke:#6d28d9,stroke-width:2px,color:#181b27;
+classDef entidad fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px,color:#181b27;
+classDef evento fill:#fdecc8,stroke:#b45309,stroke-width:2px,color:#181b27;
+classDef catalogo fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#181b27;
+classDef ext fill:#eef0f4,stroke:#9aa3b8,stroke-width:1px,color:#5b6478,stroke-dasharray:4 3;
+tadq["tipo_adquisicion_activo"]:::catalogo
+clas["clasificacion_activo"]:::catalogo
+thrr["tipo_herramienta"]:::catalogo
+activo["activo"]:::raiz
+herr["herramienta"]:::raiz
+asig["activo_asignacion_contrato"]:::entidad
+trab["activo_registro_trabajo"]:::entidad
+tras["activo_traslado"]:::evento
+recup["recuperacion_inversion_mensual"]:::evento
+hmov["herramienta_movimiento"]:::evento
+clas --> activo
+tadq --> activo
+thrr --> herr
+activo --> asig
+activo --> trab
+activo --> tras
+activo --> recup
+herr --> hmov
+</pre></div></div>
+    </div>
+
+    <div class="dgrm">
+      <div class="dgrm-bar">
+        <span class="ttl">cierre-mensual</span><span class="cap">3 tablas propias + lo que consume</span>
+        <span class="ctrls">
+          <button data-z="out" title="Reducir">−</button>
+          <button data-z="in" title="Ampliar">+</button>
+          <button data-z="reset" title="Restablecer">Reset</button>
+          <button data-z="full" title="Pantalla completa">Expandir</button>
+        </span>
+      </div>
+      <div class="dgrm-view"><div class="dgrm-scale"><pre class="mermaid">
+graph LR
+classDef raiz fill:#ede9fe,stroke:#6d28d9,stroke-width:2px,color:#181b27;
+classDef entidad fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px,color:#181b27;
+classDef evento fill:#fdecc8,stroke:#b45309,stroke-width:2px,color:#181b27;
+classDef ext fill:#eef0f4,stroke:#9aa3b8,stroke-width:1px,color:#5b6478,stroke-dasharray:4 3;
+cierre["cierre_mensual"]:::raiz
+pen["penalidad"]:::entidad
+prov["provision"]:::entidad
+recup["recuperacion_inversion_mensual"]:::evento
+g3["gastos + prorrateo · G3"]:::ext
+g4["produccion + facturacion · G4"]:::ext
+pen -.->|alimenta| cierre
+prov -.->|alimenta| cierre
+recup -.->|alimenta| cierre
+g3 -.->|alimenta| cierre
+g4 -.->|alimenta| cierre
+</pre></div></div>
+    </div>
+
+    <p class="lead" style="margin-top:14px;font-size:13px">Para mantener el diagrama legible se omiten las <b>dimensiones compartidas</b> que casi todas las tablas referencian por FK: <b>empresa</b> (multi-tenant), <b>contrato</b>, <b>periodo</b>, <b>zona</b> y <b>operario</b>. Las líneas punteadas <b>alimenta</b> indican consumo de datos hacia el cierre. Motor: CockroachDB.</p>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <p class="eyebrow">Matriz de responsabilidades</p>
+    <h2>¿Qué rol cumple cada tabla?</h2>
+    <p class="lead">Cada tarjeta clasifica la tabla por su tipo DDD y su capacidad.</p>
+
+    <div class="legend">
+      <span class="item"><span class="dot d-raiz"></span>Raíz de Agregado</span>
+      <span class="item"><span class="dot d-entidad"></span>Entidad</span>
+      <span class="item"><span class="dot d-evento"></span>Evento inmutable</span>
+      <span class="item"><span class="dot d-catalogo"></span>Catálogo</span>
+      <span class="hint">Pasa el cursor sobre una tarjeta para ver su <b>responsabilidad</b> y el <b>porqué</b>.</span>
+    </div>
+
+    <div class="matriz">
+
+      <article class="card">
+        <div class="row1"><span class="badge t-raiz"><span class="dot d-raiz"></span>Raíz de Agregado</span><span class="cap-tag">activos-e-inversion</span></div>
+        <h4>activo</h4>
+        <div class="from">antes <span class="mono">activos</span></div>
+        <div class="pop">
+          <p class="h">Responsabilidad</p>
+          <p>Representa el bien físico (vehículo, maquinaria o equipo): costo, vida útil, monto base recuperable y estado operativo (ACTIVO, PARADO, EN_TRASLADO, BAJA).</p>
+          <p class="h">Por qué se modeló así</p>
+          <p>Es la raíz del agregado: asignación, trabajo, traslados y recuperación solo se modifican a través de él. El <b>estado</b> concentra el ciclo de vida operativo (ACTIVO, PARADO, EN_TRASLADO, BAJA); el borrado lógico va aparte en <b>eliminado_en</b> (NULL = activo).</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="row1"><span class="badge t-raiz"><span class="dot d-raiz"></span>Raíz de Agregado</span><span class="cap-tag">activos-e-inversion</span></div>
+        <h4>herramienta</h4>
+        <div class="from">antes <span class="mono">herramientas</span></div>
+        <div class="pop">
+          <p class="h">Responsabilidad</p>
+          <p>Instrumento menor de campo (EPP, eléctricas, manuales, medición): costo y vida útil, con lógica de gasto operativo.</p>
+          <p class="h">Por qué se modeló así</p>
+          <p>Regla no negociable del Informe: herramienta menor ≠ activo capitalizable. Raíz aparte porque su tratamiento económico es distinto al del activo.</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="row1"><span class="badge t-entidad"><span class="dot d-entidad"></span>Entidad</span><span class="cap-tag">activos-e-inversion</span></div>
+        <h4>activo_asignacion_contrato</h4>
+        <div class="from">antes <span class="mono">activos_contratos</span></div>
+        <div class="pop">
+          <p class="h">Responsabilidad</p>
+          <p>Asigna un activo a un contrato con su inversión, saldo pendiente por recuperar y cuota mensual. Un activo puede estar en varios contratos.</p>
+          <p class="h">Por qué se modeló así</p>
+          <p>El costo del activo se imputa por contrato; el saldo pendiente es lo que sostiene la continuidad financiera cuando el activo se traslada.</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="row1"><span class="badge t-entidad"><span class="dot d-entidad"></span>Entidad</span><span class="cap-tag">activos-e-inversion</span></div>
+        <h4>activo_registro_trabajo</h4>
+        <div class="from">antes <span class="mono">activos_registro_trabajo</span></div>
+        <div class="pop">
+          <p class="h">Responsabilidad</p>
+          <p>Registra el trabajo del activo por periodo: horas, valorización, días depreciados y kilometraje.</p>
+          <p class="h">Por qué se modeló así</p>
+          <p>Permite costear el uso real y sustenta la regla "si está parado, no deprecia ni recupera".</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="row1"><span class="badge t-evento"><span class="dot d-evento"></span>Evento</span><span class="cap-tag">activos-e-inversion</span></div>
+        <h4>activo_traslado</h4>
+        <div class="from">antes <span class="mono">activos_traslados</span></div>
+        <div class="pop">
+          <p class="h">Responsabilidad</p>
+          <p>Deja constancia del desplazamiento de un activo entre contratos y zonas, con el saldo trasladado.</p>
+          <p class="h">Por qué se modeló así</p>
+          <p>Es un hecho histórico: no se edita ni se borra (append-only). Garantiza trazabilidad y continuidad del saldo, como el activo que pasó de Libertad Norte a Chiclayo conservando su inversión.</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="row1"><span class="badge t-evento"><span class="dot d-evento"></span>Evento</span><span class="cap-tag">activos-e-inversion</span></div>
+        <h4>recuperacion_inversion_mensual</h4>
+        <div class="from">antes <span class="mono">activos_recuperacion_mensual</span></div>
+        <div class="pop">
+          <p class="h">Responsabilidad</p>
+          <p>Registra la cuota recuperada por activo, contrato y periodo, con saldo antes/después y la bandera "parado".</p>
+          <p class="h">Por qué se modeló así</p>
+          <p>Append-only y única por (activo, contrato, periodo). Si el activo estuvo parado, el importe es 0. Es el valor que el cierre mensual consume como recuperación de inversión.</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="row1"><span class="badge t-evento"><span class="dot d-evento"></span>Evento</span><span class="cap-tag">activos-e-inversion</span></div>
+        <h4>herramienta_movimiento</h4>
+        <div class="from">antes <span class="mono">herramientas_movimientos</span></div>
+        <div class="pop">
+          <p class="h">Responsabilidad</p>
+          <p>Entrada, salida, traslado o baja de herramientas entre contratos y zonas, con origen y destino.</p>
+          <p class="h">Por qué se modeló así</p>
+          <p>Hecho histórico inmutable: da trazabilidad completa de dónde estuvo cada herramienta.</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="row1"><span class="badge t-catalogo"><span class="dot d-catalogo"></span>Catálogo</span><span class="cap-tag">activos-e-inversion</span></div>
+        <h4>tipo_adquisicion_activo</h4>
+        <div class="from"><span class="nochg">nombre sin cambio</span></div>
+        <div class="pop">
+          <p class="h">Responsabilidad</p>
+          <p>Clasifica cómo se adquirió el activo: contado, leasing, alquiler o propio.</p>
+          <p class="h">Por qué se modeló así</p>
+          <p>El modo de adquisición cambia su tratamiento económico; un alquiler no se recupera como una compra. Mantenedor por empresa.</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="row1"><span class="badge t-catalogo"><span class="dot d-catalogo"></span>Catálogo</span><span class="cap-tag">activos-e-inversion</span></div>
+        <h4>clasificacion_activo</h4>
+        <div class="from">antes <span class="mono">clasificacion_activos</span></div>
+        <div class="pop">
+          <p class="h">Responsabilidad</p>
+          <p>Define la naturaleza del activo y si es capitalizable (es_capitalizable).</p>
+          <p class="h">Por qué se modeló así</p>
+          <p>Sostiene la regla capitalizable vs gasto operativo; no distinguirlo distorsiona recuperación y depreciación (riesgo R3 del Informe).</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="row1"><span class="badge t-catalogo"><span class="dot d-catalogo"></span>Catálogo</span><span class="cap-tag">activos-e-inversion</span></div>
+        <h4>tipo_herramienta</h4>
+        <div class="from">antes <span class="mono">herramientas_tipo</span></div>
+        <div class="pop">
+          <p class="h">Responsabilidad</p>
+          <p>Tipifica las herramientas (EPP, eléctricas, manuales, medición, cómputo).</p>
+          <p class="h">Por qué se modeló así</p>
+          <p>Ordena el control de herramientas, que siguen lógica de gasto operativo y no de activo capitalizable.</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="row1"><span class="badge t-raiz"><span class="dot d-raiz"></span>Raíz de Agregado</span><span class="cap-tag">cierre-mensual</span></div>
+        <h4>cierre_mensual</h4>
+        <div class="from"><span class="nochg">nombre sin cambio</span></div>
+        <div class="pop">
+          <p class="h">Responsabilidad</p>
+          <p>Consolida por contrato y periodo: facturación, producción, gastos, recuperación y penalidades hasta la utilidad bruta, neta y final. Estado BORRADOR / CERRADO / REABIERTO.</p>
+          <p class="h">Por qué se modeló así</p>
+          <p>Es el evento nuclear que sella la rentabilidad y congela el periodo. Único por (contrato, periodo). No es un reporte: es un caso de uso con estado.</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="row1"><span class="badge t-entidad"><span class="dot d-entidad"></span>Entidad</span><span class="cap-tag">cierre-mensual</span></div>
+        <h4>penalidad</h4>
+        <div class="from">antes <span class="mono">penalidades</span></div>
+        <div class="pop">
+          <p class="h">Responsabilidad</p>
+          <p>Penalidades del contrato en el periodo. Impactan la utilidad final.</p>
+          <p class="h">Por qué se modeló así</p>
+          <p>Regla no negociable: impactan directamente la utilidad final y se registran como parte del cierre.</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="row1"><span class="badge t-entidad"><span class="dot d-entidad"></span>Entidad</span><span class="cap-tag">cierre-mensual</span></div>
+        <h4>provision</h4>
+        <div class="from">antes <span class="mono">provisiones</span></div>
+        <div class="pop">
+          <p class="h">Responsabilidad</p>
+          <p>Estimados de gastos futuros del periodo (gratificaciones, mantenimiento), con bandera "aplicado".</p>
+          <p class="h">Por qué se modeló así</p>
+          <p>El cierre debe anticipar cargas aún no ejecutadas para no inflar la rentabilidad del mes.</p>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <p class="eyebrow">Reforma estructural</p>
+    <h2>Comparativa Antes → Después</h2>
+    <p class="lead">Del DDL v5 (genérico, en inglés en su auditoría) al modelo ubicuo y DDD. Solo tablas del Grupo 5; las FKs a otras capacidades no se tocaron.</p>
+
+    <p class="subt">Nombres de tabla</p>
+    <table class="tabla-comp">
+      <thead><tr><th style="width:30%">Antes (v5)</th><th style="width:30%">Después (ubicuo · DDD)</th><th>Por qué</th></tr></thead>
+      <tbody>
+        <tr><td><span class="mono old">activos</span></td><td><span class="mono new">activo</span></td><td class="why">Singular: la tabla es la entidad; el contexto lo da su nombre.</td></tr>
+        <tr><td><span class="mono old">activos_contratos</span></td><td><span class="mono new">activo_asignacion_contrato</span></td><td class="why">Se nombra por intención de negocio (asignar un activo a un contrato), no por las tablas que une.</td></tr>
+        <tr><td><span class="mono old">activos_registro_trabajo</span></td><td><span class="mono new">activo_registro_trabajo</span></td><td class="why">Singular, consistente con la entidad raíz.</td></tr>
+        <tr><td><span class="mono old">activos_traslados</span></td><td><span class="mono new">activo_traslado</span></td><td class="why">Singular y tratado como evento histórico inmutable.</td></tr>
+        <tr><td><span class="mono old">activos_recuperacion_mensual</span></td><td><span class="mono new">recuperacion_inversion_mensual</span></td><td class="why">"Recuperación de inversión" es el término exacto del dominio (Informe y Excel); conserva «mensual» por ser un registro periódico, consistente con cierre_mensual.</td></tr>
+        <tr><td><span class="mono old">herramientas</span></td><td><span class="mono new">herramienta</span></td><td class="why">Singular.</td></tr>
+        <tr><td><span class="mono old">herramientas_movimientos</span></td><td><span class="mono new">herramienta_movimiento</span></td><td class="why">Singular y evento inmutable de trazabilidad.</td></tr>
+        <tr><td><span class="mono old">herramientas_tipo</span></td><td><span class="mono new">tipo_herramienta</span></td><td class="why">Orden natural en español.</td></tr>
+        <tr><td><span class="mono old">clasificacion_activos</span></td><td><span class="mono new">clasificacion_activo</span></td><td class="why">Singular.</td></tr>
+        <tr><td><span class="mono old">penalidades</span></td><td><span class="mono new">penalidad</span></td><td class="why">Singular.</td></tr>
+        <tr><td><span class="mono old">provisiones</span></td><td><span class="mono new">provision</span></td><td class="why">Singular.</td></tr>
+        <tr><td><span class="mono">tipo_adquisicion_activo</span></td><td><span class="nochg">se mantiene</span></td><td class="why">Ya era singular y ubicuo.</td></tr>
+        <tr><td><span class="mono">cierre_mensual</span></td><td><span class="nochg">se mantiene</span></td><td class="why">Ya era el término nuclear del dominio.</td></tr>
+      </tbody>
+    </table>
+
+    <p class="subt">Convenciones y columnas</p>
+    <table class="tabla-comp">
+      <thead><tr><th style="width:30%">Antes (v5)</th><th style="width:30%">Después (ubicuo · DDD)</th><th>Por qué</th></tr></thead>
+      <tbody>
+        <tr><td><span class="mono old">empresas</span> (plural)</td><td><span class="mono new">empresa(id)</span></td><td class="why">Gobierno Central ya reformó la tabla a singular; nuestras FK apuntan ahí.</td></tr>
+        <tr><td><span class="mono old">VARCHAR(n)</span></td><td><span class="mono new">STRING</span></td><td class="why">Tipo de texto idiomático de CockroachDB, igual que empresa.</td></tr>
+        <tr><td><span class="mono old">TIMESTAMP</span></td><td><span class="mono new">TIMESTAMPTZ</span></td><td class="why">Marca de tiempo con zona horaria, consistente con empresa.</td></tr>
+        <tr><td><span class="mono">id_empresa, id_contrato, id_periodo…</span></td><td><span class="nochg">se mantiene · prefijo id_</span></td><td class="why">FK con prefijo <span class="mono">id_</span>, alineada a gobierno-central (empresa, periodo, usuario). El DDL v5 ya usaba prefijo; se conservó.</td></tr>
+        <tr><td><span class="mono old">created_at / created_by</span></td><td><span class="mono new">creado_en / creado_por_usuario_id</span></td><td class="why">Auditoría en español con actor explícito.</td></tr>
+        <tr><td><span class="mono old">updated_at / updated_by</span></td><td><span class="mono new">actualizado_en / actualizado_por_usuario_id</span></td><td class="why">Lenguaje ubicuo coherente.</td></tr>
+        <tr><td><span class="mono old">deleted_at + activo (bool)</span></td><td><span class="mono new">eliminado_en + eliminado_por_usuario_id</span></td><td class="why">Borrado lógico por marca de tiempo (NULL = activo); estado queda solo para el negocio. Es la convención de empresa.</td></tr>
+        <tr><td><span class="mono old">serie</span></td><td><span class="mono new">numero_serie</span></td><td class="why">Término preciso del bien.</td></tr>
+        <tr><td><span class="mono old">recuperacion_mensual</span></td><td><span class="mono new">cuota_recuperacion_mensual</span></td><td class="why">En el dominio es una cuota mensual de recuperación.</td></tr>
+        <tr><td><span class="mono old">saldo_pendiente</span></td><td><span class="mono new">saldo_inversion_pendiente</span></td><td class="why">Es el saldo de inversión por recuperar, no un saldo cualquiera.</td></tr>
+        <tr><td><span class="mono old">importe</span> (recuperación)</td><td><span class="mono new">importe_recuperado</span></td><td class="why">El importe efectivamente recuperado en el mes.</td></tr>
+        <tr><td><span class="mono old">fecha_inicio_deprec / fecha_fin_deprec</span></td><td><span class="mono new">fecha_inicio_depreciacion / fecha_fin_depreciacion</span></td><td class="why">Sin abreviaturas: el nombre se entiende solo.</td></tr>
+        <tr><td><span class="mono old">created_at + activo + deleted_at</span> en eventos</td><td><span class="mono new">creado_en / creado_por_usuario_id</span> (append-only)</td><td class="why">Un evento es un hecho ocurrido: no se edita ni se borra.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <p class="eyebrow">Código SQL</p>
+    <h2>DDL reconciliado (CockroachDB)</h2>
+    <p class="lead">El código real de nuestras tablas, alineado a la convención de la plataforma (prefijo <b>id_</b>, tablas en singular, auditoría con FK a <b>usuario(id)</b>). Pasa el cursor sobre cualquier <b>columna</b> para ver su definición y por qué existe. El DDL completo con índices vive en <span class="mono">infraestructura/base-de-datos/esquema/</span>.</p>
+
+    <details class="code" open>
+      <summary>activos_e_inversion / entidad_*.sql</summary>
+      <pre class="sql">CREATE TABLE tipo_adquisicion_activo (
+  <span class="c" data-tip="PK del registro. UUID v4 de CockroachDB, inmutable y sin significado de negocio.">id</span> UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  <span class="c" data-tip="Empresa dueña del registro: aísla los datos por tenant (multi-tenant).">id_empresa</span> UUID NOT NULL,
+  <span class="c" data-tip="Código corto del tipo de adquisición (CONT, LEAS, ALQU, PROP). Único por empresa.">codigo</span> STRING NOT NULL,
+  <span class="c" data-tip="Nombre legible del tipo de adquisición.">descripcion</span> STRING NOT NULL,
+  <span class="c" data-tip="ACTIVO o INACTIVO: desactiva la opción del mantenedor sin borrarla.">estado</span> STRING NOT NULL DEFAULT 'ACTIVO',
+  <span class="c" data-tip="Fecha y hora de creación (auditoría).">creado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario que creó el registro (auditoría).">creado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Fecha y hora de la última modificación (auditoría).">actualizado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario de la última modificación (auditoría).">actualizado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Borrado lógico: con valor = eliminado; NULL = activo.">eliminado_en</span> TIMESTAMPTZ,
+  <span class="c" data-tip="Usuario que ejecutó el borrado lógico.">eliminado_por_usuario_id</span> UUID,
+  CONSTRAINT ck_tipo_adquisicion_activo_estado CHECK (estado IN ('ACTIVO', 'INACTIVO'))
+);
+
+ALTER TABLE tipo_adquisicion_activo ADD CONSTRAINT fk_tipo_adquisicion_activo_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id) ON DELETE RESTRICT;
+ALTER TABLE tipo_adquisicion_activo ADD CONSTRAINT fk_tipo_adquisicion_activo_creado_por FOREIGN KEY (creado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE tipo_adquisicion_activo ADD CONSTRAINT fk_tipo_adquisicion_activo_actualizado_por FOREIGN KEY (actualizado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE tipo_adquisicion_activo ADD CONSTRAINT fk_tipo_adquisicion_activo_eliminado_por FOREIGN KEY (eliminado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+
+CREATE TABLE clasificacion_activo (
+  <span class="c" data-tip="PK del registro. UUID v4 de CockroachDB, inmutable y sin significado de negocio.">id</span> UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  <span class="c" data-tip="Empresa dueña del registro: aísla los datos por tenant (multi-tenant).">id_empresa</span> UUID NOT NULL,
+  <span class="c" data-tip="Código de la clasificación (CAMION, GRUA, EQUIPO...). Único por empresa.">codigo</span> STRING NOT NULL,
+  <span class="c" data-tip="Nombre legible de la clasificación del activo.">descripcion</span> STRING NOT NULL,
+  <span class="c" data-tip="Distingue activo capitalizable (TRUE) de gasto operativo (FALSE). Cambia su tratamiento económico.">es_capitalizable</span> BOOL NOT NULL DEFAULT true,
+  <span class="c" data-tip="ACTIVO o INACTIVO: desactiva la opción del mantenedor sin borrarla.">estado</span> STRING NOT NULL DEFAULT 'ACTIVO',
+  <span class="c" data-tip="Fecha y hora de creación (auditoría).">creado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario que creó el registro (auditoría).">creado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Fecha y hora de la última modificación (auditoría).">actualizado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario de la última modificación (auditoría).">actualizado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Borrado lógico: con valor = eliminado; NULL = activo.">eliminado_en</span> TIMESTAMPTZ,
+  <span class="c" data-tip="Usuario que ejecutó el borrado lógico.">eliminado_por_usuario_id</span> UUID,
+  CONSTRAINT ck_clasificacion_activo_estado CHECK (estado IN ('ACTIVO', 'INACTIVO'))
+);
+
+ALTER TABLE clasificacion_activo ADD CONSTRAINT fk_clasificacion_activo_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id) ON DELETE RESTRICT;
+ALTER TABLE clasificacion_activo ADD CONSTRAINT fk_clasificacion_activo_creado_por FOREIGN KEY (creado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE clasificacion_activo ADD CONSTRAINT fk_clasificacion_activo_actualizado_por FOREIGN KEY (actualizado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE clasificacion_activo ADD CONSTRAINT fk_clasificacion_activo_eliminado_por FOREIGN KEY (eliminado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+
+CREATE TABLE tipo_herramienta (
+  <span class="c" data-tip="PK del registro. UUID v4 de CockroachDB, inmutable y sin significado de negocio.">id</span> UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  <span class="c" data-tip="Empresa dueña del registro: aísla los datos por tenant (multi-tenant).">id_empresa</span> UUID NOT NULL,
+  <span class="c" data-tip="Código del tipo de herramienta (EPP, ELEC, MANU, MED, COMP). Único por empresa.">codigo</span> STRING NOT NULL,
+  <span class="c" data-tip="Nombre legible del tipo de herramienta.">descripcion</span> STRING NOT NULL,
+  <span class="c" data-tip="ACTIVO o INACTIVO: desactiva la opción del mantenedor sin borrarla.">estado</span> STRING NOT NULL DEFAULT 'ACTIVO',
+  <span class="c" data-tip="Fecha y hora de creación (auditoría).">creado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario que creó el registro (auditoría).">creado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Fecha y hora de la última modificación (auditoría).">actualizado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario de la última modificación (auditoría).">actualizado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Borrado lógico: con valor = eliminado; NULL = activo.">eliminado_en</span> TIMESTAMPTZ,
+  <span class="c" data-tip="Usuario que ejecutó el borrado lógico.">eliminado_por_usuario_id</span> UUID,
+  CONSTRAINT ck_tipo_herramienta_estado CHECK (estado IN ('ACTIVO', 'INACTIVO'))
+);
+
+ALTER TABLE tipo_herramienta ADD CONSTRAINT fk_tipo_herramienta_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id) ON DELETE RESTRICT;
+ALTER TABLE tipo_herramienta ADD CONSTRAINT fk_tipo_herramienta_creado_por FOREIGN KEY (creado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE tipo_herramienta ADD CONSTRAINT fk_tipo_herramienta_actualizado_por FOREIGN KEY (actualizado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE tipo_herramienta ADD CONSTRAINT fk_tipo_herramienta_eliminado_por FOREIGN KEY (eliminado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+
+CREATE TABLE activo (
+  <span class="c" data-tip="PK del registro. UUID v4 de CockroachDB, inmutable y sin significado de negocio.">id</span> UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  <span class="c" data-tip="Empresa dueña del registro: aísla los datos por tenant (multi-tenant).">id_empresa</span> UUID NOT NULL,
+  <span class="c" data-tip="Clasificación del activo; define si es capitalizable.">id_clasificacion_activo</span> UUID NOT NULL,
+  <span class="c" data-tip="Forma de adquisición (contado, leasing, alquiler, propio).">id_tipo_adquisicion_activo</span> UUID,
+  <span class="c" data-tip="Código interno del activo.">codigo</span> STRING,
+  <span class="c" data-tip="Descripción del bien.">descripcion</span> STRING NOT NULL,
+  <span class="c" data-tip="Placa de rodaje del vehículo (si aplica).">placa</span> STRING,
+  <span class="c" data-tip="Marca del bien.">marca</span> STRING,
+  <span class="c" data-tip="Modelo del bien.">modelo</span> STRING,
+  <span class="c" data-tip="Número de serie del bien.">numero_serie</span> STRING,
+  <span class="c" data-tip="Año de fabricación.">anio_fabricacion</span> INT2,
+  <span class="c" data-tip="Costo de compra del activo.">costo_adquisicion</span> DECIMAL(18,2) NOT NULL,
+  <span class="c" data-tip="Vida útil estimada en meses.">tiempo_vida_meses</span> INT,
+  <span class="c" data-tip="Depreciación contable mensual del activo.">depreciacion_mensual</span> DECIMAL(18,2),
+  <span class="c" data-tip="Monto base de inversión a recuperar del activo (intrínseco). La cuota por contrato vive en activo_asignacion_contrato, no aquí.">importe_base_recuperable</span> DECIMAL(18,2),
+  <span class="c" data-tip="Inicio del periodo de depreciación.">fecha_inicio_depreciacion</span> DATE,
+  <span class="c" data-tip="Fin del periodo de depreciación.">fecha_fin_depreciacion</span> DATE,
+  <span class="c" data-tip="Ciclo operativo: ACTIVO, PARADO, EN_TRASLADO o BAJA. Un activo PARADO no recupera ni deprecia.">estado</span> STRING NOT NULL DEFAULT 'ACTIVO',
+  <span class="c" data-tip="Fecha y hora de creación (auditoría).">creado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario que creó el registro (auditoría).">creado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Fecha y hora de la última modificación (auditoría).">actualizado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario de la última modificación (auditoría).">actualizado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Borrado lógico: con valor = eliminado; NULL = activo.">eliminado_en</span> TIMESTAMPTZ,
+  <span class="c" data-tip="Usuario que ejecutó el borrado lógico.">eliminado_por_usuario_id</span> UUID,
+  CONSTRAINT ck_activo_costo_adquisicion CHECK (costo_adquisicion &gt;= 0),
+  CONSTRAINT ck_activo_tiempo_vida_meses CHECK (tiempo_vida_meses &gt; 0),
+  CONSTRAINT ck_activo_depreciacion_mensual CHECK (depreciacion_mensual &gt;= 0),
+  CONSTRAINT ck_activo_importe_base_recuperable CHECK (importe_base_recuperable &gt;= 0),
+  CONSTRAINT ck_activo_fechas_depreciacion CHECK (fecha_fin_depreciacion &gt;= fecha_inicio_depreciacion),
+  CONSTRAINT ck_activo_estado CHECK (estado IN ('ACTIVO', 'PARADO', 'EN_TRASLADO', 'BAJA'))
+);
+
+ALTER TABLE activo ADD CONSTRAINT fk_activo_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id) ON DELETE RESTRICT;
+ALTER TABLE activo ADD CONSTRAINT fk_activo_clasificacion_activo FOREIGN KEY (id_clasificacion_activo) REFERENCES clasificacion_activo (id) ON DELETE RESTRICT;
+ALTER TABLE activo ADD CONSTRAINT fk_activo_tipo_adquisicion_activo FOREIGN KEY (id_tipo_adquisicion_activo) REFERENCES tipo_adquisicion_activo (id) ON DELETE RESTRICT;
+ALTER TABLE activo ADD CONSTRAINT fk_activo_creado_por FOREIGN KEY (creado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE activo ADD CONSTRAINT fk_activo_actualizado_por FOREIGN KEY (actualizado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE activo ADD CONSTRAINT fk_activo_eliminado_por FOREIGN KEY (eliminado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+
+CREATE TABLE activo_asignacion_contrato (
+  <span class="c" data-tip="PK del registro. UUID v4 de CockroachDB, inmutable y sin significado de negocio.">id</span> UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  <span class="c" data-tip="Empresa dueña del registro: aísla los datos por tenant (multi-tenant).">id_empresa</span> UUID NOT NULL,
+  <span class="c" data-tip="Activo asignado.">id_activo</span> UUID NOT NULL,
+  <span class="c" data-tip="Contrato al que se asigna el activo (capacidad Contratos).">id_contrato</span> UUID NOT NULL,
+  <span class="c" data-tip="Zona del contrato donde opera el activo. Obligatoria (NOT NULL).">id_zona</span> UUID NOT NULL,
+  <span class="c" data-tip="Inversión del activo imputada a este contrato.">inversion_asignada</span> DECIMAL(18,2) NOT NULL,
+  <span class="c" data-tip="Saldo de inversión que aún falta recuperar en este contrato.">saldo_inversion_pendiente</span> DECIMAL(18,2) NOT NULL,
+  <span class="c" data-tip="Cuota mensual de recuperación pactada para este contrato.">cuota_recuperacion_mensual</span> DECIMAL(18,2) NOT NULL,
+  <span class="c" data-tip="Inicio de la asignación.">fecha_inicio</span> DATE NOT NULL,
+  <span class="c" data-tip="Fin de la asignación (NULL si sigue vigente).">fecha_fin</span> DATE,
+  <span class="c" data-tip="Ciclo de la asignación: ACTIVO, CERRADO o TRASLADADO. Al trasladar el activo, la asignación origen pasa a TRASLADADO.">estado</span> STRING NOT NULL DEFAULT 'ACTIVO',
+  <span class="c" data-tip="Fecha y hora de creación (auditoría).">creado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario que creó el registro (auditoría).">creado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Fecha y hora de la última modificación (auditoría).">actualizado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario de la última modificación (auditoría).">actualizado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Borrado lógico: con valor = eliminado; NULL = activo.">eliminado_en</span> TIMESTAMPTZ,
+  <span class="c" data-tip="Usuario que ejecutó el borrado lógico.">eliminado_por_usuario_id</span> UUID,
+  CONSTRAINT ck_activo_asignacion_contrato_inversion CHECK (inversion_asignada &gt;= 0),
+  CONSTRAINT ck_activo_asignacion_contrato_saldo CHECK (saldo_inversion_pendiente &gt;= 0),
+  CONSTRAINT ck_activo_asignacion_contrato_cuota CHECK (cuota_recuperacion_mensual &gt;= 0),
+  CONSTRAINT ck_activo_asignacion_contrato_fechas CHECK (fecha_fin &gt;= fecha_inicio),
+  CONSTRAINT ck_activo_asignacion_contrato_estado CHECK (estado IN ('ACTIVO', 'CERRADO', 'TRASLADADO')),
+  CONSTRAINT uq_activo_asignacion_contrato UNIQUE (id_activo, id_contrato, id_zona, fecha_inicio)
+);
+
+ALTER TABLE activo_asignacion_contrato ADD CONSTRAINT fk_activo_asignacion_contrato_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id) ON DELETE RESTRICT;
+ALTER TABLE activo_asignacion_contrato ADD CONSTRAINT fk_activo_asignacion_contrato_activo FOREIGN KEY (id_activo) REFERENCES activo (id) ON DELETE RESTRICT;
+ALTER TABLE activo_asignacion_contrato ADD CONSTRAINT fk_activo_asignacion_contrato_contrato FOREIGN KEY (id_contrato) REFERENCES contrato (id) ON DELETE RESTRICT;
+ALTER TABLE activo_asignacion_contrato ADD CONSTRAINT fk_activo_asignacion_contrato_zona FOREIGN KEY (id_zona) REFERENCES zona (id) ON DELETE RESTRICT;
+ALTER TABLE activo_asignacion_contrato ADD CONSTRAINT fk_activo_asignacion_contrato_creado_por FOREIGN KEY (creado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE activo_asignacion_contrato ADD CONSTRAINT fk_activo_asignacion_contrato_actualizado_por FOREIGN KEY (actualizado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE activo_asignacion_contrato ADD CONSTRAINT fk_activo_asignacion_contrato_eliminado_por FOREIGN KEY (eliminado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+
+CREATE TABLE activo_registro_trabajo (
+  <span class="c" data-tip="PK del registro. UUID v4 de CockroachDB, inmutable y sin significado de negocio.">id</span> UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  <span class="c" data-tip="Empresa dueña del registro: aísla los datos por tenant (multi-tenant).">id_empresa</span> UUID NOT NULL,
+  <span class="c" data-tip="Activo que realizó el trabajo.">id_activo</span> UUID NOT NULL,
+  <span class="c" data-tip="Contrato en el que trabajó el activo.">id_contrato</span> UUID NOT NULL,
+  <span class="c" data-tip="Zona del contrato donde trabajó.">id_zona</span> UUID,
+  <span class="c" data-tip="Operario que operó el activo.">id_operario</span> UUID,
+  <span class="c" data-tip="Periodo mensual al que pertenece el registro.">id_periodo</span> UUID NOT NULL,
+  <span class="c" data-tip="Fecha del trabajo.">fecha</span> DATE NOT NULL,
+  <span class="c" data-tip="Inicio del trabajo.">fecha_hora_inicio</span> TIMESTAMPTZ,
+  <span class="c" data-tip="Fin del trabajo.">fecha_hora_fin</span> TIMESTAMPTZ,
+  <span class="c" data-tip="Horas trabajadas por el activo.">horas_trabajadas</span> DECIMAL(6,2),
+  <span class="c" data-tip="Descripción del trabajo realizado.">descripcion_trabajo</span> STRING,
+  <span class="c" data-tip="Valor económico del trabajo del activo.">valorizacion_trabajo</span> DECIMAL(18,2),
+  <span class="c" data-tip="Días que el activo trabajó y por tanto se deprecian.">dias_depreciados</span> DECIMAL(6,2),
+  <span class="c" data-tip="Kilometraje al inicio (vehículos).">kilometraje_inicio</span> INT,
+  <span class="c" data-tip="Kilometraje al fin (vehículos).">kilometraje_fin</span> INT,
+  <span class="c" data-tip="Fecha y hora de creación (auditoría).">creado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario que creó el registro (auditoría).">creado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Fecha y hora de la última modificación (auditoría).">actualizado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario de la última modificación (auditoría).">actualizado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Borrado lógico: con valor = eliminado; NULL = activo.">eliminado_en</span> TIMESTAMPTZ,
+  <span class="c" data-tip="Usuario que ejecutó el borrado lógico.">eliminado_por_usuario_id</span> UUID,
+  CONSTRAINT ck_activo_registro_trabajo_horas CHECK (horas_trabajadas &gt;= 0),
+  CONSTRAINT ck_activo_registro_trabajo_valorizacion CHECK (valorizacion_trabajo &gt;= 0),
+  CONSTRAINT ck_activo_registro_trabajo_dias CHECK (dias_depreciados &gt;= 0),
+  CONSTRAINT ck_activo_registro_trabajo_kilometraje CHECK (kilometraje_fin &gt;= kilometraje_inicio)
+);
+
+ALTER TABLE activo_registro_trabajo ADD CONSTRAINT fk_activo_registro_trabajo_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id) ON DELETE RESTRICT;
+ALTER TABLE activo_registro_trabajo ADD CONSTRAINT fk_activo_registro_trabajo_activo FOREIGN KEY (id_activo) REFERENCES activo (id) ON DELETE RESTRICT;
+ALTER TABLE activo_registro_trabajo ADD CONSTRAINT fk_activo_registro_trabajo_contrato FOREIGN KEY (id_contrato) REFERENCES contrato (id) ON DELETE RESTRICT;
+ALTER TABLE activo_registro_trabajo ADD CONSTRAINT fk_activo_registro_trabajo_zona FOREIGN KEY (id_zona) REFERENCES zona (id) ON DELETE RESTRICT;
+ALTER TABLE activo_registro_trabajo ADD CONSTRAINT fk_activo_registro_trabajo_operario FOREIGN KEY (id_operario) REFERENCES operario (id) ON DELETE RESTRICT;
+ALTER TABLE activo_registro_trabajo ADD CONSTRAINT fk_activo_registro_trabajo_periodo FOREIGN KEY (id_periodo) REFERENCES periodo (id) ON DELETE RESTRICT;
+ALTER TABLE activo_registro_trabajo ADD CONSTRAINT fk_activo_registro_trabajo_creado_por FOREIGN KEY (creado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE activo_registro_trabajo ADD CONSTRAINT fk_activo_registro_trabajo_actualizado_por FOREIGN KEY (actualizado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE activo_registro_trabajo ADD CONSTRAINT fk_activo_registro_trabajo_eliminado_por FOREIGN KEY (eliminado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+
+CREATE TABLE activo_traslado (
+  <span class="c" data-tip="PK del registro. UUID v4 de CockroachDB, inmutable y sin significado de negocio.">id</span> UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  <span class="c" data-tip="Empresa dueña del registro: aísla los datos por tenant (multi-tenant).">id_empresa</span> UUID NOT NULL,
+  <span class="c" data-tip="Activo trasladado.">id_activo</span> UUID NOT NULL,
+  <span class="c" data-tip="Contrato desde el que sale el activo.">id_contrato_origen</span> UUID,
+  <span class="c" data-tip="Zona de origen.">id_zona_origen</span> UUID,
+  <span class="c" data-tip="Contrato al que llega el activo.">id_contrato_destino</span> UUID,
+  <span class="c" data-tip="Zona de destino.">id_zona_destino</span> UUID,
+  <span class="c" data-tip="Fecha del traslado.">fecha_traslado</span> DATE NOT NULL,
+  <span class="c" data-tip="Saldo de inversión pendiente que se lleva al contrato destino (continuidad financiera).">saldo_trasladado</span> DECIMAL(18,2),
+  <span class="c" data-tip="Razón del traslado.">motivo</span> STRING,
+  <span class="c" data-tip="Fecha y hora del evento (auditoría). Los eventos no se editan ni se borran.">creado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario que registró el evento.">creado_por_usuario_id</span> UUID,
+  CONSTRAINT ck_activo_traslado_saldo CHECK (saldo_trasladado &gt;= 0)
+);
+
+ALTER TABLE activo_traslado ADD CONSTRAINT fk_activo_traslado_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id) ON DELETE RESTRICT;
+ALTER TABLE activo_traslado ADD CONSTRAINT fk_activo_traslado_activo FOREIGN KEY (id_activo) REFERENCES activo (id) ON DELETE RESTRICT;
+ALTER TABLE activo_traslado ADD CONSTRAINT fk_activo_traslado_contrato_origen FOREIGN KEY (id_contrato_origen) REFERENCES contrato (id) ON DELETE RESTRICT;
+ALTER TABLE activo_traslado ADD CONSTRAINT fk_activo_traslado_zona_origen FOREIGN KEY (id_zona_origen) REFERENCES zona (id) ON DELETE RESTRICT;
+ALTER TABLE activo_traslado ADD CONSTRAINT fk_activo_traslado_contrato_destino FOREIGN KEY (id_contrato_destino) REFERENCES contrato (id) ON DELETE RESTRICT;
+ALTER TABLE activo_traslado ADD CONSTRAINT fk_activo_traslado_zona_destino FOREIGN KEY (id_zona_destino) REFERENCES zona (id) ON DELETE RESTRICT;
+ALTER TABLE activo_traslado ADD CONSTRAINT fk_activo_traslado_creado_por FOREIGN KEY (creado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+
+CREATE TABLE recuperacion_inversion_mensual (
+  <span class="c" data-tip="PK del registro. UUID v4 de CockroachDB, inmutable y sin significado de negocio.">id</span> UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  <span class="c" data-tip="Empresa dueña del registro: aísla los datos por tenant (multi-tenant).">id_empresa</span> UUID NOT NULL,
+  <span class="c" data-tip="Activo cuya inversión se recupera.">id_activo</span> UUID NOT NULL,
+  <span class="c" data-tip="Contrato al que se imputa la recuperación.">id_contrato</span> UUID NOT NULL,
+  <span class="c" data-tip="Periodo mensual del registro.">id_periodo</span> UUID NOT NULL,
+  <span class="c" data-tip="Importe de inversión recuperado en el mes. Lo consume el cierre mensual.">importe_recuperado</span> DECIMAL(18,2) NOT NULL,
+  <span class="c" data-tip="Saldo de inversión antes de esta recuperación.">saldo_antes</span> DECIMAL(18,2),
+  <span class="c" data-tip="Saldo de inversión después de esta recuperación.">saldo_despues</span> DECIMAL(18,2),
+  <span class="c" data-tip="Si el activo estuvo parado el mes. Si es TRUE no recupera (importe 0).">parado</span> BOOL NOT NULL DEFAULT false,
+  <span class="c" data-tip="Fecha y hora del evento (auditoría). Los eventos no se editan ni se borran.">creado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario que registró el evento.">creado_por_usuario_id</span> UUID,
+  CONSTRAINT ck_recuperacion_inversion_mensual_importe CHECK (importe_recuperado &gt;= 0),
+  CONSTRAINT ck_recuperacion_inversion_mensual_saldo_antes CHECK (saldo_antes &gt;= 0),
+  CONSTRAINT ck_recuperacion_inversion_mensual_saldo_despues CHECK (saldo_despues &gt;= 0),
+  CONSTRAINT uq_recuperacion_inversion_mensual UNIQUE (id_activo, id_contrato, id_periodo)
+);
+
+ALTER TABLE recuperacion_inversion_mensual ADD CONSTRAINT fk_recuperacion_inversion_mensual_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id) ON DELETE RESTRICT;
+ALTER TABLE recuperacion_inversion_mensual ADD CONSTRAINT fk_recuperacion_inversion_mensual_activo FOREIGN KEY (id_activo) REFERENCES activo (id) ON DELETE RESTRICT;
+ALTER TABLE recuperacion_inversion_mensual ADD CONSTRAINT fk_recuperacion_inversion_mensual_contrato FOREIGN KEY (id_contrato) REFERENCES contrato (id) ON DELETE RESTRICT;
+ALTER TABLE recuperacion_inversion_mensual ADD CONSTRAINT fk_recuperacion_inversion_mensual_periodo FOREIGN KEY (id_periodo) REFERENCES periodo (id) ON DELETE RESTRICT;
+ALTER TABLE recuperacion_inversion_mensual ADD CONSTRAINT fk_recuperacion_inversion_mensual_creado_por FOREIGN KEY (creado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+
+CREATE TABLE herramienta (
+  <span class="c" data-tip="PK del registro. UUID v4 de CockroachDB, inmutable y sin significado de negocio.">id</span> UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  <span class="c" data-tip="Empresa dueña del registro: aísla los datos por tenant (multi-tenant).">id_empresa</span> UUID NOT NULL,
+  <span class="c" data-tip="Tipo de herramienta.">id_tipo_herramienta</span> UUID,
+  <span class="c" data-tip="Código interno de la herramienta.">codigo</span> STRING,
+  <span class="c" data-tip="Descripción de la herramienta.">descripcion</span> STRING,
+  <span class="c" data-tip="Marca de la herramienta.">marca</span> STRING,
+  <span class="c" data-tip="Modelo de la herramienta.">modelo</span> STRING,
+  <span class="c" data-tip="Número de serie de la herramienta.">numero_serie</span> STRING,
+  <span class="c" data-tip="Costo de compra de la herramienta.">costo_adquisicion</span> DECIMAL(18,2),
+  <span class="c" data-tip="Vida útil estimada en meses.">tiempo_vida_meses</span> INT,
+  <span class="c" data-tip="Inicio del periodo de depreciación.">fecha_inicio_depreciacion</span> DATE,
+  <span class="c" data-tip="Fin del periodo de depreciación.">fecha_fin_depreciacion</span> DATE,
+  <span class="c" data-tip="Ciclo de la herramienta: ACTIVO o BAJA.">estado</span> STRING NOT NULL DEFAULT 'ACTIVO',
+  <span class="c" data-tip="Fecha y hora de creación (auditoría).">creado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario que creó el registro (auditoría).">creado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Fecha y hora de la última modificación (auditoría).">actualizado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario de la última modificación (auditoría).">actualizado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Borrado lógico: con valor = eliminado; NULL = activo.">eliminado_en</span> TIMESTAMPTZ,
+  <span class="c" data-tip="Usuario que ejecutó el borrado lógico.">eliminado_por_usuario_id</span> UUID,
+  CONSTRAINT ck_herramienta_costo_adquisicion CHECK (costo_adquisicion &gt;= 0),
+  CONSTRAINT ck_herramienta_tiempo_vida_meses CHECK (tiempo_vida_meses &gt; 0),
+  CONSTRAINT ck_herramienta_fechas_depreciacion CHECK (fecha_fin_depreciacion &gt;= fecha_inicio_depreciacion),
+  CONSTRAINT ck_herramienta_estado CHECK (estado IN ('ACTIVO', 'BAJA'))
+);
+
+ALTER TABLE herramienta ADD CONSTRAINT fk_herramienta_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id) ON DELETE RESTRICT;
+ALTER TABLE herramienta ADD CONSTRAINT fk_herramienta_tipo_herramienta FOREIGN KEY (id_tipo_herramienta) REFERENCES tipo_herramienta (id) ON DELETE RESTRICT;
+ALTER TABLE herramienta ADD CONSTRAINT fk_herramienta_creado_por FOREIGN KEY (creado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE herramienta ADD CONSTRAINT fk_herramienta_actualizado_por FOREIGN KEY (actualizado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE herramienta ADD CONSTRAINT fk_herramienta_eliminado_por FOREIGN KEY (eliminado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+
+CREATE TABLE herramienta_movimiento (
+  <span class="c" data-tip="PK del registro. UUID v4 de CockroachDB, inmutable y sin significado de negocio.">id</span> UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  <span class="c" data-tip="Empresa dueña del registro: aísla los datos por tenant (multi-tenant).">id_empresa</span> UUID NOT NULL,
+  <span class="c" data-tip="Herramienta movida.">id_herramienta</span> UUID NOT NULL,
+  <span class="c" data-tip="Periodo mensual del movimiento.">id_periodo</span> UUID NOT NULL,
+  <span class="c" data-tip="ENTRADA, SALIDA, TRASLADO o BAJA.">tipo_movimiento</span> STRING NOT NULL,
+  <span class="c" data-tip="Fecha del movimiento.">fecha</span> DATE NOT NULL,
+  <span class="c" data-tip="Contrato desde el que sale la herramienta.">id_contrato_origen</span> UUID,
+  <span class="c" data-tip="Zona de origen.">id_zona_origen</span> UUID,
+  <span class="c" data-tip="Contrato al que llega la herramienta.">id_contrato_destino</span> UUID,
+  <span class="c" data-tip="Zona de destino.">id_zona_destino</span> UUID,
+  <span class="c" data-tip="Cantidad de herramientas movidas.">cantidad</span> DECIMAL(10,2),
+  <span class="c" data-tip="Costo asociado al movimiento.">costo</span> DECIMAL(18,2),
+  <span class="c" data-tip="Valor económico del movimiento.">valorizacion</span> DECIMAL(18,2),
+  <span class="c" data-tip="Razón del movimiento.">motivo</span> STRING,
+  <span class="c" data-tip="Fecha y hora del evento (auditoría). Los eventos no se editan ni se borran.">creado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario que registró el evento.">creado_por_usuario_id</span> UUID,
+  CONSTRAINT ck_herramienta_movimiento_tipo CHECK (tipo_movimiento IN ('ENTRADA', 'SALIDA', 'TRASLADO', 'BAJA')),
+  CONSTRAINT ck_herramienta_movimiento_cantidad CHECK (cantidad &gt;= 0),
+  CONSTRAINT ck_herramienta_movimiento_costo CHECK (costo &gt;= 0),
+  CONSTRAINT ck_herramienta_movimiento_valorizacion CHECK (valorizacion &gt;= 0)
+);
+
+ALTER TABLE herramienta_movimiento ADD CONSTRAINT fk_herramienta_movimiento_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id) ON DELETE RESTRICT;
+ALTER TABLE herramienta_movimiento ADD CONSTRAINT fk_herramienta_movimiento_herramienta FOREIGN KEY (id_herramienta) REFERENCES herramienta (id) ON DELETE RESTRICT;
+ALTER TABLE herramienta_movimiento ADD CONSTRAINT fk_herramienta_movimiento_periodo FOREIGN KEY (id_periodo) REFERENCES periodo (id) ON DELETE RESTRICT;
+ALTER TABLE herramienta_movimiento ADD CONSTRAINT fk_herramienta_movimiento_contrato_origen FOREIGN KEY (id_contrato_origen) REFERENCES contrato (id) ON DELETE RESTRICT;
+ALTER TABLE herramienta_movimiento ADD CONSTRAINT fk_herramienta_movimiento_zona_origen FOREIGN KEY (id_zona_origen) REFERENCES zona (id) ON DELETE RESTRICT;
+ALTER TABLE herramienta_movimiento ADD CONSTRAINT fk_herramienta_movimiento_contrato_destino FOREIGN KEY (id_contrato_destino) REFERENCES contrato (id) ON DELETE RESTRICT;
+ALTER TABLE herramienta_movimiento ADD CONSTRAINT fk_herramienta_movimiento_zona_destino FOREIGN KEY (id_zona_destino) REFERENCES zona (id) ON DELETE RESTRICT;
+ALTER TABLE herramienta_movimiento ADD CONSTRAINT fk_herramienta_movimiento_creado_por FOREIGN KEY (creado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;</pre>
+    </details>
+
+    <details class="code">
+      <summary>cierre_mensual / entidad_*.sql</summary>
+      <pre class="sql">CREATE TABLE penalidad (
+  <span class="c" data-tip="PK del registro. UUID v4 de CockroachDB, inmutable y sin significado de negocio.">id</span> UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  <span class="c" data-tip="Empresa dueña del registro: aísla los datos por tenant (multi-tenant).">id_empresa</span> UUID NOT NULL,
+  <span class="c" data-tip="Contrato penalizado.">id_contrato</span> UUID NOT NULL,
+  <span class="c" data-tip="Periodo mensual de la penalidad.">id_periodo</span> UUID NOT NULL,
+  <span class="c" data-tip="Motivo de la penalidad.">descripcion</span> STRING,
+  <span class="c" data-tip="Importe de la penalidad. Impacta directamente la utilidad final. Signo (+/-) por confirmar con cierre.">importe</span> DECIMAL(18,2) NOT NULL,
+  <span class="c" data-tip="Fecha y hora de creación (auditoría).">creado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario que creó el registro (auditoría).">creado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Fecha y hora de la última modificación (auditoría).">actualizado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario de la última modificación (auditoría).">actualizado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Borrado lógico: con valor = eliminado; NULL = activo.">eliminado_en</span> TIMESTAMPTZ,
+  <span class="c" data-tip="Usuario que ejecutó el borrado lógico.">eliminado_por_usuario_id</span> UUID
+);
+
+ALTER TABLE penalidad ADD CONSTRAINT fk_penalidad_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id) ON DELETE RESTRICT;
+ALTER TABLE penalidad ADD CONSTRAINT fk_penalidad_contrato FOREIGN KEY (id_contrato) REFERENCES contrato (id) ON DELETE RESTRICT;
+ALTER TABLE penalidad ADD CONSTRAINT fk_penalidad_periodo FOREIGN KEY (id_periodo) REFERENCES periodo (id) ON DELETE RESTRICT;
+ALTER TABLE penalidad ADD CONSTRAINT fk_penalidad_creado_por FOREIGN KEY (creado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE penalidad ADD CONSTRAINT fk_penalidad_actualizado_por FOREIGN KEY (actualizado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE penalidad ADD CONSTRAINT fk_penalidad_eliminado_por FOREIGN KEY (eliminado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+
+CREATE TABLE provision (
+  <span class="c" data-tip="PK del registro. UUID v4 de CockroachDB, inmutable y sin significado de negocio.">id</span> UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  <span class="c" data-tip="Empresa dueña del registro: aísla los datos por tenant (multi-tenant).">id_empresa</span> UUID NOT NULL,
+  <span class="c" data-tip="Contrato al que aplica (NULL si es general de la empresa).">id_contrato</span> UUID,
+  <span class="c" data-tip="Periodo mensual de la provisión.">id_periodo</span> UUID NOT NULL,
+  <span class="c" data-tip="Concepto provisionado (gratificación, mantenimiento, etc.).">descripcion</span> STRING,
+  <span class="c" data-tip="Importe estimado del gasto futuro.">importe</span> DECIMAL(18,2) NOT NULL,
+  <span class="c" data-tip="Si la provisión ya se aplicó al cierre.">aplicado</span> BOOL NOT NULL DEFAULT false,
+  <span class="c" data-tip="Fecha y hora de creación (auditoría).">creado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario que creó el registro (auditoría).">creado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Fecha y hora de la última modificación (auditoría).">actualizado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario de la última modificación (auditoría).">actualizado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Borrado lógico: con valor = eliminado; NULL = activo.">eliminado_en</span> TIMESTAMPTZ,
+  <span class="c" data-tip="Usuario que ejecutó el borrado lógico.">eliminado_por_usuario_id</span> UUID,
+  CONSTRAINT ck_provision_importe CHECK (importe &gt;= 0)
+);
+
+ALTER TABLE provision ADD CONSTRAINT fk_provision_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id) ON DELETE RESTRICT;
+ALTER TABLE provision ADD CONSTRAINT fk_provision_contrato FOREIGN KEY (id_contrato) REFERENCES contrato (id) ON DELETE RESTRICT;
+ALTER TABLE provision ADD CONSTRAINT fk_provision_periodo FOREIGN KEY (id_periodo) REFERENCES periodo (id) ON DELETE RESTRICT;
+ALTER TABLE provision ADD CONSTRAINT fk_provision_creado_por FOREIGN KEY (creado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE provision ADD CONSTRAINT fk_provision_actualizado_por FOREIGN KEY (actualizado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE provision ADD CONSTRAINT fk_provision_eliminado_por FOREIGN KEY (eliminado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+
+CREATE TABLE cierre_mensual (
+  <span class="c" data-tip="PK del registro. UUID v4 de CockroachDB, inmutable y sin significado de negocio.">id</span> UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  <span class="c" data-tip="Empresa dueña del registro: aísla los datos por tenant (multi-tenant).">id_empresa</span> UUID NOT NULL,
+  <span class="c" data-tip="Contrato cuyo resultado se cierra.">id_contrato</span> UUID NOT NULL,
+  <span class="c" data-tip="Periodo mensual que se cierra.">id_periodo</span> UUID NOT NULL,
+  <span class="c" data-tip="Total facturado del contrato en el periodo.">total_facturado</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="Total de producción valorizada del periodo.">total_produccion</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="Gastos directos del servicio.">gastos_directos</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="Gastos fijos varios del contrato.">gastos_varios_fijos</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="Cuota de inversión inicial imputada al periodo.">gastos_iniciales_periodo</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="Recuperación de inversión de activos del periodo (viene de recuperacion_inversion_mensual).">recuperacion_inversion</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="Gastos administrativos prorrateados al contrato.">gastos_administrativos</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="Gastos indirectos prorrateados.">gastos_indirectos</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="Gastos financieros distribuidos.">gastos_financieros</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="Gastos SIG / seguridad.">gastos_sig</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="Suma de todos los gastos del periodo.">total_gastos</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="Facturación menos gastos del servicio.">utilidad_bruta</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="Impuesto a la renta del periodo.">impuesto_renta</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="Renta adicional ajustada por balance.">renta_adicional</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="Reparto de utilidades a trabajadores.">reparto_utilidades</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="Total de penalidades del periodo. Signo por confirmar con cierre.">penalidades</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="Utilidad después de impuestos, prorrateos y recuperación.">utilidad_neta</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="Utilidad neta +/- penalidades: el resultado real del contrato (signo por confirmar con cierre).">utilidad_final</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
+  <span class="c" data-tip="BORRADOR, CERRADO o REABIERTO. CERRADO congela el periodo.">estado</span> STRING NOT NULL DEFAULT 'BORRADOR',
+  <span class="c" data-tip="Momento en que se cerró el periodo.">fecha_cierre</span> TIMESTAMPTZ,
+  <span class="c" data-tip="Usuario que cerró el periodo.">cerrado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Fecha y hora de creación (auditoría).">creado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario que creó el registro (auditoría).">creado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Fecha y hora de la última modificación (auditoría).">actualizado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
+  <span class="c" data-tip="Usuario de la última modificación (auditoría).">actualizado_por_usuario_id</span> UUID,
+  <span class="c" data-tip="Borrado lógico: con valor = eliminado; NULL = activo.">eliminado_en</span> TIMESTAMPTZ,
+  <span class="c" data-tip="Usuario que ejecutó el borrado lógico.">eliminado_por_usuario_id</span> UUID,
+  CONSTRAINT ck_cierre_mensual_total_facturado CHECK (total_facturado &gt;= 0),
+  CONSTRAINT ck_cierre_mensual_total_produccion CHECK (total_produccion &gt;= 0),
+  CONSTRAINT ck_cierre_mensual_gastos_directos CHECK (gastos_directos &gt;= 0),
+  CONSTRAINT ck_cierre_mensual_gastos_varios_fijos CHECK (gastos_varios_fijos &gt;= 0),
+  CONSTRAINT ck_cierre_mensual_gastos_iniciales_periodo CHECK (gastos_iniciales_periodo &gt;= 0),
+  CONSTRAINT ck_cierre_mensual_recuperacion_inversion CHECK (recuperacion_inversion &gt;= 0),
+  CONSTRAINT ck_cierre_mensual_gastos_administrativos CHECK (gastos_administrativos &gt;= 0),
+  CONSTRAINT ck_cierre_mensual_gastos_indirectos CHECK (gastos_indirectos &gt;= 0),
+  CONSTRAINT ck_cierre_mensual_gastos_financieros CHECK (gastos_financieros &gt;= 0),
+  CONSTRAINT ck_cierre_mensual_gastos_sig CHECK (gastos_sig &gt;= 0),
+  CONSTRAINT ck_cierre_mensual_total_gastos CHECK (total_gastos &gt;= 0),
+  CONSTRAINT ck_cierre_mensual_impuesto_renta CHECK (impuesto_renta &gt;= 0),
+  CONSTRAINT ck_cierre_mensual_renta_adicional CHECK (renta_adicional &gt;= 0),
+  CONSTRAINT ck_cierre_mensual_reparto_utilidades CHECK (reparto_utilidades &gt;= 0),
+  CONSTRAINT ck_cierre_mensual_estado CHECK (estado IN ('BORRADOR', 'CERRADO', 'REABIERTO')),
+  CONSTRAINT uq_cierre_mensual UNIQUE (id_contrato, id_periodo)
+);
+
+ALTER TABLE cierre_mensual ADD CONSTRAINT fk_cierre_mensual_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id) ON DELETE RESTRICT;
+ALTER TABLE cierre_mensual ADD CONSTRAINT fk_cierre_mensual_contrato FOREIGN KEY (id_contrato) REFERENCES contrato (id) ON DELETE RESTRICT;
+ALTER TABLE cierre_mensual ADD CONSTRAINT fk_cierre_mensual_periodo FOREIGN KEY (id_periodo) REFERENCES periodo (id) ON DELETE RESTRICT;
+ALTER TABLE cierre_mensual ADD CONSTRAINT fk_cierre_mensual_cerrado_por FOREIGN KEY (cerrado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE cierre_mensual ADD CONSTRAINT fk_cierre_mensual_creado_por FOREIGN KEY (creado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE cierre_mensual ADD CONSTRAINT fk_cierre_mensual_actualizado_por FOREIGN KEY (actualizado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
+ALTER TABLE cierre_mensual ADD CONSTRAINT fk_cierre_mensual_eliminado_por FOREIGN KEY (eliminado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;</pre>
+    </details>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <p class="eyebrow">Procedimientos almacenados</p>
+    <h2>Casos de uso (SP) · un caso de uso = un procedimiento</h2>
+    <p class="lead">Todo acceso de negocio a la BD pasa por procedimientos. Cada cuadrito es un caso de uso: haz clic para ver <b>por qué existe</b> y desplegar su <b>código</b> (PL/pgSQL · CockroachDB · retorno JSONB · sin comentarios). <b>Tenant</b> y <b>auditoría</b> van en todos.</p>
+
+    <div class="sp-intro">
+      <span class="item"><b>10</b> procedimientos</span>
+      <span class="item"><span class="sp-cap ai">activos-e-inversion</span> 6</span>
+      <span class="item"><span class="sp-cap cm">cierre-mensual</span> 4</span>
+      <span class="item" style="margin-left:auto">Firma uniforme: <span class="mono">(p_id_empresa, p_id_usuario_accion, …)</span></span>
+    </div>
+
+    <div class="sp-grid">
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_registrar_activo</div>
+          <div class="spcaso">Dar de alta un activo (vehículo, maquinaria o equipo) en una empresa.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Registra el bien con su costo, vida útil, depreciación y monto base recuperable, validando primero que pertenece al tenant correcto.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> empresa vigente; la clasificación y el tipo de adquisición deben ser de la misma empresa.</li>
+            <li><b>Auditoría:</b> graba <b>creado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_registrar_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_clasificacion_activo UUID,
+  p_id_tipo_adquisicion_activo UUID,
+  p_codigo STRING,
+  p_descripcion STRING,
+  p_placa STRING,
+  p_marca STRING,
+  p_modelo STRING,
+  p_numero_serie STRING,
+  p_anio_fabricacion INT2,
+  p_costo_adquisicion DECIMAL,
+  p_tiempo_vida_meses INT,
+  p_depreciacion_mensual DECIMAL,
+  p_importe_base_recuperable DECIMAL,
+  p_fecha_inicio_depreciacion DATE,
+  p_fecha_fin_depreciacion DATE
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_activo UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_descripcion IS NULL OR char_length(trim(p_descripcion)) = 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'DESCRIPCION_OBLIGATORIA', 'mensaje', 'La descripcion del activo es obligatoria');
+  END IF;
+
+  IF p_costo_adquisicion IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'COSTO_OBLIGATORIO', 'mensaje', 'El costo de adquisicion es obligatorio');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM clasificacion_activo
+    WHERE id = p_id_clasificacion_activo AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CLASIFICACION_ACTIVO_NO_VALIDA', 'mensaje', 'La clasificacion no existe o no pertenece a la empresa');
+  END IF;
+
+  IF p_id_tipo_adquisicion_activo IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM tipo_adquisicion_activo
+    WHERE id = p_id_tipo_adquisicion_activo AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_ADQUISICION_NO_VALIDO', 'mensaje', 'El tipo de adquisicion no existe o no pertenece a la empresa');
+  END IF;
+
+  INSERT INTO activo (
+    id_empresa, id_clasificacion_activo, id_tipo_adquisicion_activo,
+    codigo, descripcion, placa, marca, modelo, numero_serie,
+    anio_fabricacion, costo_adquisicion, tiempo_vida_meses,
+    depreciacion_mensual, importe_base_recuperable,
+    fecha_inicio_depreciacion, fecha_fin_depreciacion,
+    creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_clasificacion_activo, p_id_tipo_adquisicion_activo,
+    NULLIF(trim(p_codigo), ''), trim(p_descripcion), NULLIF(trim(p_placa), ''),
+    NULLIF(trim(p_marca), ''), NULLIF(trim(p_modelo), ''), NULLIF(trim(p_numero_serie), ''),
+    p_anio_fabricacion, p_costo_adquisicion, p_tiempo_vida_meses,
+    p_depreciacion_mensual, p_importe_base_recuperable,
+    p_fecha_inicio_depreciacion, p_fecha_fin_depreciacion,
+    p_id_usuario_accion
+  ) RETURNING id INTO v_id_activo;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'ACTIVO_REGISTRADO',
+    'mensaje', 'El activo fue registrado correctamente',
+    'datos', jsonb_build_object('id_activo', v_id_activo)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_REGISTRO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al registrar el activo');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_asignar_activo_a_contrato</div>
+          <div class="spcaso">Asignar un activo a un contrato y abrir su saldo de inversión a recuperar.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>El costo del activo se imputa por contrato. El saldo pendiente arranca igual a la inversión asignada y es lo que luego se recupera mes a mes.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Saldo inicial</b> = inversión asignada.</li>
+            <li>No se permite una segunda asignación vigente del mismo activo en el mismo contrato.</li>
+            <li><b>Tenant</b> + <b>auditoría</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_asignar_activo_a_contrato(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_activo UUID,
+  p_id_contrato UUID,
+  p_id_zona UUID,
+  p_inversion_asignada DECIMAL,
+  p_cuota_recuperacion_mensual DECIMAL,
+  p_fecha_inicio DATE
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_asignacion UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM activo
+    WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL AND estado &lt;&gt; 'BAJA'
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_DISPONIBLE', 'mensaje', 'El activo no existe, no pertenece a la empresa o esta dado de baja');
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM activo_asignacion_contrato
+    WHERE id_activo = p_id_activo AND id_contrato = p_id_contrato AND eliminado_en IS NULL AND estado = 'ACTIVO'
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_YA_ASIGNADO', 'mensaje', 'El activo ya tiene una asignacion vigente en ese contrato');
+  END IF;
+
+  IF p_id_zona IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ZONA_OBLIGATORIA', 'mensaje', 'La zona es obligatoria para asignar el activo al contrato');
+  END IF;
+
+  INSERT INTO activo_asignacion_contrato (
+    id_empresa, id_activo, id_contrato, id_zona,
+    inversion_asignada, saldo_inversion_pendiente, cuota_recuperacion_mensual, fecha_inicio,
+    creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_activo, p_id_contrato, p_id_zona,
+    p_inversion_asignada, p_inversion_asignada, p_cuota_recuperacion_mensual, p_fecha_inicio,
+    p_id_usuario_accion
+  ) RETURNING id INTO v_id_asignacion;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'ACTIVO_ASIGNADO',
+    'mensaje', 'El activo fue asignado al contrato correctamente',
+    'datos', jsonb_build_object('id_asignacion', v_id_asignacion)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_ASIGNACION_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al asignar el activo');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_ejecutar_recuperacion_mensual</div>
+          <div class="spcaso">Recuperar la cuota de inversión de un activo en un contrato y periodo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Descuenta la cuota del saldo pendiente de la asignación. Es el valor que el cierre mensual consume como recuperación de inversión.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Parado no recupera:</b> si el activo estuvo parado, el importe es 0.</li>
+            <li><b>No sobre-recupera:</b> importe = menor entre cuota y saldo pendiente.</li>
+            <li><b>Una por periodo</b> (activo, contrato, periodo) + continuidad del saldo.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_ejecutar_recuperacion_mensual(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_activo UUID,
+  p_id_contrato UUID,
+  p_id_periodo UUID,
+  p_parado BOOL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_saldo_pendiente DECIMAL(18,2);
+  v_cuota DECIMAL(18,2);
+  v_importe DECIMAL(18,2);
+  v_saldo_despues DECIMAL(18,2);
+  v_id_recuperacion UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  SELECT saldo_inversion_pendiente, cuota_recuperacion_mensual
+    INTO v_saldo_pendiente, v_cuota
+  FROM activo_asignacion_contrato
+  WHERE id_empresa = p_id_empresa AND id_activo = p_id_activo AND id_contrato = p_id_contrato AND eliminado_en IS NULL AND estado = 'ACTIVO';
+
+  IF v_saldo_pendiente IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_ASIGNADO_AL_CONTRATO', 'mensaje', 'El activo no esta asignado a ese contrato');
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM recuperacion_inversion_mensual
+    WHERE id_activo = p_id_activo AND id_contrato = p_id_contrato AND id_periodo = p_id_periodo
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'RECUPERACION_YA_REGISTRADA', 'mensaje', 'Ya existe una recuperacion para ese activo, contrato y periodo');
+  END IF;
+
+  IF p_parado THEN
+    v_importe := 0;
+  ELSE
+    v_importe := LEAST(COALESCE(v_cuota, 0), COALESCE(v_saldo_pendiente, 0));
+  END IF;
+
+  v_saldo_despues := COALESCE(v_saldo_pendiente, 0) - v_importe;
+
+  INSERT INTO recuperacion_inversion_mensual (
+    id_empresa, id_activo, id_contrato, id_periodo,
+    importe_recuperado, saldo_antes, saldo_despues, parado, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_activo, p_id_contrato, p_id_periodo,
+    v_importe, v_saldo_pendiente, v_saldo_despues, p_parado, p_id_usuario_accion
+  ) RETURNING id INTO v_id_recuperacion;
+
+  UPDATE activo_asignacion_contrato
+    SET saldo_inversion_pendiente = v_saldo_despues,
+        actualizado_en = now(),
+        actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id_empresa = p_id_empresa AND id_activo = p_id_activo AND id_contrato = p_id_contrato AND eliminado_en IS NULL AND estado = 'ACTIVO';
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'RECUPERACION_REGISTRADA',
+    'mensaje', 'Recuperacion registrada correctamente',
+    'datos', jsonb_build_object(
+      'id_recuperacion', v_id_recuperacion,
+      'importe_recuperado', v_importe,
+      'saldo_despues', v_saldo_despues
+    )
+  );
+EXCEPTION
+  WHEN unique_violation THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'RECUPERACION_YA_REGISTRADA', 'mensaje', 'Ya existe una recuperacion para ese activo, contrato y periodo');
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'RECUPERACION_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al ejecutar la recuperacion');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_registrar_traslado_activo</div>
+          <div class="spcaso">Trasladar un activo a otro contrato llevando consigo su saldo de inversión.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>El traslado es un hecho histórico. Cierra la asignación de origen (<b>fecha_fin</b>) y abre una en el destino con el saldo y la cuota heredados: así la inversión no se pierde al mover el activo.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li>Requiere asignación vigente en el contrato origen.</li>
+            <li><b>Continuidad financiera:</b> el saldo pendiente viaja al destino.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_registrar_traslado_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_activo UUID,
+  p_id_contrato_origen UUID,
+  p_id_zona_origen UUID,
+  p_id_contrato_destino UUID,
+  p_id_zona_destino UUID,
+  p_fecha_traslado DATE,
+  p_motivo STRING
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_saldo DECIMAL(18,2);
+  v_cuota DECIMAL(18,2);
+  v_id_traslado UUID;
+  v_id_asignacion_destino UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM activo WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_VALIDO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
+  END IF;
+
+  SELECT saldo_inversion_pendiente, cuota_recuperacion_mensual
+    INTO v_saldo, v_cuota
+  FROM activo_asignacion_contrato
+  WHERE id_empresa = p_id_empresa AND id_activo = p_id_activo AND id_contrato = p_id_contrato_origen
+    AND eliminado_en IS NULL AND estado = 'ACTIVO';
+
+  IF v_saldo IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_ASIGNADO_ORIGEN', 'mensaje', 'El activo no tiene asignacion vigente en el contrato origen');
+  END IF;
+
+  IF p_id_zona_destino IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ZONA_DESTINO_OBLIGATORIA', 'mensaje', 'La zona destino es obligatoria para trasladar el activo');
+  END IF;
+
+  INSERT INTO activo_traslado (
+    id_empresa, id_activo, id_contrato_origen, id_zona_origen,
+    id_contrato_destino, id_zona_destino, fecha_traslado, saldo_trasladado, motivo, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_activo, p_id_contrato_origen, p_id_zona_origen,
+    p_id_contrato_destino, p_id_zona_destino, p_fecha_traslado, v_saldo, NULLIF(trim(p_motivo), ''), p_id_usuario_accion
+  ) RETURNING id INTO v_id_traslado;
+
+  UPDATE activo_asignacion_contrato
+    SET estado = 'TRASLADADO', fecha_fin = p_fecha_traslado, actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id_empresa = p_id_empresa AND id_activo = p_id_activo AND id_contrato = p_id_contrato_origen
+    AND eliminado_en IS NULL AND estado = 'ACTIVO';
+
+  INSERT INTO activo_asignacion_contrato (
+    id_empresa, id_activo, id_contrato, id_zona,
+    inversion_asignada, saldo_inversion_pendiente, cuota_recuperacion_mensual, fecha_inicio, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_activo, p_id_contrato_destino, p_id_zona_destino,
+    v_saldo, v_saldo, v_cuota, p_fecha_traslado, p_id_usuario_accion
+  ) RETURNING id INTO v_id_asignacion_destino;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'ACTIVO_TRASLADADO',
+    'mensaje', 'El traslado fue registrado y el saldo se traslado al contrato destino',
+    'datos', jsonb_build_object(
+      'id_traslado', v_id_traslado,
+      'id_asignacion_destino', v_id_asignacion_destino,
+      'saldo_trasladado', v_saldo
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TRASLADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al registrar el traslado');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_registrar_herramienta</div>
+          <div class="spcaso">Registrar una herramienta menor (no capitalizable) en una empresa.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Herramienta menor ≠ activo capitalizable (regla del Informe). Tiene su propia raíz y sigue lógica de gasto operativo.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li>El tipo de herramienta (si se envía) debe ser de la empresa.</li>
+            <li><b>Auditoría</b> en alta.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_registrar_herramienta(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_tipo_herramienta UUID,
+  p_codigo STRING,
+  p_descripcion STRING,
+  p_marca STRING,
+  p_modelo STRING,
+  p_numero_serie STRING,
+  p_costo_adquisicion DECIMAL,
+  p_tiempo_vida_meses INT,
+  p_fecha_inicio_depreciacion DATE,
+  p_fecha_fin_depreciacion DATE
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_herramienta UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_id_tipo_herramienta IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM tipo_herramienta
+    WHERE id = p_id_tipo_herramienta AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_HERRAMIENTA_NO_VALIDO', 'mensaje', 'El tipo de herramienta no existe o no pertenece a la empresa');
+  END IF;
+
+  INSERT INTO herramienta (
+    id_empresa, id_tipo_herramienta, codigo, descripcion, marca, modelo, numero_serie,
+    costo_adquisicion, tiempo_vida_meses, fecha_inicio_depreciacion, fecha_fin_depreciacion, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_tipo_herramienta, NULLIF(trim(p_codigo), ''), NULLIF(trim(p_descripcion), ''),
+    NULLIF(trim(p_marca), ''), NULLIF(trim(p_modelo), ''), NULLIF(trim(p_numero_serie), ''),
+    p_costo_adquisicion, p_tiempo_vida_meses, p_fecha_inicio_depreciacion, p_fecha_fin_depreciacion, p_id_usuario_accion
+  ) RETURNING id INTO v_id_herramienta;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'HERRAMIENTA_REGISTRADA',
+    'mensaje', 'La herramienta fue registrada correctamente',
+    'datos', jsonb_build_object('id_herramienta', v_id_herramienta)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'HERRAMIENTA_REGISTRO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al registrar la herramienta');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_mover_herramienta</div>
+          <div class="spcaso">Registrar un movimiento de herramienta (entrada, salida, traslado o baja).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Evento inmutable que da trazabilidad de dónde estuvo cada herramienta, por periodo, con origen y destino.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>tipo_movimiento</b> restringido a ENTRADA / SALIDA / TRASLADO / BAJA.</li>
+            <li><b>Tenant</b> + <b>auditoría</b> (append-only).</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_mover_herramienta(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_herramienta UUID,
+  p_id_periodo UUID,
+  p_tipo_movimiento STRING,
+  p_fecha DATE,
+  p_id_contrato_origen UUID,
+  p_id_zona_origen UUID,
+  p_id_contrato_destino UUID,
+  p_id_zona_destino UUID,
+  p_cantidad DECIMAL,
+  p_costo DECIMAL,
+  p_valorizacion DECIMAL,
+  p_motivo STRING
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_movimiento UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM herramienta WHERE id = p_id_herramienta AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'HERRAMIENTA_NO_VALIDA', 'mensaje', 'La herramienta no existe o no pertenece a la empresa');
+  END IF;
+
+  IF p_tipo_movimiento NOT IN ('ENTRADA', 'SALIDA', 'TRASLADO', 'BAJA') THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_MOVIMIENTO_NO_VALIDO', 'mensaje', 'El tipo de movimiento no es valido');
+  END IF;
+
+  INSERT INTO herramienta_movimiento (
+    id_empresa, id_herramienta, id_periodo, tipo_movimiento, fecha,
+    id_contrato_origen, id_zona_origen, id_contrato_destino, id_zona_destino,
+    cantidad, costo, valorizacion, motivo, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_herramienta, p_id_periodo, p_tipo_movimiento, p_fecha,
+    p_id_contrato_origen, p_id_zona_origen, p_id_contrato_destino, p_id_zona_destino,
+    p_cantidad, p_costo, p_valorizacion, NULLIF(trim(p_motivo), ''), p_id_usuario_accion
+  ) RETURNING id INTO v_id_movimiento;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'HERRAMIENTA_MOVIDA',
+    'mensaje', 'El movimiento de herramienta fue registrado correctamente',
+    'datos', jsonb_build_object('id_movimiento', v_id_movimiento)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'HERRAMIENTA_MOVIMIENTO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al mover la herramienta');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap cm">cierre-mensual</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_registrar_penalidad</div>
+          <div class="spcaso">Registrar una penalidad de un contrato en un periodo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Las penalidades impactan la utilidad final del cierre. Se registran como parte del periodo.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li>Importe &gt; 0 (el <b>signo</b> en el cierre se confirma con Gerson).</li>
+            <li><b>Tenant</b> + <b>auditoría</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_registrar_penalidad(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_contrato UUID,
+  p_id_periodo UUID,
+  p_descripcion STRING,
+  p_importe DECIMAL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_penalidad UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_importe IS NULL OR p_importe &lt;= 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'IMPORTE_NO_VALIDO', 'mensaje', 'El importe de la penalidad debe ser mayor a cero');
+  END IF;
+
+  INSERT INTO penalidad (
+    id_empresa, id_contrato, id_periodo, descripcion, importe, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_contrato, p_id_periodo, NULLIF(trim(p_descripcion), ''), p_importe, p_id_usuario_accion
+  ) RETURNING id INTO v_id_penalidad;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'PENALIDAD_REGISTRADA',
+    'mensaje', 'La penalidad fue registrada correctamente',
+    'datos', jsonb_build_object('id_penalidad', v_id_penalidad)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PENALIDAD_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al registrar la penalidad');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap cm">cierre-mensual</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_registrar_provision</div>
+          <div class="spcaso">Registrar una provisión (gasto estimado) del periodo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>El cierre debe anticipar cargas aún no ejecutadas (gratificaciones, mantenimiento) para no inflar la rentabilidad del mes. Nace con <b>aplicado = false</b>.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li>Importe &gt; 0; contrato opcional.</li>
+            <li><b>Tenant</b> + <b>auditoría</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_registrar_provision(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_contrato UUID,
+  p_id_periodo UUID,
+  p_descripcion STRING,
+  p_importe DECIMAL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_provision UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_importe IS NULL OR p_importe &lt;= 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'IMPORTE_NO_VALIDO', 'mensaje', 'El importe de la provision debe ser mayor a cero');
+  END IF;
+
+  INSERT INTO provision (
+    id_empresa, id_contrato, id_periodo, descripcion, importe, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_contrato, p_id_periodo, NULLIF(trim(p_descripcion), ''), p_importe, p_id_usuario_accion
+  ) RETURNING id INTO v_id_provision;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'PROVISION_REGISTRADA',
+    'mensaje', 'La provision fue registrada correctamente',
+    'datos', jsonb_build_object('id_provision', v_id_provision)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PROVISION_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al registrar la provision');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap cm">cierre-mensual</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_consultar_resultado_contrato</div>
+          <div class="spcaso">Consultar el resultado económico (cierre) de un contrato en un periodo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Solo lectura. Devuelve la fila completa de <b>cierre_mensual</b> serializada con <b>to_jsonb</b>: facturación, gastos, utilidades y estado.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_consultar_resultado_contrato(
+  p_id_empresa UUID,
+  p_id_contrato UUID,
+  p_id_periodo UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_datos JSONB;
+BEGIN
+  SELECT to_jsonb(c) INTO v_datos
+  FROM cierre_mensual c
+  WHERE c.id_empresa = p_id_empresa AND c.id_contrato = p_id_contrato AND c.id_periodo = p_id_periodo AND c.eliminado_en IS NULL;
+
+  IF v_datos IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CIERRE_NO_ENCONTRADO', 'mensaje', 'No existe cierre para ese contrato y periodo');
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'RESULTADO_CONTRATO',
+    'mensaje', 'Resultado del contrato obtenido',
+    'datos', v_datos
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'RESULTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al consultar el resultado');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap cm">cierre-mensual</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_ejecutar_cierre_mensual</div>
+          <div class="spcaso">Calcular el cierre preliminar (BORRADOR) de un contrato y periodo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Es el evento nuclear. Suma la <b>recuperación</b> y las <b>penalidades</b> desde nuestras tablas, y recibe facturación/gastos (G3-G4) <b>por parámetro</b> mientras esas tablas no existan. Es <b>idempotente</b> (UPSERT por contrato+periodo): re-ejecutar recalcula mientras no esté CERRADO.</p>
+          <div class="sp-note"><b>Fórmula por confirmar con Gerson:</b> ubicación de la recuperación dentro de <b>total_gastos</b>, signo de las penalidades (aquí <b>utilidad_final = utilidad_neta − penalidades</b>) y dónde entran las provisiones.</div>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_ejecutar_cierre_mensual(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_contrato UUID,
+  p_id_periodo UUID,
+  p_total_facturado DECIMAL,
+  p_total_produccion DECIMAL,
+  p_gastos_directos DECIMAL,
+  p_gastos_varios_fijos DECIMAL,
+  p_gastos_iniciales_periodo DECIMAL,
+  p_gastos_administrativos DECIMAL,
+  p_gastos_indirectos DECIMAL,
+  p_gastos_financieros DECIMAL,
+  p_gastos_sig DECIMAL,
+  p_impuesto_renta DECIMAL,
+  p_renta_adicional DECIMAL,
+  p_reparto_utilidades DECIMAL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+  v_recuperacion DECIMAL(18,2);
+  v_penalidades DECIMAL(18,2);
+  v_total_gastos DECIMAL(18,2);
+  v_utilidad_bruta DECIMAL(18,2);
+  v_utilidad_neta DECIMAL(18,2);
+  v_utilidad_final DECIMAL(18,2);
+  v_id_cierre UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM cierre_mensual
+  WHERE id_empresa = p_id_empresa AND id_contrato = p_id_contrato AND id_periodo = p_id_periodo AND eliminado_en IS NULL;
+
+  IF v_estado = 'CERRADO' THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CIERRE_YA_CERRADO', 'mensaje', 'El cierre del periodo ya esta cerrado; debe reabrirse para recalcular');
+  END IF;
+
+  SELECT COALESCE(SUM(importe_recuperado), 0) INTO v_recuperacion
+  FROM recuperacion_inversion_mensual
+  WHERE id_empresa = p_id_empresa AND id_contrato = p_id_contrato AND id_periodo = p_id_periodo;
+
+  SELECT COALESCE(SUM(importe), 0) INTO v_penalidades
+  FROM penalidad
+  WHERE id_empresa = p_id_empresa AND id_contrato = p_id_contrato AND id_periodo = p_id_periodo AND eliminado_en IS NULL;
+
+  v_total_gastos := COALESCE(p_gastos_directos, 0)
+    + COALESCE(p_gastos_varios_fijos, 0);
+
+  v_utilidad_bruta := COALESCE(p_total_facturado, 0) - v_total_gastos;
+
+  v_utilidad_neta := v_utilidad_bruta
+    - v_recuperacion
+    - COALESCE(p_gastos_iniciales_periodo, 0)
+    - COALESCE(p_impuesto_renta, 0)
+    - COALESCE(p_renta_adicional, 0)
+    - COALESCE(p_reparto_utilidades, 0)
+    - COALESCE(p_gastos_administrativos, 0)
+    - COALESCE(p_gastos_indirectos, 0)
+    - COALESCE(p_gastos_financieros, 0)
+    - COALESCE(p_gastos_sig, 0);
+
+  v_utilidad_final := v_utilidad_neta - v_penalidades;
+
+  INSERT INTO cierre_mensual (
+    id_empresa, id_contrato, id_periodo,
+    total_facturado, total_produccion, gastos_directos, gastos_varios_fijos, gastos_iniciales_periodo,
+    recuperacion_inversion, gastos_administrativos, gastos_indirectos, gastos_financieros, gastos_sig,
+    total_gastos, utilidad_bruta, impuesto_renta, renta_adicional, reparto_utilidades, penalidades,
+    utilidad_neta, utilidad_final, estado, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_contrato, p_id_periodo,
+    COALESCE(p_total_facturado, 0), COALESCE(p_total_produccion, 0), COALESCE(p_gastos_directos, 0), COALESCE(p_gastos_varios_fijos, 0), COALESCE(p_gastos_iniciales_periodo, 0),
+    v_recuperacion, COALESCE(p_gastos_administrativos, 0), COALESCE(p_gastos_indirectos, 0), COALESCE(p_gastos_financieros, 0), COALESCE(p_gastos_sig, 0),
+    v_total_gastos, v_utilidad_bruta, COALESCE(p_impuesto_renta, 0), COALESCE(p_renta_adicional, 0), COALESCE(p_reparto_utilidades, 0), v_penalidades,
+    v_utilidad_neta, v_utilidad_final, 'BORRADOR', p_id_usuario_accion
+  )
+  ON CONFLICT (id_contrato, id_periodo) DO UPDATE SET
+    total_facturado = excluded.total_facturado,
+    total_produccion = excluded.total_produccion,
+    gastos_directos = excluded.gastos_directos,
+    gastos_varios_fijos = excluded.gastos_varios_fijos,
+    gastos_iniciales_periodo = excluded.gastos_iniciales_periodo,
+    recuperacion_inversion = excluded.recuperacion_inversion,
+    gastos_administrativos = excluded.gastos_administrativos,
+    gastos_indirectos = excluded.gastos_indirectos,
+    gastos_financieros = excluded.gastos_financieros,
+    gastos_sig = excluded.gastos_sig,
+    total_gastos = excluded.total_gastos,
+    utilidad_bruta = excluded.utilidad_bruta,
+    impuesto_renta = excluded.impuesto_renta,
+    renta_adicional = excluded.renta_adicional,
+    reparto_utilidades = excluded.reparto_utilidades,
+    penalidades = excluded.penalidades,
+    utilidad_neta = excluded.utilidad_neta,
+    utilidad_final = excluded.utilidad_final,
+    estado = 'BORRADOR',
+    actualizado_en = now(),
+    actualizado_por_usuario_id = p_id_usuario_accion
+  RETURNING id INTO v_id_cierre;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'CIERRE_CALCULADO',
+    'mensaje', 'El cierre preliminar fue calculado en estado BORRADOR',
+    'datos', jsonb_build_object(
+      'id_cierre', v_id_cierre,
+      'total_gastos', v_total_gastos,
+      'recuperacion_inversion', v_recuperacion,
+      'utilidad_bruta', v_utilidad_bruta,
+      'penalidades', v_penalidades,
+      'utilidad_neta', v_utilidad_neta,
+      'utilidad_final', v_utilidad_final
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CIERRE_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al ejecutar el cierre');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap cm">cierre-mensual</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_recalcular_cierre_mensual</div>
+          <div class="spcaso">Recalcular un cierre existente con nuevos montos; si estaba CERRADO lo reabre.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Vuelve a calcular un cierre ya creado (misma fórmula que <b>fn_ejecutar</b>). Si estaba <b>CERRADO</b>, lo pasa a <b>REABIERTO</b> y limpia <b>fecha_cierre</b>, de modo que se pueda corregir y volver a cerrar.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_recalcular_cierre_mensual(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_contrato UUID,
+  p_id_periodo UUID,
+  p_total_facturado DECIMAL,
+  p_total_produccion DECIMAL,
+  p_gastos_directos DECIMAL,
+  p_gastos_varios_fijos DECIMAL,
+  p_gastos_iniciales_periodo DECIMAL,
+  p_gastos_administrativos DECIMAL,
+  p_gastos_indirectos DECIMAL,
+  p_gastos_financieros DECIMAL,
+  p_gastos_sig DECIMAL,
+  p_impuesto_renta DECIMAL,
+  p_renta_adicional DECIMAL,
+  p_reparto_utilidades DECIMAL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_cierre UUID;
+  v_estado_actual STRING;
+  v_estado_nuevo STRING;
+  v_recuperacion DECIMAL(18,2);
+  v_penalidades DECIMAL(18,2);
+  v_total_gastos DECIMAL(18,2);
+  v_utilidad_bruta DECIMAL(18,2);
+  v_utilidad_neta DECIMAL(18,2);
+  v_utilidad_final DECIMAL(18,2);
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  SELECT id, estado INTO v_id_cierre, v_estado_actual
+  FROM cierre_mensual
+  WHERE id_empresa = p_id_empresa AND id_contrato = p_id_contrato AND id_periodo = p_id_periodo AND eliminado_en IS NULL;
+
+  IF v_id_cierre IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CIERRE_NO_ENCONTRADO', 'mensaje', 'No existe un cierre para recalcular; primero ejecute el cierre');
+  END IF;
+
+  SELECT COALESCE(SUM(importe_recuperado), 0) INTO v_recuperacion
+  FROM recuperacion_inversion_mensual
+  WHERE id_empresa = p_id_empresa AND id_contrato = p_id_contrato AND id_periodo = p_id_periodo;
+
+  SELECT COALESCE(SUM(importe), 0) INTO v_penalidades
+  FROM penalidad
+  WHERE id_empresa = p_id_empresa AND id_contrato = p_id_contrato AND id_periodo = p_id_periodo AND eliminado_en IS NULL;
+
+  v_total_gastos := COALESCE(p_gastos_directos, 0)
+    + COALESCE(p_gastos_varios_fijos, 0);
+
+  v_utilidad_bruta := COALESCE(p_total_facturado, 0) - v_total_gastos;
+
+  v_utilidad_neta := v_utilidad_bruta
+    - v_recuperacion
+    - COALESCE(p_gastos_iniciales_periodo, 0)
+    - COALESCE(p_impuesto_renta, 0)
+    - COALESCE(p_renta_adicional, 0)
+    - COALESCE(p_reparto_utilidades, 0)
+    - COALESCE(p_gastos_administrativos, 0)
+    - COALESCE(p_gastos_indirectos, 0)
+    - COALESCE(p_gastos_financieros, 0)
+    - COALESCE(p_gastos_sig, 0);
+
+  v_utilidad_final := v_utilidad_neta - v_penalidades;
+
+  IF v_estado_actual = 'CERRADO' THEN
+    v_estado_nuevo := 'REABIERTO';
+  ELSE
+    v_estado_nuevo := v_estado_actual;
+  END IF;
+
+  UPDATE cierre_mensual SET
+    total_facturado = COALESCE(p_total_facturado, 0),
+    total_produccion = COALESCE(p_total_produccion, 0),
+    gastos_directos = COALESCE(p_gastos_directos, 0),
+    gastos_varios_fijos = COALESCE(p_gastos_varios_fijos, 0),
+    gastos_iniciales_periodo = COALESCE(p_gastos_iniciales_periodo, 0),
+    recuperacion_inversion = v_recuperacion,
+    gastos_administrativos = COALESCE(p_gastos_administrativos, 0),
+    gastos_indirectos = COALESCE(p_gastos_indirectos, 0),
+    gastos_financieros = COALESCE(p_gastos_financieros, 0),
+    gastos_sig = COALESCE(p_gastos_sig, 0),
+    total_gastos = v_total_gastos,
+    utilidad_bruta = v_utilidad_bruta,
+    impuesto_renta = COALESCE(p_impuesto_renta, 0),
+    renta_adicional = COALESCE(p_renta_adicional, 0),
+    reparto_utilidades = COALESCE(p_reparto_utilidades, 0),
+    penalidades = v_penalidades,
+    utilidad_neta = v_utilidad_neta,
+    utilidad_final = v_utilidad_final,
+    estado = v_estado_nuevo,
+    fecha_cierre = CASE WHEN v_estado_nuevo = 'REABIERTO' THEN NULL ELSE fecha_cierre END,
+    actualizado_en = now(),
+    actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = v_id_cierre;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'CIERRE_RECALCULADO',
+    'mensaje', 'El cierre fue recalculado',
+    'datos', jsonb_build_object(
+      'id_cierre', v_id_cierre,
+      'estado', v_estado_nuevo,
+      'total_gastos', v_total_gastos,
+      'recuperacion_inversion', v_recuperacion,
+      'utilidad_bruta', v_utilidad_bruta,
+      'penalidades', v_penalidades,
+      'utilidad_neta', v_utilidad_neta,
+      'utilidad_final', v_utilidad_final
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CIERRE_RECALCULO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al recalcular el cierre');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap cm">cierre-mensual</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_cerrar_cierre_mensual</div>
+          <div class="spcaso">Cerrar (sellar) el cierre del periodo: BORRADOR/REABIERTO → CERRADO.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Sella el cierre: estado <b>CERRADO</b> con <b>fecha_cierre</b> y <b>cerrado_por_usuario_id</b>. No re-cierra uno ya cerrado; para volver a calcular, <b>fn_recalcular</b> lo reabre (REABIERTO). Es el cierre del ciclo de estados.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_cerrar_cierre_mensual(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_contrato UUID,
+  p_id_periodo UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_cierre UUID;
+  v_estado STRING;
+  v_fecha_cierre TIMESTAMPTZ;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  SELECT id, estado INTO v_id_cierre, v_estado
+  FROM cierre_mensual
+  WHERE id_empresa = p_id_empresa AND id_contrato = p_id_contrato AND id_periodo = p_id_periodo AND eliminado_en IS NULL;
+
+  IF v_id_cierre IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CIERRE_NO_ENCONTRADO', 'mensaje', 'No existe un cierre para cerrar; primero ejecute el cierre del periodo');
+  END IF;
+
+  IF v_estado = 'CERRADO' THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CIERRE_YA_CERRADO', 'mensaje', 'El cierre del periodo ya esta cerrado');
+  END IF;
+
+  UPDATE cierre_mensual SET
+    estado = 'CERRADO',
+    fecha_cierre = now(),
+    cerrado_por_usuario_id = p_id_usuario_accion,
+    actualizado_en = now(),
+    actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = v_id_cierre
+  RETURNING fecha_cierre INTO v_fecha_cierre;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'CIERRE_CERRADO',
+    'mensaje', 'El cierre del periodo fue cerrado',
+    'datos', jsonb_build_object(
+      'id_cierre', v_id_cierre,
+      'estado', 'CERRADO',
+      'fecha_cierre', v_fecha_cierre
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CIERRE_CERRAR_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al cerrar el cierre');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <p class="eyebrow">Cómo se calcula</p>
+    <h2>De dónde sale el cierre (fórmula con números reales)</h2>
+    <p class="lead">El cierre es la hoja <b>RESUMEN</b> de cada contrato. Así se arma, con los números reales de Chiclayo (octubre 2024). Lo nuestro está marcado.</p>
+    <table class="tabla-comp">
+      <thead><tr><th style="width:44%">Línea del cierre</th><th style="width:20%">Chiclayo oct.</th><th>De dónde viene</th></tr></thead>
+      <tbody>
+        <tr><td>Total facturación</td><td class="mono">347,000.00</td><td class="why">G4 · valorización + complementaria − descuentos</td></tr>
+        <tr><td>− Total gastos (servicio + varios fijos)</td><td class="mono">259,574.65</td><td class="why">G3 · gasto del servicio + fijos</td></tr>
+        <tr><td><b>= Utilidad bruta</b></td><td class="mono"><b>87,425.35</b></td><td class="why">facturación − gastos</td></tr>
+        <tr><td>− Recuperación de inversión</td><td class="mono">60,593.43</td><td class="why"><b>Nosotros</b> · suma de cuotas de activos (hoja VARIOS)</td></tr>
+        <tr><td>− Impuesto + renta adicional + reparto</td><td class="mono">10,593.00</td><td class="why">datos del periodo</td></tr>
+        <tr><td>− Gastos admin + indirectos + SIG</td><td class="mono">27,445.44</td><td class="why">G3 · prorrateo</td></tr>
+        <tr><td><b>= Utilidad neta</b></td><td class="mono"><b>−11,206.53</b></td><td class="why">bruta − deducciones</td></tr>
+        <tr><td>+ Penalidades</td><td class="mono">−850.00</td><td class="why"><b>Nosotros</b> · penalidad (negativa)</td></tr>
+        <tr><td><b>= Utilidad final</b></td><td class="mono"><b>−12,056.53</b></td><td class="why">resultado real del contrato</td></tr>
+      </tbody>
+    </table>
+    <p class="lead" style="margin-top:14px;font-size:13px"><b>Lo clave para defender:</b> la <b>recuperación de inversión va entre la utilidad bruta y la neta</b> (no dentro de los gastos del servicio); así lo muestra el Excel. Y <b>Lecturas</b> (un contrato comercial) tiene la misma estructura, lo que prueba que el motor de cierre es general, no exclusivo de obras.</p>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <p class="eyebrow">Límites de capacidad</p>
+    <h2>Qué es nuestro y qué es de otros grupos</h2>
+    <p class="lead">Regla de oro para no confundirse al presentar: el cierre <b>consume</b> datos de otros grupos, pero no los construye. Por eso el manual dice <b>"Grupo 5 depende de 2, 3 y 4"</b>.</p>
+    <table class="tabla-comp">
+      <thead><tr><th style="width:58%">Concepto</th><th>¿De quién?</th></tr></thead>
+      <tbody>
+        <tr><td>empresa · usuario · periodo · roles</td><td>G1 — Gobierno central</td></tr>
+        <tr><td>contrato · zona · porcentajes de distribución</td><td>G2 — Contratos</td></tr>
+        <tr><td>gasto directo · <b>prorrateo</b> (administrativos, indirectos, financieros)</td><td>G3 — Costeo y gastos compartidos</td></tr>
+        <tr><td>producción · facturación / valorización</td><td>G4 — Facturación y rentabilidad</td></tr>
+        <tr><td><b>activos · recuperación · traslado · herramientas · penalidades · provisiones · cierre mensual · resultado del contrato</b></td><td><b>NOSOTROS — Grupo 5</b></td></tr>
+      </tbody>
+    </table>
+    <p class="lead" style="margin-top:14px;font-size:13px">Por eso <b>no</b> construimos un motor de prorrateo (es de G3) ni la tabla de contratos (es de G2): los referenciamos por FK y consumimos sus resultados.</p>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <p class="eyebrow">Defensa</p>
+    <h2>Preguntas que te pueden hacer (y la respuesta)</h2>
+    <p class="lead">Las dudas típicas sobre el porqué de cada decisión. Haz clic en cada una.</p>
+    <div class="defensa">
+
+      <details class="qa"><summary>¿Qué es un activo?</summary><div class="resp">Un bien físico <b>capitalizable</b> (camión, grúa, camioneta, equipo) que la empresa compró como <b>inversión</b> y va <b>recuperando mes a mes</b> mientras trabaja en un contrato. No se confunde con una <b>herramienta menor</b> (taladro, EPP), que no se capitaliza y va como gasto.</div></details>
+
+      <details class="qa"><summary>¿Qué es el cierre mensual?</summary><div class="resp">El <b>resultado económico</b> de un contrato en un mes: si ganó o perdió. No es un reporte, es el <b>evento nuclear</b> que consolida facturación, gastos, recuperación y penalidades en la utilidad final (Informe General, sección 7.9).</div></details>
+
+      <details class="qa"><summary>¿Por qué una plataforma componible y no un ERP?</summary><div class="resp">Porque se modela por el <b>comportamiento real del negocio</b> (capacidades), no por áreas administrativas (logística, RR.HH., contabilidad). El <b>contrato</b> es la raíz; de él nacen todas las operaciones.</div></details>
+
+      <details class="qa"><summary>¿Por qué <span class="mono">id_empresa</span> y no <span class="mono">empresa_id</span>?</summary><div class="resp">Para <b>alinearnos con Gobierno Central</b>, que ya reformó <span class="mono">empresa</span> y <span class="mono">periodo</span> con prefijo <span class="mono">id_</span>. El lenguaje ubicuo no se traiciona: misma convención en todo el equipo.</div></details>
+
+      <details class="qa"><summary>¿Por qué las tablas en singular (<span class="mono">activo</span>, no <span class="mono">activos</span>)?</summary><div class="resp">La tabla <b>representa la entidad</b>; su nombre ya da el contexto. Es la convención DDD del proyecto (igual que <span class="mono">empresa</span>, <span class="mono">periodo</span>).</div></details>
+
+      <details class="qa"><summary>¿Por qué <span class="mono">eliminado_en</span> y no <span class="mono">estado = 'ELIMINADO'</span>?</summary><div class="resp">El <b>borrado lógico</b> va por marca de tiempo (<span class="mono">eliminado_en</span>, NULL = activo). El <span class="mono">estado</span> se reserva para el <b>ciclo de negocio</b> (ACTIVO, PARADO, EN_TRASLADO, BAJA). Es la convención que usa <span class="mono">empresa</span>.</div></details>
+
+      <details class="qa"><summary>¿Por qué 6 campos de auditoría en cada tabla y no una tabla de auditoría?</summary><div class="resp">El equipo decidió <b>auditoría inline</b>: <span class="mono">creado/actualizado/eliminado_en</span> + su <span class="mono">_por_usuario_id</span>. Cada fila sabe <b>quién</b> la creó, modificó o borró y <b>cuándo</b>, sin joins.</div></details>
+
+      <details class="qa"><summary>¿Por qué todo pasa por procedimientos y no SQL directo?</summary><div class="resp">Regla del proyecto: <b>todo acceso de negocio a la BD pasa por procedimientos</b>. Centraliza las reglas, valida el tenant y la auditoría en un solo lugar; el backend nunca mete SQL suelto.</div></details>
+
+      <details class="qa"><summary>¿Por qué el retorno JSONB <span class="mono">{exito, codigo, mensaje, datos}</span>?</summary><div class="resp">Es el <b>molde del equipo</b> (su <span class="mono">fn_crear_empresa</span>). Da una respuesta uniforme que el backend interpreta igual para todos los procedimientos.</div></details>
+
+      <details class="qa"><summary>¿No falta una tabla <span class="mono">vehiculos</span>?</summary><div class="resp">No. Un vehículo <b>ES</b> un activo (clasificación CAMION/GRUA/CAMIONETA). La placa, marca y kilometraje ya están en <span class="mono">activo</span> y <span class="mono">activo_registro_trabajo</span>. Separarlo fragmentaría la lógica de recuperación y cierre.</div></details>
+
+      <details class="qa"><summary>¿El motor de prorrateo es de ustedes?</summary><div class="resp">No. El prorrateo de gastos administrativos, indirectos y financieros es del <b>Grupo 3</b> (costeo y gastos compartidos). Nosotros solo <b>consumimos su resultado</b> en el cierre (llega por parámetro).</div></details>
+
+      <details class="qa"><summary>¿De dónde sale la recuperación y por qué va entre bruta y neta?</summary><div class="resp">De la hoja <b>VARIOS</b> del Excel: cada activo recupera una cuota mensual. Va <b>entre la utilidad bruta y la neta</b> porque así lo muestra la hoja RESUMEN; no es un gasto del servicio.</div></details>
+
+      <details class="qa"><summary>¿Por qué "activo parado no recupera"?</summary><div class="resp">Regla del negocio: si el activo <b>no trabajó</b> ese mes, no recupera inversión (importe 0). La recuperación sigue una lógica operacional, no contable lineal (Informe General).</div></details>
+
+      <details class="qa"><summary>¿Qué es "traslado con saldo"?</summary><div class="resp">Cuando un activo se mueve a otro contrato, <b>se lleva su saldo de inversión pendiente</b>. El Excel lo prueba: una camioneta recuperada en Cajamarca y Emergencias, con "saldo a recuperar en Chiclayo".</div></details>
+
+      <details class="qa"><summary>¿Por qué UUID y no un id autoincremental?</summary><div class="resp">CockroachDB es <b>distribuido</b>; <span class="mono">gen_random_uuid()</span> reparte las escrituras entre nodos sin puntos calientes, ideal para multi-tenant a escala.</div></details>
+
+      <details class="qa"><summary>¿De quién dependen para terminar?</summary><div class="resp">De <b>G2</b> (contrato), <b>G3</b> (gastos y prorrateo) y <b>G4</b> (producción y facturación). El cierre consume todo eso, por eso Grupo 5 es el <b>último eslabón</b> de la cadena.</div></details>
+
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p><b>Fuentes:</b> Informe General SESGA REYSER, contratos en Excel (Chiclayo, Trujillo, Osinerming, Libertad Norte, Lecturas), DDL v5 CockroachDB y convenciones DDD del proyecto. <b>Alcance:</b> Grupo 5 — capacidades activos-e-inversion y cierre-mensual. Documento de trabajo local.</p>
+  </div>
+</footer>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({startOnLoad:true,securityLevel:'loose',theme:'base',themeVariables:{fontFamily:'Segoe UI, sans-serif',fontSize:'14px',lineColor:'#8b93a7',primaryColor:'#ffffff',primaryBorderColor:'#cdd2e8',primaryTextColor:'#181b27'},flowchart:{htmlLabels:true,curve:'basis',nodeSpacing:42,rankSpacing:60}});
+</script>
+<script>
+  window.addEventListener('load',function(){
+    document.querySelectorAll('.dgrm').forEach(function(d){
+      var s=d.querySelector('.dgrm-scale'),k=1,ap=function(){s.style.transform='scale('+k+')';};
+      d.querySelector('[data-z=out]').addEventListener('click',function(){k=Math.max(k-0.2,0.4);ap();});
+      d.querySelector('[data-z=in]').addEventListener('click',function(){k=Math.min(k+0.2,3);ap();});
+      d.querySelector('[data-z=reset]').addEventListener('click',function(){k=1;ap();});
+      d.querySelector('[data-z=full]').addEventListener('click',function(){d.classList.toggle('full');});
+    });
+    document.addEventListener('keydown',function(e){if(e.key==='Escape'){document.querySelectorAll('.dgrm.full').forEach(function(d){d.classList.remove('full');});}});
+  });
+</script>
+<!-- TOOLTIPS-LINEA-SQL-INICIO -->
+<style>
+  pre.sql .linea-sql{display:inline;position:relative;border-radius:3px}
+  pre.sql .linea-sql[data-tip]:hover{background:rgba(196,181,253,.14);cursor:help}
+  pre.sql .linea-sql[data-tip]:hover::after{
+    content:attr(data-tip);position:absolute;left:0;top:1.8em;z-index:65;
+    width:340px;white-space:normal;background:#fff;color:#181b27;
+    border:1px solid var(--line);border-left:3px solid #8b5cf6;border-radius:10px;
+    padding:9px 12px;font:400 12px/1.5 "Segoe UI",sans-serif;box-shadow:var(--shadow-lg)}
+  pre.sql .linea-sql[data-tip]:has(.c:hover)::after{content:none}
+  .sp-body pre.sql{overflow:visible;white-space:pre-wrap;word-break:break-word}
+</style>
+<script>
+(function () {
+  function textoDe(html){ var d=document.createElement('div'); d.innerHTML=html; return d.textContent; }
+  function entreParens(t){ var m=t.match(/\(([^)]*)\)/); return m?m[1].trim():''; }
+
+  function explicarTipoInline(t){
+    var col=(t.match(/^([a-z_]+)\s+/)||[])[1];
+    if(!col) return '';
+    if(/^[pv]_/.test(col)) return '';
+    var ob=/NOT NULL/.test(t)?' Obligatorio.':' Opcional.';
+    if(/DECIMAL\(18,\s*2\)/.test(t)) return 'Monto «'+col+'» (hasta 18 dígitos, 2 decimales).'+ob;
+    if(/DECIMAL/.test(t)) return 'Valor decimal «'+col+'».'+ob;
+    if(/\bINT2\b/.test(t)) return 'Número entero corto «'+col+'» (p. ej. año).'+ob;
+    if(/\bINT\b/.test(t)) return 'Número entero «'+col+'».'+ob;
+    if(/TIMESTAMPTZ/.test(t)) return 'Fecha y hora con zona «'+col+'».'+ob;
+    if(/\bDATE\b/.test(t)) return 'Fecha «'+col+'».'+ob;
+    if(/\bBOOL\b/.test(t)) return 'Sí/No (booleano) «'+col+'».'+ob;
+    if(/\bSTRING\b/.test(t)) return 'Texto «'+col+'».'+ob;
+    if(/\bUUID\b/.test(t)) return 'Identificador «'+col+'».'+ob;
+    return '';
+  }
+
+  function explicar(raw){
+    var t=raw.trim(), m;
+    if(t==='') return '';
+
+    if(m=t.match(/^CREATE TABLE\s+([a-z_]+)/i)) return 'Crea la tabla «'+m[1]+'» (entidad del dominio).';
+    if(/^\)\s*;?\s*$/.test(t)) return 'Cierra la definición de la tabla.';
+    if(/^\$\$\s*;?\s*$/.test(t)) return 'Delimitador del cuerpo del procedimiento.';
+    if(/PRIMARY KEY/.test(t)&&/gen_random_uuid/.test(t)) return 'Clave primaria: identificador único (UUID) generado automáticamente.';
+
+    if(/^id_empresa\b/.test(t)) return 'Tenant (multiempresa): empresa dueña del registro. Obligatorio y amarrado por llave foránea a «empresa».';
+    if(/^id_contrato_origen\b/.test(t)) return 'Contrato de origen del movimiento (llave foránea a «contrato»).';
+    if(/^id_contrato_destino\b/.test(t)) return 'Contrato de destino del movimiento (llave foránea a «contrato»).';
+    if(/^id_contrato\b/.test(t)) return 'Referencia al contrato (llave foránea).';
+    if(/^id_periodo\b/.test(t)) return 'Referencia al periodo / corte mensual (llave foránea).';
+    if(/^id_zona_origen\b/.test(t)) return 'Zona o sede de origen (llave foránea).';
+    if(/^id_zona_destino\b/.test(t)) return 'Zona o sede de destino (llave foránea).';
+    if(/^id_zona\b/.test(t)) return 'Referencia a la zona o sede (llave foránea).';
+    if(/^id_activo\b/.test(t)) return 'Referencia al activo (llave foránea).';
+    if(/^id_herramienta\b/.test(t)) return 'Referencia a la herramienta (llave foránea).';
+    if(/^id_operario\b/.test(t)) return 'Operario que ejecutó la acción (llave foránea).';
+    if(/^id_clasificacion_activo\b/.test(t)) return 'Clasificación del activo; define si es capitalizable (llave foránea).';
+    if(/^id_tipo_adquisicion_activo\b/.test(t)) return 'Forma de adquisición del activo (llave foránea).';
+    if(/^id_tipo_herramienta\b/.test(t)) return 'Tipo de herramienta (llave foránea).';
+    if(/^id_[a-z_]+\b/.test(t)){ var c=t.match(/^(id_[a-z_]+)/)[1]; return 'Referencia (llave foránea): '+c+'.'; }
+
+    if(/^creado_en\b/.test(t)) return 'Auditoría: fecha y hora de creación (automática).';
+    if(/^actualizado_en\b/.test(t)) return 'Auditoría: fecha y hora de la última modificación.';
+    if(/^eliminado_en\b/.test(t)) return 'Auditoría / borrado lógico: si tiene valor, el registro está dado de baja; NULL = activo.';
+    if(/^creado_por_usuario_id\b/.test(t)) return 'Auditoría: usuario que creó el registro.';
+    if(/^actualizado_por_usuario_id\b/.test(t)) return 'Auditoría: usuario de la última modificación.';
+    if(/^eliminado_por_usuario_id\b/.test(t)) return 'Auditoría: usuario que ejecutó el borrado lógico.';
+    if(/^cerrado_por_usuario_id\b/.test(t)) return 'Usuario que cerró el periodo.';
+
+    if(/^estado\s+STRING/.test(t)){
+      var d=t.match(/DEFAULT\s+'([^']+)'/), inn=t.match(/CHECK\s*\(\s*estado\s+IN\s*\(([^)]*)\)/i);
+      return 'Estado / ciclo de vida'+(d?(' (por defecto «'+d[1]+'»)'):'')+(inn?('. Solo puede ser: '+inn[1].replace(/'/g,'').trim()):'')+'.';
+    }
+
+    if(m=t.match(/^CONSTRAINT\s+ck_[a-z_]+\s+CHECK\s*\(\s*estado\s+IN\s*\(([^)]*)\)/i)) return 'Validación: el estado solo puede ser uno de: '+m[1].replace(/'/g,'').trim()+'.';
+    if(m=t.match(/^CONSTRAINT\s+ck_[a-z_]+\s+CHECK\s*\(([a-z_]+)\s*>=\s*0\)/i)) return 'Validación: «'+m[1]+'» no puede ser negativo.';
+    if(m=t.match(/^CONSTRAINT\s+ck_[a-z_]+\s+CHECK\s*\(([a-z_]+)\s*>\s*0\)/i)) return 'Validación: «'+m[1]+'» debe ser mayor que 0.';
+    if(m=t.match(/^CONSTRAINT\s+ck_[a-z_]+\s+CHECK\s*\(([a-z_]+)\s*>=\s*([a-z_]+)\)/i)) return 'Validación de coherencia: «'+m[1]+'» debe ser mayor o igual que «'+m[2]+'».';
+    if(/^CONSTRAINT\s+ck_[a-z_]+\s+CHECK/i.test(t)) return 'Validación (CHECK): '+entreParens(t)+'.';
+    if(m=t.match(/^CONSTRAINT\s+uq_[a-z_]+\s+UNIQUE\s*\(([^)]*)\)/i)) return 'Unicidad: no se permite repetir la combinación ('+m[1].trim()+').';
+
+    if(m=t.match(/ADD CONSTRAINT\s+fk_[a-z_]+\s+FOREIGN KEY\s*\(([a-z_]+)\)\s+REFERENCES\s+([a-z_]+)/i)) return 'Llave foránea: «'+m[1]+'» debe existir en «'+m[2]+'»'+(/ON DELETE RESTRICT/i.test(t)?'. RESTRICT impide borrar el «'+m[2]+'» si tiene hijos.':'.');
+    if(/^ALTER TABLE/i.test(t)) return 'Define una restricción de la tabla (declarada aparte del CREATE).';
+
+    if(/REFERENCES\s+[a-z_]+\s*\(\s*id\s*\)/i.test(t)&&/^[a-z_]+\s+UUID/i.test(t)){
+      var col=t.match(/^([a-z_]+)/)[1], tgt=t.match(/REFERENCES\s+([a-z_]+)/i)[1];
+      return 'Columna «'+col+'»: llave foránea a «'+tgt+'»'+(/ON DELETE RESTRICT/i.test(t)?' (RESTRICT: no deja borrar el padre si tiene hijos)':'')+'.';
+    }
+
+    var ti=explicarTipoInline(t);
+    if(ti) return ti;
+
+    if(m=t.match(/^CREATE OR REPLACE FUNCTION\s+([a-z_]+)/i)) return 'Define el procedimiento almacenado «'+m[1]+'».';
+    if(/^p_[a-z_]+/.test(t)){ var pn=t.match(/^(p_[a-z_]+)/)[1]; return 'Parámetro de entrada: «'+pn+'».'; }
+    if(/RETURNS JSONB/i.test(t)) return 'Devuelve un JSON con el resultado: {exito, codigo_error, mensaje, datos}.';
+    if(/LANGUAGE plpgsql/i.test(t)) return 'Lenguaje del procedimiento: PL/pgSQL.';
+    if(/^AS\s*\$\$/.test(t)) return 'Inicio del cuerpo del procedimiento.';
+    if(/^DECLARE\b/.test(t)) return 'Zona de declaración de variables locales.';
+    if(/^v_[a-z_]+/.test(t)){ var vn=t.match(/^(v_[a-z_]+)/)[1]; return 'Variable local: «'+vn+'».'; }
+    if(/^BEGIN\b/.test(t)) return 'Inicio de la lógica del procedimiento.';
+    if(/^END IF\s*;?/.test(t)) return 'Fin del condicional.';
+    if(/^END\s*;?\s*$/.test(t)) return 'Fin de la lógica del procedimiento.';
+    if(/^IF\s+NOT EXISTS/i.test(t)) return 'Valida que exista un registro requerido; si no existe, corta y devuelve error.';
+    if(/^IF\s+EXISTS/i.test(t)) return 'Valida que NO exista ya (evita duplicados); si existe, corta.';
+    if(/IS NULL\b/i.test(t)&&/THEN\s*$/i.test(t)) return 'Si el dato vino vacío (NULL) o no se encontró, corta y devuelve error.';
+    if(/^IF\b/.test(t)) return 'Condición / validación de negocio.';
+    if(/RETURN jsonb_build_object\(\s*'exito'\s*,\s*false/i.test(t)) return 'Devuelve un error controlado (no pasó una validación de negocio).';
+    if(/RETURN jsonb_build_object\(\s*'exito'\s*,\s*true/i.test(t)) return 'Devuelve éxito, con los datos del resultado.';
+    if(/^RETURN\b/.test(t)) return 'Devuelve el resultado y termina el procedimiento.';
+    if(m=t.match(/^INSERT INTO\s+([a-z_]+)/i)) return 'Inserta un registro en «'+m[1]+'».';
+    if(/^VALUES\b/.test(t)) return 'Valores que se insertan.';
+    if(m=t.match(/^UPDATE\s+([a-z_]+)/i)) return 'Actualiza registros de «'+m[1]+'».';
+    if(/^SET\b/.test(t)) return 'Campos que se actualizan.';
+    if(/^SELECT\b/.test(t)&&/INTO\b/i.test(t)) return 'Lee datos de la BD y los guarda en variables locales.';
+    if(/^SELECT\b/.test(t)) return 'Consulta de lectura.';
+    if(/RETURNING\s+id\s+INTO/i.test(t)) return 'Captura el id recién generado en una variable.';
+    if(/ON CONFLICT/i.test(t)) return 'Si ya existe (misma clave), en vez de fallar actualiza el registro (upsert).';
+    if(/^EXCEPTION\b/.test(t)) return 'Bloque de manejo de errores.';
+    if(/WHEN unique_violation/i.test(t)) return 'Si se viola una restricción de unicidad...';
+    if(/WHEN OTHERS/i.test(t)) return 'Para cualquier otro error no previsto...';
+    if(/^FROM\b/.test(t)) return 'Tabla de la que se leen los datos.';
+    if(/^WHERE\b/.test(t)) return 'Condición de filtrado de los registros.';
+    if(/COALESCE/i.test(t)) return 'Usa 0 cuando el valor viene vacío (evita nulos en las sumas).';
+    if(/LEAST\s*\(/i.test(t)) return 'Toma el menor de los valores (no recupera más que el saldo pendiente).';
+    if(/^CREATE\s+(UNIQUE\s+)?INDEX/i.test(t)){ var u=/UNIQUE/i.test(t); return (u?'Índice ÚNICO':'Índice')+(u?' — no permite duplicados.':' — acelera las búsquedas.'); }
+
+    return 'Continúa la sentencia de la línea anterior.';
+  }
+
+  document.querySelectorAll('pre.sql').forEach(function (pre){
+    var lineas=pre.innerHTML.split('\n');
+    pre.innerHTML=lineas.map(function(lineaHTML){
+      var tip=explicar(textoDe(lineaHTML));
+      if(!tip) return lineaHTML;
+      return '<span class="linea-sql" data-tip="'+tip.replace(/"/g,'&quot;')+'">'+lineaHTML+'</span>';
+    }).join('\n');
+  });
+})();
+</script>
+<!-- TOOLTIPS-LINEA-SQL-FIN -->
+
+</body>
+</html>
