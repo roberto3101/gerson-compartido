@@ -672,7 +672,7 @@ CREATE TABLE activo (
   <span class="c" data-tip="Usuario de la última modificación (auditoría).">actualizado_por_usuario_id</span> UUID,
   <span class="c" data-tip="Borrado lógico: con valor = eliminado; NULL = activo.">eliminado_en</span> TIMESTAMPTZ,
   <span class="c" data-tip="Usuario que ejecutó el borrado lógico.">eliminado_por_usuario_id</span> UUID,
-  CONSTRAINT ck_activo_costo_adquisicion CHECK (costo_adquisicion &gt;= 0),
+  CONSTRAINT ck_activo_costo_adquisicion CHECK (costo_adquisicion &gt; 0),
   CONSTRAINT ck_activo_tiempo_vida_meses CHECK (tiempo_vida_meses &gt; 0),
   CONSTRAINT ck_activo_depreciacion_mensual CHECK (depreciacion_mensual &gt;= 0),
   CONSTRAINT ck_activo_importe_base_recuperable CHECK (importe_base_recuperable &gt;= 0),
@@ -1043,8 +1043,8 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'DESCRIPCION_OBLIGATORIA', 'mensaje', 'La descripcion del activo es obligatoria');
   END IF;
 
-  IF p_costo_adquisicion IS NULL THEN
-    RETURN jsonb_build_object('exito', false, 'codigo_error', 'COSTO_OBLIGATORIO', 'mensaje', 'El costo de adquisicion es obligatorio');
+  IF p_costo_adquisicion IS NULL OR p_costo_adquisicion &lt;= 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'COSTO_INVALIDO', 'mensaje', 'El costo de adquisicion debe ser mayor a 0');
   END IF;
 
   IF NOT EXISTS (
