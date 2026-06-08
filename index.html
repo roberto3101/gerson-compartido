@@ -1133,6 +1133,13 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_DISPONIBLE', 'mensaje', 'El activo no existe, no pertenece a la empresa o esta dado de baja');
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1 FROM contrato
+    WHERE id = p_id_contrato AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_NO_VALIDO', 'mensaje', 'El contrato no existe, no pertenece a la empresa o no esta vigente');
+  END IF;
+
   IF EXISTS (
     SELECT 1 FROM activo_asignacion_contrato
     WHERE id_activo = p_id_activo AND id_contrato = p_id_contrato AND eliminado_en IS NULL AND estado = 'ACTIVO'
@@ -1142,6 +1149,13 @@ BEGIN
 
   IF p_id_zona IS NULL THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ZONA_OBLIGATORIA', 'mensaje', 'La zona es obligatoria para asignar el activo al contrato');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM zona
+    WHERE id = p_id_zona AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ZONA_NO_VALIDA', 'mensaje', 'La zona no existe, no pertenece a la empresa o no esta vigente');
   END IF;
 
   INSERT INTO activo_asignacion_contrato (
