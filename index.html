@@ -1759,7 +1759,7 @@ $$;</pre>
         <div class="sp-body">
           <p class="h">Por qué</p>
           <p>Es el evento nuclear. Suma la <b>recuperación</b> y las <b>penalidades</b> desde nuestras tablas, y recibe facturación/gastos (G3-G4) <b>por parámetro</b> mientras esas tablas no existan. Es <b>idempotente</b> (UPSERT por contrato+periodo): re-ejecutar recalcula mientras no esté CERRADO.</p>
-          <div class="sp-note"><b>Fórmula por confirmar con Gerson:</b> ubicación de la recuperación dentro de <b>total_gastos</b>, signo de las penalidades (aquí <b>utilidad_final = utilidad_neta − penalidades</b>) y dónde entran las provisiones.</div>
+          <div class="sp-note"><b>Fórmula verificada contra el Excel real (RESUMEN · Contrato Chiclayo):</b> <b>total_gastos</b> = gastos del servicio + varios fijos; la <b>recuperación</b> se descuenta entre la utilidad bruta y la neta; las penalidades se guardan positivas y se restan (<b>utilidad_final = utilidad_neta − penalidades</b>). Reproduce la hoja al centavo (oct-2024: bruta 87 425.35, neta −11 206.53, final −12 056.53).</div>
           <pre class="sql">CREATE OR REPLACE FUNCTION fn_ejecutar_cierre_mensual(
   p_id_empresa UUID,
   p_id_usuario_accion UUID,
