@@ -2090,6 +2090,89 @@ $$;</pre>
 
 <section style="padding-top:0">
   <div class="wrap">
+    <p class="eyebrow">Flujo de las capacidades</p>
+    <h2>Del activo al resultado del contrato</h2>
+    <p class="lead">La historia completa en cuatro fases: se registra el activo y su inversión, opera y recupera mes a mes, se ajusta el periodo con penalidades y provisiones, y el cierre consolida todo en la utilidad final. Cada flecha es un procedimiento real de la base de datos.</p>
+    <div class="legend" style="margin-bottom:18px">
+      <span class="item"><span class="dot" style="background:#fce7f3;border:1px solid #be185d"></span>Procedimiento (fn_)</span>
+      <span class="item"><span class="dot d-raiz"></span>Raíz de Agregado</span>
+      <span class="item"><span class="dot d-entidad"></span>Entidad</span>
+      <span class="item"><span class="dot d-evento"></span>Evento</span>
+      <span class="item"><span class="dot" style="background:#fff8ec;border:1px solid #b45309"></span>Estado del cierre</span>
+      <span class="item"><span class="dot" style="background:#9aa3b8"></span>Otra capacidad</span>
+    </div>
+
+    <div class="dgrm">
+      <div class="dgrm-bar">
+        <span class="ttl">flujo activos-e-inversion → cierre-mensual</span><span class="cap">4 fases · 13 procedimientos</span>
+        <span class="ctrls">
+          <button data-z="out" title="Reducir">−</button>
+          <button data-z="in" title="Ampliar">+</button>
+          <button data-z="reset" title="Restablecer">Reset</button>
+          <button data-z="full" title="Pantalla completa">Expandir</button>
+        </span>
+      </div>
+      <div class="dgrm-view"><div class="dgrm-scale"><pre class="mermaid">
+graph TD
+classDef raiz fill:#ede9fe,stroke:#6d28d9,stroke-width:2px,color:#181b27;
+classDef entidad fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px,color:#181b27;
+classDef evento fill:#fdecc8,stroke:#b45309,stroke-width:2px,color:#181b27;
+classDef catalogo fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#181b27;
+classDef ext fill:#eef0f4,stroke:#9aa3b8,stroke-width:1px,color:#5b6478,stroke-dasharray:4 3;
+classDef fn fill:#fce7f3,stroke:#be185d,stroke-width:2px,color:#181b27;
+classDef estado fill:#fff8ec,stroke:#b45309,stroke-width:2px,color:#92651a;
+g2["contrato y zona del G2"]:::ext
+g34["facturación, producción y gastos de G3 y G4"]:::ext
+subgraph F1["1 · Alta e inversión"]
+  cats["catálogos: clasificación y tipo de adquisición"]:::catalogo --> fnReg(["fn_registrar_activo"]):::fn
+  fnReg --> activo["activo"]:::raiz
+  activo --> fnAsig(["fn_asignar_activo_a_contrato"]):::fn
+  fnAsig --> asig["activo_asignacion_contrato: inversión, saldo y cuota"]:::entidad
+end
+g2 --> fnAsig
+subgraph F2["2 · Operación del mes"]
+  fnTrab(["fn_registrar_trabajo_activo"]):::fn --> trab["activo_registro_trabajo: horas y km"]:::entidad
+  fnRecu(["fn_ejecutar_recuperacion_mensual"]):::fn --> recup["recuperacion_inversion_mensual"]:::evento
+  fnTras(["fn_registrar_traslado_activo"]):::fn --> tras["activo_traslado"]:::evento
+  fnHerr(["fn_registrar_herramienta y fn_mover_herramienta"]):::fn --> hmov["herramienta y sus movimientos"]:::evento
+end
+asig --> fnTrab
+asig --> fnRecu
+asig --> fnTras
+recup -. parado no recupera y descuenta el saldo .-> asig
+tras -. cierra el origen y abre el destino con el saldo .-> asig
+subgraph F3["3 · Ajustes del periodo"]
+  fnPen(["fn_registrar_penalidad"]):::fn --> pen["penalidad"]:::entidad
+  fnProv(["fn_registrar_provision"]):::fn --> prov["provision"]:::entidad
+end
+subgraph F4["4 · Cierre mensual del contrato"]
+  fnCierre(["fn_ejecutar_cierre_mensual"]):::fn --> cierre["cierre_mensual: bruta, neta y final"]:::raiz
+  cierre --> borr(["BORRADOR"]):::estado
+  borr --> fnCerrar(["fn_cerrar_cierre_mensual"]):::fn
+  fnCerrar --> cerr(["CERRADO con fecha y usuario"]):::estado
+  cerr --> fnRecal(["fn_recalcular_cierre_mensual"]):::fn
+  fnRecal --> reab(["REABIERTO"]):::estado
+  reab --> fnCerrar
+  cierre --> fnRes(["fn_consultar_resultado_contrato"]):::fn
+end
+g34 --> fnCierre
+recup == suma de la recuperación ==> fnCierre
+pen == suma de penalidades ==> fnCierre
+fnRes --> res(["resultado económico del contrato"]):::raiz
+</pre></div></div>
+    </div>
+
+    <ol style="margin:16px 0 0;padding-left:22px;font-size:14.5px;line-height:1.75;color:var(--ink)">
+      <li><b>Alta e inversión:</b> se registra el <b>activo</b> (costo &gt; 0, vida útil, depreciación) y se asigna a un <b>contrato y zona</b> vigentes, abriendo su <b>inversión, saldo pendiente y cuota mensual</b>.</li>
+      <li><b>Operación del mes:</b> el activo trabaja (<b>bitácora</b> de horas y kilometraje) y cada mes recupera <b>la cuota o lo que quede de saldo</b>; si estuvo <b>parado no recupera</b>. Si cambia de contrato, el <b>traslado lleva el saldo</b> consigo. Las herramientas se gestionan como gasto operativo con trazabilidad de movimientos.</li>
+      <li><b>Ajustes del periodo:</b> se registran <b>penalidades</b> (impactan la utilidad final) y <b>provisiones</b> del contrato.</li>
+      <li><b>Cierre:</b> <b>fn_ejecutar_cierre_mensual</b> suma de nuestras tablas la recuperación y las penalidades, recibe facturación, producción y gastos de G3 y G4, y calcula <b>total de gastos → utilidad bruta → neta → final</b> en estado <b>BORRADOR</b>. <b>fn_cerrar</b> lo sella en <b>CERRADO</b> (fecha y usuario) y <b>fn_recalcular</b> lo <b>reabre</b> si hay correcciones. <b>fn_consultar_resultado_contrato</b> entrega el resultado económico: ¿el contrato ganó o perdió este mes?</li>
+    </ol>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
     <p class="eyebrow">Cómo se calcula</p>
     <h2>De dónde sale el cierre (fórmula con números reales)</h2>
     <p class="lead">El cierre es la hoja <b>RESUMEN</b> de cada contrato. Así se arma, con los números reales de Chiclayo (octubre 2024). Lo nuestro está marcado.</p>
