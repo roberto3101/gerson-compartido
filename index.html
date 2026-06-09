@@ -2124,7 +2124,7 @@ classDef estado fill:#fff8ec,stroke:#b45309,stroke-width:2px,color:#92651a;
 g2["contrato y zona del G2"]:::ext
 g34["facturación, producción y gastos de G3 y G4"]:::ext
 subgraph F1["1 · Alta e inversión"]
-  cats["catálogos: clasificación y tipo de adquisición"]:::catalogo --> fnReg(["fn_registrar_activo"]):::fn
+  cats["catálogos: clasificación, adquisición y tipo de herramienta"]:::catalogo --> fnReg(["fn_registrar_activo"]):::fn
   fnReg --> activo["activo"]:::raiz
   activo --> fnAsig(["fn_asignar_activo_a_contrato"]):::fn
   fnAsig --> asig["activo_asignacion_contrato: inversión, saldo y cuota"]:::entidad
@@ -2134,8 +2134,10 @@ subgraph F2["2 · Operación del mes"]
   fnTrab(["fn_registrar_trabajo_activo"]):::fn --> trab["activo_registro_trabajo: horas y km"]:::entidad
   fnRecu(["fn_ejecutar_recuperacion_mensual"]):::fn --> recup["recuperacion_inversion_mensual"]:::evento
   fnTras(["fn_registrar_traslado_activo"]):::fn --> tras["activo_traslado"]:::evento
-  fnHerr(["fn_registrar_herramienta y fn_mover_herramienta"]):::fn --> hmov["herramienta y sus movimientos"]:::evento
+  fnHerr(["fn_registrar_herramienta y fn_mover_herramienta"]):::fn --> hmov["herramienta_movimiento: ENTRADA, SALIDA, TRASLADO y BAJA entre contrato y zona"]:::evento
 end
+cats --> fnHerr
+g2 --> fnHerr
 asig --> fnTrab
 asig --> fnRecu
 asig --> fnTras
