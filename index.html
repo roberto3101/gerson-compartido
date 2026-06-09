@@ -754,7 +754,6 @@ ALTER TABLE activo_registro_trabajo ADD CONSTRAINT fk_activo_registro_trabajo_em
 ALTER TABLE activo_registro_trabajo ADD CONSTRAINT fk_activo_registro_trabajo_activo FOREIGN KEY (id_activo) REFERENCES activo (id) ON DELETE RESTRICT;
 ALTER TABLE activo_registro_trabajo ADD CONSTRAINT fk_activo_registro_trabajo_contrato FOREIGN KEY (id_contrato) REFERENCES contrato (id) ON DELETE RESTRICT;
 ALTER TABLE activo_registro_trabajo ADD CONSTRAINT fk_activo_registro_trabajo_zona FOREIGN KEY (id_zona) REFERENCES zona (id) ON DELETE RESTRICT;
-ALTER TABLE activo_registro_trabajo ADD CONSTRAINT fk_activo_registro_trabajo_operario FOREIGN KEY (id_operario) REFERENCES operario (id) ON DELETE RESTRICT;
 ALTER TABLE activo_registro_trabajo ADD CONSTRAINT fk_activo_registro_trabajo_periodo FOREIGN KEY (id_periodo) REFERENCES periodo (id) ON DELETE RESTRICT;
 ALTER TABLE activo_registro_trabajo ADD CONSTRAINT fk_activo_registro_trabajo_creado_por FOREIGN KEY (creado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
 ALTER TABLE activo_registro_trabajo ADD CONSTRAINT fk_activo_registro_trabajo_actualizado_por FOREIGN KEY (actualizado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
@@ -881,13 +880,14 @@ ALTER TABLE herramienta_movimiento ADD CONSTRAINT fk_herramienta_movimiento_crea
   <span class="c" data-tip="Contrato penalizado.">id_contrato</span> UUID NOT NULL,
   <span class="c" data-tip="Periodo mensual de la penalidad.">id_periodo</span> UUID NOT NULL,
   <span class="c" data-tip="Motivo de la penalidad.">descripcion</span> STRING,
-  <span class="c" data-tip="Importe de la penalidad. Impacta directamente la utilidad final. Signo (+/-) por confirmar con cierre.">importe</span> DECIMAL(18,2) NOT NULL,
+  <span class="c" data-tip="Importe de la penalidad (mayor a 0); se resta en la utilidad final del cierre.">importe</span> DECIMAL(18,2) NOT NULL,
   <span class="c" data-tip="Fecha y hora de creación (auditoría).">creado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
   <span class="c" data-tip="Usuario que creó el registro (auditoría).">creado_por_usuario_id</span> UUID,
   <span class="c" data-tip="Fecha y hora de la última modificación (auditoría).">actualizado_en</span> TIMESTAMPTZ NOT NULL DEFAULT now(),
   <span class="c" data-tip="Usuario de la última modificación (auditoría).">actualizado_por_usuario_id</span> UUID,
   <span class="c" data-tip="Borrado lógico: con valor = eliminado; NULL = activo.">eliminado_en</span> TIMESTAMPTZ,
-  <span class="c" data-tip="Usuario que ejecutó el borrado lógico.">eliminado_por_usuario_id</span> UUID
+  <span class="c" data-tip="Usuario que ejecutó el borrado lógico.">eliminado_por_usuario_id</span> UUID,
+  CONSTRAINT ck_penalidad_importe CHECK (importe &gt; 0)
 );
 
 ALTER TABLE penalidad ADD CONSTRAINT fk_penalidad_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id) ON DELETE RESTRICT;
@@ -911,7 +911,7 @@ CREATE TABLE provision (
   <span class="c" data-tip="Usuario de la última modificación (auditoría).">actualizado_por_usuario_id</span> UUID,
   <span class="c" data-tip="Borrado lógico: con valor = eliminado; NULL = activo.">eliminado_en</span> TIMESTAMPTZ,
   <span class="c" data-tip="Usuario que ejecutó el borrado lógico.">eliminado_por_usuario_id</span> UUID,
-  CONSTRAINT ck_provision_importe CHECK (importe &gt;= 0)
+  CONSTRAINT ck_provision_importe CHECK (importe &gt; 0)
 );
 
 ALTER TABLE provision ADD CONSTRAINT fk_provision_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id) ON DELETE RESTRICT;
@@ -989,9 +989,9 @@ ALTER TABLE cierre_mensual ADD CONSTRAINT fk_cierre_mensual_eliminado_por FOREIG
     <p class="lead">Todo acceso de negocio a la BD pasa por procedimientos. Cada cuadrito es un caso de uso: haz clic para ver <b>por qué existe</b> y desplegar su <b>código</b> (PL/pgSQL · CockroachDB · retorno JSONB · sin comentarios). <b>Tenant</b> y <b>auditoría</b> van en todos.</p>
 
     <div class="sp-intro">
-      <span class="item"><b>10</b> procedimientos</span>
-      <span class="item"><span class="sp-cap ai">activos-e-inversion</span> 6</span>
-      <span class="item"><span class="sp-cap cm">cierre-mensual</span> 4</span>
+      <span class="item"><b>13</b> procedimientos</span>
+      <span class="item"><span class="sp-cap ai">activos-e-inversion</span> 7</span>
+      <span class="item"><span class="sp-cap cm">cierre-mensual</span> 6</span>
       <span class="item" style="margin-left:auto">Firma uniforme: <span class="mono">(p_id_empresa, p_id_usuario_accion, …)</span></span>
     </div>
 
@@ -1177,6 +1177,97 @@ BEGIN
 EXCEPTION
   WHEN OTHERS THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_ASIGNACION_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al asignar el activo');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_registrar_trabajo_activo</div>
+          <div class="spcaso">Registrar la bitácora diaria de uso del activo (horas, kilometraje, valorización).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Llena <b>activo_registro_trabajo</b> (Informe 7.3): qué hizo el activo cada día, en qué contrato y zona, con qué operario, cuántas horas y kilómetros. Es el sustento operativo de la depreciación por uso y de la valorización del trabajo. Zona y operario son opcionales; el kilometraje final no puede ser menor que el inicial.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_registrar_trabajo_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_activo UUID,
+  p_id_contrato UUID,
+  p_id_zona UUID,
+  p_id_operario UUID,
+  p_id_periodo UUID,
+  p_fecha DATE,
+  p_fecha_hora_inicio TIMESTAMPTZ,
+  p_fecha_hora_fin TIMESTAMPTZ,
+  p_horas_trabajadas DECIMAL,
+  p_descripcion_trabajo STRING,
+  p_valorizacion_trabajo DECIMAL,
+  p_dias_depreciados DECIMAL,
+  p_kilometraje_inicio INT,
+  p_kilometraje_fin INT
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_registro UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM activo
+    WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL AND estado &lt;&gt; 'BAJA'
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_DISPONIBLE', 'mensaje', 'El activo no existe, no pertenece a la empresa o esta dado de baja');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM contrato
+    WHERE id = p_id_contrato AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_NO_VALIDO', 'mensaje', 'El contrato no existe, no pertenece a la empresa o no esta vigente');
+  END IF;
+
+  IF p_id_zona IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM zona
+    WHERE id = p_id_zona AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ZONA_NO_VALIDA', 'mensaje', 'La zona no existe, no pertenece a la empresa o no esta vigente');
+  END IF;
+
+  IF p_fecha IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'FECHA_OBLIGATORIA', 'mensaje', 'La fecha del trabajo es obligatoria');
+  END IF;
+
+  IF p_kilometraje_inicio IS NOT NULL AND p_kilometraje_fin IS NOT NULL AND p_kilometraje_fin &lt; p_kilometraje_inicio THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'KILOMETRAJE_INVALIDO', 'mensaje', 'El kilometraje final no puede ser menor que el inicial');
+  END IF;
+
+  INSERT INTO activo_registro_trabajo (
+    id_empresa, id_activo, id_contrato, id_zona, id_operario, id_periodo,
+    fecha, fecha_hora_inicio, fecha_hora_fin, horas_trabajadas,
+    descripcion_trabajo, valorizacion_trabajo, dias_depreciados,
+    kilometraje_inicio, kilometraje_fin, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_activo, p_id_contrato, p_id_zona, p_id_operario, p_id_periodo,
+    p_fecha, p_fecha_hora_inicio, p_fecha_hora_fin, p_horas_trabajadas,
+    NULLIF(trim(p_descripcion_trabajo), ''), p_valorizacion_trabajo, p_dias_depreciados,
+    p_kilometraje_inicio, p_kilometraje_fin, p_id_usuario_accion
+  ) RETURNING id INTO v_id_registro;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'TRABAJO_REGISTRADO',
+    'mensaje', 'El trabajo del activo fue registrado correctamente',
+    'datos', jsonb_build_object('id_registro_trabajo', v_id_registro)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TRABAJO_REGISTRO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al registrar el trabajo del activo');
 END;
 $$;</pre>
         </div>
