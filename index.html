@@ -1796,6 +1796,20 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1 FROM contrato
+    WHERE id = p_id_contrato AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_NO_VALIDO', 'mensaje', 'El contrato no existe, no pertenece a la empresa o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM periodo
+    WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PERIODO_NO_VALIDO', 'mensaje', 'El periodo no existe o no pertenece a la empresa');
+  END IF;
+
   SELECT estado INTO v_estado
   FROM cierre_mensual
   WHERE id_empresa = p_id_empresa AND id_contrato = p_id_contrato AND id_periodo = p_id_periodo AND eliminado_en IS NULL;
@@ -2446,7 +2460,7 @@ fnRes --> res(["resultado económico del contrato"]):::raiz
     <p class="subt">3 · El ciclo de vida del cierre (las 3 funciones + estados)</p>
     <div class="cm-ciclo">
       <span class="cm-fn">fn_ejecutar_cierre_mensual
-        <span class="cmpop"><span class="ph">Calcula y guarda el borrador</span><p>Aplica toda la fórmula de arriba y persiste el cierre del contrato + periodo. Es <b>idempotente</b> (UPSERT): re-ejecutarla recalcula encima, no duplica. Valida la empresa (EMPRESA_NO_VIGENTE) y se niega si ya está sellado (CIERRE_YA_CERRADO).</p></span>
+        <span class="cmpop"><span class="ph">Calcula y guarda el borrador</span><p>Aplica toda la fórmula de arriba y persiste el cierre del contrato + periodo. Es <b>idempotente</b> (UPSERT): re-ejecutarla recalcula encima, no duplica. Valida empresa, contrato y periodo —existencia, pertenencia y vigencia— (EMPRESA_NO_VIGENTE, CONTRATO_NO_VALIDO, PERIODO_NO_VALIDO) y se niega si ya está sellado (CIERRE_YA_CERRADO).</p></span>
       </span>
       <span class="cm-fl">→</span>
       <span class="cm-est borr">BORRADOR
