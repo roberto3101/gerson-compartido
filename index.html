@@ -1311,6 +1311,20 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1 FROM contrato
+    WHERE id = p_id_contrato AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_NO_VALIDO', 'mensaje', 'El contrato no existe, no pertenece a la empresa o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM periodo
+    WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PERIODO_NO_VALIDO', 'mensaje', 'El periodo no existe o no pertenece a la empresa');
+  END IF;
+
   SELECT saldo_inversion_pendiente, cuota_recuperacion_mensual
     INTO v_saldo_pendiente, v_cuota
   FROM activo_asignacion_contrato
@@ -1410,6 +1424,20 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_VALIDO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
   END IF;
 
+  IF p_id_contrato_origen IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM contrato
+    WHERE id = p_id_contrato_origen AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_ORIGEN_NO_VALIDO', 'mensaje', 'El contrato origen no existe o no pertenece a la empresa');
+  END IF;
+
+  IF p_id_zona_origen IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM zona
+    WHERE id = p_id_zona_origen AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ZONA_ORIGEN_NO_VALIDA', 'mensaje', 'La zona origen no existe o no pertenece a la empresa');
+  END IF;
+
   SELECT saldo_inversion_pendiente, cuota_recuperacion_mensual
     INTO v_saldo, v_cuota
   FROM activo_asignacion_contrato
@@ -1420,8 +1448,26 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_ASIGNADO_ORIGEN', 'mensaje', 'El activo no tiene asignacion vigente en el contrato origen');
   END IF;
 
+  IF p_id_contrato_destino IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_DESTINO_OBLIGATORIO', 'mensaje', 'El contrato destino es obligatorio para trasladar el activo');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM contrato
+    WHERE id = p_id_contrato_destino AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_DESTINO_NO_VALIDO', 'mensaje', 'El contrato destino no existe, no pertenece a la empresa o no esta vigente');
+  END IF;
+
   IF p_id_zona_destino IS NULL THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ZONA_DESTINO_OBLIGATORIA', 'mensaje', 'La zona destino es obligatoria para trasladar el activo');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM zona
+    WHERE id = p_id_zona_destino AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ZONA_DESTINO_NO_VALIDA', 'mensaje', 'La zona destino no existe, no pertenece a la empresa o no esta vigente');
   END IF;
 
   INSERT INTO activo_traslado (
@@ -1577,6 +1623,41 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_MOVIMIENTO_NO_VALIDO', 'mensaje', 'El tipo de movimiento no es valido');
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1 FROM periodo
+    WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PERIODO_NO_VALIDO', 'mensaje', 'El periodo no existe o no pertenece a la empresa');
+  END IF;
+
+  IF p_id_contrato_origen IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM contrato
+    WHERE id = p_id_contrato_origen AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_ORIGEN_NO_VALIDO', 'mensaje', 'El contrato origen no existe o no pertenece a la empresa');
+  END IF;
+
+  IF p_id_zona_origen IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM zona
+    WHERE id = p_id_zona_origen AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ZONA_ORIGEN_NO_VALIDA', 'mensaje', 'La zona origen no existe o no pertenece a la empresa');
+  END IF;
+
+  IF p_id_contrato_destino IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM contrato
+    WHERE id = p_id_contrato_destino AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_DESTINO_NO_VALIDO', 'mensaje', 'El contrato destino no existe, no pertenece a la empresa o no esta vigente');
+  END IF;
+
+  IF p_id_zona_destino IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM zona
+    WHERE id = p_id_zona_destino AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ZONA_DESTINO_NO_VALIDA', 'mensaje', 'La zona destino no existe, no pertenece a la empresa o no esta vigente');
+  END IF;
+
   INSERT INTO herramienta_movimiento (
     id_empresa, id_herramienta, id_periodo, tipo_movimiento, fecha,
     id_contrato_origen, id_zona_origen, id_contrato_destino, id_zona_destino,
@@ -1632,6 +1713,20 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1 FROM contrato
+    WHERE id = p_id_contrato AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_NO_VALIDO', 'mensaje', 'El contrato no existe, no pertenece a la empresa o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM periodo
+    WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PERIODO_NO_VALIDO', 'mensaje', 'El periodo no existe o no pertenece a la empresa');
+  END IF;
+
   IF p_importe IS NULL OR p_importe &lt;= 0 THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'IMPORTE_NO_VALIDO', 'mensaje', 'El importe de la penalidad debe ser mayor a cero');
   END IF;
@@ -1685,6 +1780,20 @@ DECLARE
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_id_contrato IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM contrato
+    WHERE id = p_id_contrato AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_NO_VALIDO', 'mensaje', 'El contrato no existe, no pertenece a la empresa o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM periodo
+    WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PERIODO_NO_VALIDO', 'mensaje', 'El periodo no existe o no pertenece a la empresa');
   END IF;
 
   IF p_importe IS NULL OR p_importe &lt;= 0 THEN
@@ -1945,6 +2054,20 @@ DECLARE
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM contrato
+    WHERE id = p_id_contrato AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_NO_VALIDO', 'mensaje', 'El contrato no existe, no pertenece a la empresa o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM periodo
+    WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PERIODO_NO_VALIDO', 'mensaje', 'El periodo no existe o no pertenece a la empresa');
   END IF;
 
   SELECT id, estado INTO v_id_cierre, v_estado_actual
@@ -2476,7 +2599,7 @@ fnRes --> res(["resultado económico del contrato"]):::raiz
       </span>
       <span class="cm-fl">→</span>
       <span class="cm-fn">fn_recalcular_cierre_mensual
-        <span class="cmpop"><span class="ph">Reabre y recalcula</span><p>Misma fórmula que fn_ejecutar, pero sobre un cierre existente: si estaba CERRADO lo pasa a <b>REABIERTO</b> y <b>limpia fecha_cierre</b> (ya no hay foto oficial). Si no existe: CIERRE_NO_ENCONTRADO.</p></span>
+        <span class="cmpop"><span class="ph">Reabre y recalcula</span><p>Misma fórmula y mismas validaciones que fn_ejecutar (contrato y periodo de la empresa), pero sobre un cierre existente: si estaba CERRADO lo pasa a <b>REABIERTO</b> y <b>limpia fecha_cierre</b> (ya no hay foto oficial). Si no existe: CIERRE_NO_ENCONTRADO.</p></span>
       </span>
       <span class="cm-fl">→</span>
       <span class="cm-est reab">REABIERTO
