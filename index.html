@@ -191,7 +191,8 @@
       <span class="chip">Grupo 5 · Jose &amp; Gerson</span>
       <span class="chip">CockroachDB</span>
       <span class="chip">13 tablas · 2 capacidades</span>
-      <span class="chip">13 procedimientos · 15 versionados</span>
+      <span class="chip">26 procedimientos · 13 comando + 13 lectura</span>
+      <a href="#seccion-lecturas" class="chip" style="background:#fff;color:#312e81;font-weight:800;text-decoration:none;border-color:#fff;cursor:pointer">Listados (lectura) →</a>
       <a href="#seccion-indices" class="chip" style="background:#fff;color:#312e81;font-weight:800;text-decoration:none;border-color:#fff;cursor:pointer">Índices: por qué y para qué →</a>
       <a href="#pagina-cierre" class="chip" style="background:#fff;color:#312e81;font-weight:800;text-decoration:none;border-color:#fff;cursor:pointer">Cierre mensual: código y fórmulas explicados →</a>
     </div>
@@ -2221,6 +2222,968 @@ EXCEPTION
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'CIERRE_CERRAR_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al cerrar el cierre');
 END;
 $$;</pre>
+        </div>
+      </details>
+
+    </div>
+  </div>
+</section>
+
+<section id="seccion-lecturas" style="padding-top:0">
+  <div class="wrap">
+    <p class="eyebrow">Procedimientos de lectura</p>
+    <h2>Listados y detalle · paginación por cursor</h2>
+    <p class="lead">Las <b>13 funciones de lectura</b> de las 2 capacidades. Mismo molde JSONB y multi-tenant que los comandos, pero con <b>paginación por cursor (keyset)</b> — sin OFFSET — y cada listado apoyado en su <b>índice estrella</b>. Clic en un cuadrito para ver el código.</p>
+    <div class="sp-intro">
+      <span class="item"><b>13</b> de lectura</span>
+      <span class="item"><span class="sp-cap ai">activos-e-inversion</span> 9</span>
+      <span class="item"><span class="sp-cap cm">cierre-mensual</span> 4</span>
+      <span class="item" style="margin-left:auto">Return <span class="mono">{items, paginacion:{limite, hay_mas, cursor_siguiente}}</span></span>
+    </div>
+
+    <div class="sp-grid">
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_activos</div>
+          <div class="spcaso">Listar activos de la empresa (paginado, con filtros).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Lectura frontal del inventario. Paginación por cursor (creado_en DESC, id DESC), filtros opcionales por estado, clasificación y búsqueda en código/descripción. Se apoya en el índice estrella indice_activo_listado.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_activos(
+  p_id_empresa UUID,
+  p_estado STRING,
+  p_id_clasificacion_activo UUID,
+  p_busqueda STRING,
+  p_limite INT,
+  p_cursor_creado_en TIMESTAMPTZ,
+  p_cursor_id UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $
+DECLARE
+  v_limite INT;
+  v_items JSONB;
+  v_hay_mas BOOL;
+  v_n INT;
+  v_cursor JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  WITH base AS (
+    SELECT a.id, a.codigo, a.descripcion, a.estado, a.placa, a.marca, a.modelo,
+           a.anio_fabricacion, a.costo_adquisicion, a.id_clasificacion_activo,
+           a.id_tipo_adquisicion_activo, a.creado_en,
+           row_number() OVER (ORDER BY a.creado_en DESC, a.id DESC) AS _rn
+    FROM activo a
+    WHERE a.id_empresa = p_id_empresa
+      AND a.eliminado_en IS NULL
+      AND (p_estado IS NULL OR a.estado = p_estado)
+      AND (p_id_clasificacion_activo IS NULL OR a.id_clasificacion_activo = p_id_clasificacion_activo)
+      AND (p_busqueda IS NULL OR a.codigo ILIKE '%' || p_busqueda || '%' OR a.descripcion ILIKE '%' || p_busqueda || '%')
+      AND (p_cursor_creado_en IS NULL OR (a.creado_en, a.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY a.creado_en DESC, a.id DESC
+    LIMIT v_limite + 1
+  )
+  SELECT
+    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn &lt;= v_limite), '[]'::jsonb),
+    count(*) &gt; v_limite
+  INTO v_items, v_hay_mas
+  FROM base;
+
+  v_n := jsonb_array_length(v_items);
+  IF v_hay_mas AND v_n &gt; 0 THEN
+    v_cursor := jsonb_build_object(
+      'creado_en', v_items -&gt; (v_n - 1) -&gt; 'creado_en',
+      'id', v_items -&gt; (v_n - 1) -&gt; 'id'
+    );
+  ELSE
+    v_cursor := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'ACTIVOS_LISTADOS',
+    'mensaje', 'Listado de activos obtenido',
+    'datos', jsonb_build_object(
+      'items', v_items,
+      'paginacion', jsonb_build_object(
+        'limite', v_limite,
+        'hay_mas', v_hay_mas,
+        'cursor_siguiente', v_cursor
+      )
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVOS_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar los activos');
+END;
+$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_obtener_detalle_activo</div>
+          <div class="spcaso">Detalle de un activo + su asignación vigente.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Lookup por PK (id + empresa, valida tenant). Devuelve el activo y, si existe, su asignación de contrato vigente.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_obtener_detalle_activo(
+  p_id_empresa UUID,
+  p_id_activo UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $
+DECLARE
+  v_activo JSONB;
+  v_asignacion JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  SELECT to_jsonb(a) INTO v_activo
+  FROM activo a
+  WHERE a.id = p_id_activo AND a.id_empresa = p_id_empresa AND a.eliminado_en IS NULL;
+
+  IF v_activo IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_ENCONTRADO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
+  END IF;
+
+  SELECT to_jsonb(ac) INTO v_asignacion
+  FROM activo_asignacion_contrato ac
+  WHERE ac.id_activo = p_id_activo AND ac.id_empresa = p_id_empresa AND ac.estado = 'ACTIVO' AND ac.eliminado_en IS NULL
+  ORDER BY ac.fecha_inicio DESC, ac.id DESC
+  LIMIT 1;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'ACTIVO_OBTENIDO',
+    'mensaje', 'Detalle del activo obtenido',
+    'datos', jsonb_build_object(
+      'activo', v_activo,
+      'asignacion_vigente', COALESCE(v_asignacion, 'null'::jsonb)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_DETALLE_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al obtener el activo');
+END;
+$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_herramientas</div>
+          <div class="spcaso">Listar herramientas (paginado, con filtros).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Filtros por estado, tipo y búsqueda. Índice estrella indice_herramienta_listado.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_herramientas(
+  p_id_empresa UUID,
+  p_estado STRING,
+  p_id_tipo_herramienta UUID,
+  p_busqueda STRING,
+  p_limite INT,
+  p_cursor_creado_en TIMESTAMPTZ,
+  p_cursor_id UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $
+DECLARE
+  v_limite INT;
+  v_items JSONB;
+  v_hay_mas BOOL;
+  v_n INT;
+  v_cursor JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  WITH base AS (
+    SELECT h.id, h.codigo, h.descripcion, h.marca, h.modelo, h.numero_serie,
+           h.estado, h.costo_adquisicion, h.id_tipo_herramienta, h.creado_en,
+           row_number() OVER (ORDER BY h.creado_en DESC, h.id DESC) AS _rn
+    FROM herramienta h
+    WHERE h.id_empresa = p_id_empresa
+      AND h.eliminado_en IS NULL
+      AND (p_estado IS NULL OR h.estado = p_estado)
+      AND (p_id_tipo_herramienta IS NULL OR h.id_tipo_herramienta = p_id_tipo_herramienta)
+      AND (p_busqueda IS NULL OR h.codigo ILIKE '%' || p_busqueda || '%' OR h.descripcion ILIKE '%' || p_busqueda || '%')
+      AND (p_cursor_creado_en IS NULL OR (h.creado_en, h.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY h.creado_en DESC, h.id DESC
+    LIMIT v_limite + 1
+  )
+  SELECT
+    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn &lt;= v_limite), '[]'::jsonb),
+    count(*) &gt; v_limite
+  INTO v_items, v_hay_mas
+  FROM base;
+
+  v_n := jsonb_array_length(v_items);
+  IF v_hay_mas AND v_n &gt; 0 THEN
+    v_cursor := jsonb_build_object('creado_en', v_items -&gt; (v_n - 1) -&gt; 'creado_en', 'id', v_items -&gt; (v_n - 1) -&gt; 'id');
+  ELSE
+    v_cursor := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'HERRAMIENTAS_LISTADAS',
+    'mensaje', 'Listado de herramientas obtenido',
+    'datos', jsonb_build_object(
+      'items', v_items,
+      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'HERRAMIENTAS_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar las herramientas');
+END;
+$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_obtener_detalle_herramienta</div>
+          <div class="spcaso">Detalle de herramienta + último movimiento.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Lookup por PK; devuelve la herramienta y su último movimiento (su ubicación actual).</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_obtener_detalle_herramienta(
+  p_id_empresa UUID,
+  p_id_herramienta UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $
+DECLARE
+  v_herramienta JSONB;
+  v_ultimo_movimiento JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  SELECT to_jsonb(h) INTO v_herramienta
+  FROM herramienta h
+  WHERE h.id = p_id_herramienta AND h.id_empresa = p_id_empresa AND h.eliminado_en IS NULL;
+
+  IF v_herramienta IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'HERRAMIENTA_NO_ENCONTRADA', 'mensaje', 'La herramienta no existe o no pertenece a la empresa');
+  END IF;
+
+  SELECT to_jsonb(m) INTO v_ultimo_movimiento
+  FROM herramienta_movimiento m
+  WHERE m.id_herramienta = p_id_herramienta AND m.id_empresa = p_id_empresa
+  ORDER BY m.fecha DESC, m.creado_en DESC, m.id DESC
+  LIMIT 1;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'HERRAMIENTA_OBTENIDA',
+    'mensaje', 'Detalle de la herramienta obtenido',
+    'datos', jsonb_build_object(
+      'herramienta', v_herramienta,
+      'ultimo_movimiento', COALESCE(v_ultimo_movimiento, 'null'::jsonb)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'HERRAMIENTA_DETALLE_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al obtener la herramienta');
+END;
+$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_movimientos_herramienta</div>
+          <div class="spcaso">Movimientos de una herramienta (paginado).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Por herramienta (valida que sea de la empresa), filtros por periodo y tipo de movimiento. Índice estrella indice_herramienta_movimiento_listado.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_movimientos_herramienta(
+  p_id_empresa UUID,
+  p_id_herramienta UUID,
+  p_id_periodo UUID,
+  p_tipo_movimiento STRING,
+  p_limite INT,
+  p_cursor_creado_en TIMESTAMPTZ,
+  p_cursor_id UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $
+DECLARE
+  v_limite INT;
+  v_items JSONB;
+  v_hay_mas BOOL;
+  v_n INT;
+  v_cursor JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM herramienta WHERE id = p_id_herramienta AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'HERRAMIENTA_NO_VALIDA', 'mensaje', 'La herramienta no existe o no pertenece a la empresa');
+  END IF;
+
+  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  WITH base AS (
+    SELECT m.id, m.tipo_movimiento, m.fecha, m.id_periodo,
+           m.id_contrato_origen, m.id_zona_origen, m.id_contrato_destino, m.id_zona_destino,
+           m.cantidad, m.costo, m.valorizacion, m.motivo, m.creado_en,
+           row_number() OVER (ORDER BY m.creado_en DESC, m.id DESC) AS _rn
+    FROM herramienta_movimiento m
+    WHERE m.id_empresa = p_id_empresa
+      AND m.id_herramienta = p_id_herramienta
+      AND (p_id_periodo IS NULL OR m.id_periodo = p_id_periodo)
+      AND (p_tipo_movimiento IS NULL OR m.tipo_movimiento = p_tipo_movimiento)
+      AND (p_cursor_creado_en IS NULL OR (m.creado_en, m.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY m.creado_en DESC, m.id DESC
+    LIMIT v_limite + 1
+  )
+  SELECT
+    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn &lt;= v_limite), '[]'::jsonb),
+    count(*) &gt; v_limite
+  INTO v_items, v_hay_mas
+  FROM base;
+
+  v_n := jsonb_array_length(v_items);
+  IF v_hay_mas AND v_n &gt; 0 THEN
+    v_cursor := jsonb_build_object('creado_en', v_items -&gt; (v_n - 1) -&gt; 'creado_en', 'id', v_items -&gt; (v_n - 1) -&gt; 'id');
+  ELSE
+    v_cursor := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'MOVIMIENTOS_HERRAMIENTA_LISTADOS',
+    'mensaje', 'Listado de movimientos de la herramienta obtenido',
+    'datos', jsonb_build_object(
+      'items', v_items,
+      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'MOVIMIENTOS_HERRAMIENTA_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar los movimientos');
+END;
+$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_asignaciones_activo</div>
+          <div class="spcaso">Asignaciones de un activo a contratos (paginado).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Por activo (valida tenant), filtro opcional por estado. Índice estrella indice_activo_asignacion_contrato_listado.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_asignaciones_activo(
+  p_id_empresa UUID,
+  p_id_activo UUID,
+  p_estado STRING,
+  p_limite INT,
+  p_cursor_creado_en TIMESTAMPTZ,
+  p_cursor_id UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $
+DECLARE
+  v_limite INT;
+  v_items JSONB;
+  v_hay_mas BOOL;
+  v_n INT;
+  v_cursor JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM activo WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_VALIDO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
+  END IF;
+
+  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  WITH base AS (
+    SELECT ac.id, ac.id_contrato, ac.id_zona, ac.inversion_asignada, ac.saldo_inversion_pendiente,
+           ac.cuota_recuperacion_mensual, ac.fecha_inicio, ac.fecha_fin, ac.estado, ac.creado_en,
+           row_number() OVER (ORDER BY ac.creado_en DESC, ac.id DESC) AS _rn
+    FROM activo_asignacion_contrato ac
+    WHERE ac.id_empresa = p_id_empresa
+      AND ac.id_activo = p_id_activo
+      AND ac.eliminado_en IS NULL
+      AND (p_estado IS NULL OR ac.estado = p_estado)
+      AND (p_cursor_creado_en IS NULL OR (ac.creado_en, ac.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY ac.creado_en DESC, ac.id DESC
+    LIMIT v_limite + 1
+  )
+  SELECT
+    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn &lt;= v_limite), '[]'::jsonb),
+    count(*) &gt; v_limite
+  INTO v_items, v_hay_mas
+  FROM base;
+
+  v_n := jsonb_array_length(v_items);
+  IF v_hay_mas AND v_n &gt; 0 THEN
+    v_cursor := jsonb_build_object('creado_en', v_items -&gt; (v_n - 1) -&gt; 'creado_en', 'id', v_items -&gt; (v_n - 1) -&gt; 'id');
+  ELSE
+    v_cursor := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'ASIGNACIONES_ACTIVO_LISTADAS',
+    'mensaje', 'Listado de asignaciones del activo obtenido',
+    'datos', jsonb_build_object(
+      'items', v_items,
+      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ASIGNACIONES_ACTIVO_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar las asignaciones');
+END;
+$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_trabajos_activo</div>
+          <div class="spcaso">Bitácora de trabajos de un activo (paginado).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Por activo, filtros opcionales por contrato y periodo. Índice estrella indice_activo_registro_trabajo_listado.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_trabajos_activo(
+  p_id_empresa UUID,
+  p_id_activo UUID,
+  p_id_contrato UUID,
+  p_id_periodo UUID,
+  p_limite INT,
+  p_cursor_creado_en TIMESTAMPTZ,
+  p_cursor_id UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $
+DECLARE
+  v_limite INT;
+  v_items JSONB;
+  v_hay_mas BOOL;
+  v_n INT;
+  v_cursor JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM activo WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_VALIDO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
+  END IF;
+
+  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  WITH base AS (
+    SELECT t.id, t.id_contrato, t.id_zona, t.id_operario, t.id_periodo, t.fecha,
+           t.horas_trabajadas, t.descripcion_trabajo, t.valorizacion_trabajo, t.dias_depreciados,
+           t.kilometraje_inicio, t.kilometraje_fin, t.creado_en,
+           row_number() OVER (ORDER BY t.creado_en DESC, t.id DESC) AS _rn
+    FROM activo_registro_trabajo t
+    WHERE t.id_empresa = p_id_empresa
+      AND t.id_activo = p_id_activo
+      AND t.eliminado_en IS NULL
+      AND (p_id_contrato IS NULL OR t.id_contrato = p_id_contrato)
+      AND (p_id_periodo IS NULL OR t.id_periodo = p_id_periodo)
+      AND (p_cursor_creado_en IS NULL OR (t.creado_en, t.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY t.creado_en DESC, t.id DESC
+    LIMIT v_limite + 1
+  )
+  SELECT
+    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn &lt;= v_limite), '[]'::jsonb),
+    count(*) &gt; v_limite
+  INTO v_items, v_hay_mas
+  FROM base;
+
+  v_n := jsonb_array_length(v_items);
+  IF v_hay_mas AND v_n &gt; 0 THEN
+    v_cursor := jsonb_build_object('creado_en', v_items -&gt; (v_n - 1) -&gt; 'creado_en', 'id', v_items -&gt; (v_n - 1) -&gt; 'id');
+  ELSE
+    v_cursor := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'TRABAJOS_ACTIVO_LISTADOS',
+    'mensaje', 'Listado de trabajos del activo obtenido',
+    'datos', jsonb_build_object(
+      'items', v_items,
+      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TRABAJOS_ACTIVO_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar los trabajos');
+END;
+$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_traslados_activo</div>
+          <div class="spcaso">Traslados de un activo (paginado).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Por activo. Tabla-evento (sin borrado lógico), por eso su índice estrella no es parcial.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_traslados_activo(
+  p_id_empresa UUID,
+  p_id_activo UUID,
+  p_limite INT,
+  p_cursor_creado_en TIMESTAMPTZ,
+  p_cursor_id UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $
+DECLARE
+  v_limite INT;
+  v_items JSONB;
+  v_hay_mas BOOL;
+  v_n INT;
+  v_cursor JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM activo WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_VALIDO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
+  END IF;
+
+  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  WITH base AS (
+    SELECT t.id, t.id_contrato_origen, t.id_zona_origen, t.id_contrato_destino, t.id_zona_destino,
+           t.fecha_traslado, t.saldo_trasladado, t.motivo, t.creado_en,
+           row_number() OVER (ORDER BY t.creado_en DESC, t.id DESC) AS _rn
+    FROM activo_traslado t
+    WHERE t.id_empresa = p_id_empresa
+      AND t.id_activo = p_id_activo
+      AND (p_cursor_creado_en IS NULL OR (t.creado_en, t.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY t.creado_en DESC, t.id DESC
+    LIMIT v_limite + 1
+  )
+  SELECT
+    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn &lt;= v_limite), '[]'::jsonb),
+    count(*) &gt; v_limite
+  INTO v_items, v_hay_mas
+  FROM base;
+
+  v_n := jsonb_array_length(v_items);
+  IF v_hay_mas AND v_n &gt; 0 THEN
+    v_cursor := jsonb_build_object('creado_en', v_items -&gt; (v_n - 1) -&gt; 'creado_en', 'id', v_items -&gt; (v_n - 1) -&gt; 'id');
+  ELSE
+    v_cursor := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'TRASLADOS_ACTIVO_LISTADOS',
+    'mensaje', 'Listado de traslados del activo obtenido',
+    'datos', jsonb_build_object(
+      'items', v_items,
+      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TRASLADOS_ACTIVO_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar los traslados');
+END;
+$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_recuperaciones_inversion</div>
+          <div class="spcaso">Recuperaciones de inversión (paginado).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Filtros opcionales por activo, contrato y periodo. Tabla-ledger sin borrado lógico.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_recuperaciones_inversion(
+  p_id_empresa UUID,
+  p_id_activo UUID,
+  p_id_contrato UUID,
+  p_id_periodo UUID,
+  p_limite INT,
+  p_cursor_creado_en TIMESTAMPTZ,
+  p_cursor_id UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $
+DECLARE
+  v_limite INT;
+  v_items JSONB;
+  v_hay_mas BOOL;
+  v_n INT;
+  v_cursor JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  WITH base AS (
+    SELECT r.id, r.id_activo, r.id_contrato, r.id_periodo, r.importe_recuperado,
+           r.saldo_antes, r.saldo_despues, r.parado, r.creado_en,
+           row_number() OVER (ORDER BY r.creado_en DESC, r.id DESC) AS _rn
+    FROM recuperacion_inversion_mensual r
+    WHERE r.id_empresa = p_id_empresa
+      AND (p_id_activo IS NULL OR r.id_activo = p_id_activo)
+      AND (p_id_contrato IS NULL OR r.id_contrato = p_id_contrato)
+      AND (p_id_periodo IS NULL OR r.id_periodo = p_id_periodo)
+      AND (p_cursor_creado_en IS NULL OR (r.creado_en, r.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY r.creado_en DESC, r.id DESC
+    LIMIT v_limite + 1
+  )
+  SELECT
+    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn &lt;= v_limite), '[]'::jsonb),
+    count(*) &gt; v_limite
+  INTO v_items, v_hay_mas
+  FROM base;
+
+  v_n := jsonb_array_length(v_items);
+  IF v_hay_mas AND v_n &gt; 0 THEN
+    v_cursor := jsonb_build_object('creado_en', v_items -&gt; (v_n - 1) -&gt; 'creado_en', 'id', v_items -&gt; (v_n - 1) -&gt; 'id');
+  ELSE
+    v_cursor := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'RECUPERACIONES_LISTADAS',
+    'mensaje', 'Listado de recuperaciones de inversion obtenido',
+    'datos', jsonb_build_object(
+      'items', v_items,
+      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'RECUPERACIONES_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar las recuperaciones');
+END;
+$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap cm">cierre-mensual</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_cierres_mensuales</div>
+          <div class="spcaso">Listar cierres mensuales (paginado, con filtros).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Filtros por contrato, periodo y estado. STORING de las columnas del resumen (facturado, total_gastos, utilidades, estado). Índice estrella indice_cierre_mensual_listado.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_cierres_mensuales(
+  p_id_empresa UUID,
+  p_id_contrato UUID,
+  p_id_periodo UUID,
+  p_estado STRING,
+  p_limite INT,
+  p_cursor_creado_en TIMESTAMPTZ,
+  p_cursor_id UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $
+DECLARE
+  v_limite INT;
+  v_items JSONB;
+  v_hay_mas BOOL;
+  v_n INT;
+  v_cursor JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  WITH base AS (
+    SELECT c.id, c.id_contrato, c.id_periodo, c.total_facturado, c.total_gastos,
+           c.utilidad_bruta, c.utilidad_neta, c.utilidad_final, c.estado, c.fecha_cierre, c.creado_en,
+           row_number() OVER (ORDER BY c.creado_en DESC, c.id DESC) AS _rn
+    FROM cierre_mensual c
+    WHERE c.id_empresa = p_id_empresa
+      AND c.eliminado_en IS NULL
+      AND (p_id_contrato IS NULL OR c.id_contrato = p_id_contrato)
+      AND (p_id_periodo IS NULL OR c.id_periodo = p_id_periodo)
+      AND (p_estado IS NULL OR c.estado = p_estado)
+      AND (p_cursor_creado_en IS NULL OR (c.creado_en, c.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY c.creado_en DESC, c.id DESC
+    LIMIT v_limite + 1
+  )
+  SELECT
+    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn &lt;= v_limite), '[]'::jsonb),
+    count(*) &gt; v_limite
+  INTO v_items, v_hay_mas
+  FROM base;
+
+  v_n := jsonb_array_length(v_items);
+  IF v_hay_mas AND v_n &gt; 0 THEN
+    v_cursor := jsonb_build_object('creado_en', v_items -&gt; (v_n - 1) -&gt; 'creado_en', 'id', v_items -&gt; (v_n - 1) -&gt; 'id');
+  ELSE
+    v_cursor := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'CIERRES_MENSUALES_LISTADOS',
+    'mensaje', 'Listado de cierres mensuales obtenido',
+    'datos', jsonb_build_object(
+      'items', v_items,
+      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CIERRES_MENSUALES_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar los cierres');
+END;
+$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap cm">cierre-mensual</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_penalidades</div>
+          <div class="spcaso">Listar penalidades (paginado).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Filtros por contrato y periodo. Índice estrella indice_penalidad_listado.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_penalidades(
+  p_id_empresa UUID,
+  p_id_contrato UUID,
+  p_id_periodo UUID,
+  p_limite INT,
+  p_cursor_creado_en TIMESTAMPTZ,
+  p_cursor_id UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $
+DECLARE
+  v_limite INT;
+  v_items JSONB;
+  v_hay_mas BOOL;
+  v_n INT;
+  v_cursor JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  WITH base AS (
+    SELECT pe.id, pe.id_contrato, pe.id_periodo, pe.descripcion, pe.importe, pe.creado_en,
+           row_number() OVER (ORDER BY pe.creado_en DESC, pe.id DESC) AS _rn
+    FROM penalidad pe
+    WHERE pe.id_empresa = p_id_empresa
+      AND pe.eliminado_en IS NULL
+      AND (p_id_contrato IS NULL OR pe.id_contrato = p_id_contrato)
+      AND (p_id_periodo IS NULL OR pe.id_periodo = p_id_periodo)
+      AND (p_cursor_creado_en IS NULL OR (pe.creado_en, pe.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY pe.creado_en DESC, pe.id DESC
+    LIMIT v_limite + 1
+  )
+  SELECT
+    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn &lt;= v_limite), '[]'::jsonb),
+    count(*) &gt; v_limite
+  INTO v_items, v_hay_mas
+  FROM base;
+
+  v_n := jsonb_array_length(v_items);
+  IF v_hay_mas AND v_n &gt; 0 THEN
+    v_cursor := jsonb_build_object('creado_en', v_items -&gt; (v_n - 1) -&gt; 'creado_en', 'id', v_items -&gt; (v_n - 1) -&gt; 'id');
+  ELSE
+    v_cursor := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'PENALIDADES_LISTADAS',
+    'mensaje', 'Listado de penalidades obtenido',
+    'datos', jsonb_build_object(
+      'items', v_items,
+      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PENALIDADES_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar las penalidades');
+END;
+$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap cm">cierre-mensual</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_provisiones</div>
+          <div class="spcaso">Listar provisiones (paginado).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Filtros por contrato y periodo; incluye el flag aplicado. Índice estrella indice_provision_listado.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_provisiones(
+  p_id_empresa UUID,
+  p_id_contrato UUID,
+  p_id_periodo UUID,
+  p_limite INT,
+  p_cursor_creado_en TIMESTAMPTZ,
+  p_cursor_id UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $
+DECLARE
+  v_limite INT;
+  v_items JSONB;
+  v_hay_mas BOOL;
+  v_n INT;
+  v_cursor JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  WITH base AS (
+    SELECT pr.id, pr.id_contrato, pr.id_periodo, pr.descripcion, pr.importe, pr.aplicado, pr.creado_en,
+           row_number() OVER (ORDER BY pr.creado_en DESC, pr.id DESC) AS _rn
+    FROM provision pr
+    WHERE pr.id_empresa = p_id_empresa
+      AND pr.eliminado_en IS NULL
+      AND (p_id_contrato IS NULL OR pr.id_contrato = p_id_contrato)
+      AND (p_id_periodo IS NULL OR pr.id_periodo = p_id_periodo)
+      AND (p_cursor_creado_en IS NULL OR (pr.creado_en, pr.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY pr.creado_en DESC, pr.id DESC
+    LIMIT v_limite + 1
+  )
+  SELECT
+    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn &lt;= v_limite), '[]'::jsonb),
+    count(*) &gt; v_limite
+  INTO v_items, v_hay_mas
+  FROM base;
+
+  v_n := jsonb_array_length(v_items);
+  IF v_hay_mas AND v_n &gt; 0 THEN
+    v_cursor := jsonb_build_object('creado_en', v_items -&gt; (v_n - 1) -&gt; 'creado_en', 'id', v_items -&gt; (v_n - 1) -&gt; 'id');
+  ELSE
+    v_cursor := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'PROVISIONES_LISTADAS',
+    'mensaje', 'Listado de provisiones obtenido',
+    'datos', jsonb_build_object(
+      'items', v_items,
+      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PROVISIONES_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar las provisiones');
+END;
+$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap cm">cierre-mensual</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_obtener_resumen_cierre_por_periodo</div>
+          <div class="spcaso">Resumen agregado del cierre por periodo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Agrega todos los cierres de un periodo: totales de facturado/gastos/utilidades y conteo por estado (cerrados/borradores/reabiertos). Valida que el periodo sea de la empresa.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_obtener_resumen_cierre_por_periodo(
+  p_id_empresa UUID,
+  p_id_periodo UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $
+DECLARE
+  v_resumen JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM periodo WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PERIODO_NO_VALIDO', 'mensaje', 'El periodo no existe o no pertenece a la empresa');
+  END IF;
+
+  SELECT jsonb_build_object(
+    'total_contratos', count(*),
+    'cerrados', count(*) FILTER (WHERE estado = 'CERRADO'),
+    'borradores', count(*) FILTER (WHERE estado = 'BORRADOR'),
+    'reabiertos', count(*) FILTER (WHERE estado = 'REABIERTO'),
+    'total_facturado', COALESCE(sum(total_facturado), 0),
+    'total_gastos', COALESCE(sum(total_gastos), 0),
+    'utilidad_bruta', COALESCE(sum(utilidad_bruta), 0),
+    'utilidad_neta', COALESCE(sum(utilidad_neta), 0),
+    'utilidad_final', COALESCE(sum(utilidad_final), 0),
+    'total_penalidades', COALESCE(sum(penalidades), 0)
+  ) INTO v_resumen
+  FROM cierre_mensual
+  WHERE id_empresa = p_id_empresa AND id_periodo = p_id_periodo AND eliminado_en IS NULL;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'RESUMEN_CIERRE_PERIODO',
+    'mensaje', 'Resumen del cierre por periodo obtenido',
+    'datos', jsonb_build_object('id_periodo', p_id_periodo, 'resumen', v_resumen)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'RESUMEN_CIERRE_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al obtener el resumen');
+END;
+$;</pre>
         </div>
       </details>
 
