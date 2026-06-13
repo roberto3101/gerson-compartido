@@ -3231,6 +3231,10 @@ $;</pre>
       <span class="item" style="margin-left:auto">Parcial <span class="mono">WHERE eliminado_en IS NULL</span> donde hay borrado lógico</span>
     </div>
 
+    <div class="sp-note" style="margin:0 0 18px">
+      <b>Búsqueda por texto (código / descripción) — por qué NO usamos trigram (aún).</b> El filtro <span class="mono">p_busqueda</span> usa <span class="mono">ILIKE '%texto%'</span>. <b>Evaluamos índices trigram</b> (<span class="mono">gin_trgm_ops</span>) <b>y decidimos no agregarlos</b>: a nuestra escala (cientos/miles de filas por empresa) el <b>índice estrella ya resuelve la búsqueda con un index-only scan</b> de las filas de esa empresa (responde en milisegundos), y un GIN trigram añadiría costo de escritura en cada alta/edición sin beneficio medible — sería "meter GIN por moda". <b>Lo reconsideraríamos</b> si una empresa superara decenas de miles de activos/herramientas o si la búsqueda libre se volviera el patrón dominante; ahí sí: <span class="mono">CREATE INDEX … USING GIN (columna gin_trgm_ops)</span> (built-in en CockroachDB, sin extensión). Decidir índices por evidencia, no por moda.
+    </div>
+
     <div class="sp-grid">
 
       <details class="spcard">
