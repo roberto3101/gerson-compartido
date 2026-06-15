@@ -142,7 +142,8 @@
   .code pre.sql{margin:8px 0 0;background:#0f1424;color:#cdd3e6;border-radius:12px;padding:18px 20px;overflow:visible;white-space:pre-wrap;word-break:break-word;font:13px/1.7 "SFMono-Regular",Consolas,monospace;box-shadow:var(--shadow)}
   .code pre.sql .c{position:relative;color:#c4b5fd;font-weight:600;cursor:help;border-bottom:1px dotted #595c78}
   .code pre.sql .c:hover{color:#ddd6fe}
-  .code pre.sql .c:hover::after{content:attr(data-tip);position:absolute;left:0;top:1.8em;z-index:70;width:280px;white-space:normal;background:#fff;color:#181b27;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:400 12px/1.5 "Segoe UI",sans-serif;box-shadow:var(--shadow-lg)}
+  .code pre.sql .c{cursor:help}
+  .code pre.sql .c:hover{background:rgba(196,181,253,.20);border-radius:3px}
   .sp-intro{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:center;margin:0 0 20px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 18px}
   .sp-intro .item{font-size:13px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:7px}
   .sp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px;align-items:start}
@@ -3894,12 +3895,7 @@ fnRes --> res(["resultado económico del contrato"]):::raiz
 <style>
   pre.sql .linea-sql{display:inline;position:relative;border-radius:3px}
   pre.sql .linea-sql[data-tip]:hover{background:rgba(196,181,253,.14);cursor:help}
-  pre.sql .linea-sql[data-tip]:hover::after{
-    content:attr(data-tip);position:absolute;left:0;top:1.8em;z-index:65;
-    width:340px;white-space:normal;background:#fff;color:#181b27;
-    border:1px solid var(--line);border-left:3px solid #8b5cf6;border-radius:10px;
-    padding:9px 12px;font:400 12px/1.5 "Segoe UI",sans-serif;box-shadow:var(--shadow-lg)}
-  pre.sql .linea-sql[data-tip]:has(.c:hover)::after{content:none}
+  /* El tooltip se dibuja con un div flotante via JS (position:fixed, z-index maximo, se voltea arriba si no cabe abajo) para que nunca quede detras ni cortado. */
   .sp-body pre.sql{overflow:visible;white-space:pre-wrap;word-break:break-word}
 </style>
 <script>
@@ -4027,6 +4023,15 @@ fnRes --> res(["resultado económico del contrato"]):::raiz
     if(/^SELECT\s+jsonb_build_object/i.test(t)) return 'Arma el resumen del periodo en un solo objeto JSON (cuentas y sumas de los cierres).';
     if(/^\)\s+INTO\s+v_[a-z_]+/i.test(t)) return 'Guarda el resultado de la consulta en la variable indicada.';
 
+    if(/^STORING\s*\(/i.test(t)) return 'Columnas que el índice GUARDA dentro de sí (covering): permiten resolver el listado leyendo solo el índice, sin volver a la tabla.';
+    if(/^AS\s*\$+/i.test(t)) return 'Inicio del cuerpo del procedimiento (delimitado por $$).';
+    if(/^\$+\s*;?\s*$/.test(t)) return 'Delimitador del cuerpo del procedimiento ($$).';
+    if(/^\)\s*THEN\s*$/i.test(t)) return 'Cierra la condición del IF; lo que sigue se ejecuta solo si se cumple.';
+    if(m=t.match(/^AND\s*\(\s*(p_[a-z_]+)\s+IS\s+NULL\s+OR/i)) return 'Filtro OPCIONAL: si «'+m[1]+'» es NULL no filtra; si trae valor, restringe por ese campo.';
+    if(/^INTO\s+v_[a-z_]/i.test(t)) return 'Guarda los valores que devolvió la consulta en las variables indicadas.';
+    if(/NULLIF\s*\(\s*trim/i.test(t)) return 'Valores a insertar ya normalizados: trim quita los espacios sobrantes y NULLIF convierte el texto vacío en NULL.';
+    if(/^RETURNING\s+[a-z_]+\s+INTO/i.test(t)) return 'Captura un valor recién escrito por la sentencia (por ejemplo la fecha de cierre) en una variable.';
+    if(/^IF\s+v_[a-z_]+\s*(=|<>|!=)/i.test(t)) return 'Compara el estado/valor actual del registro contra un valor esperado (regla de negocio) para decidir el flujo.';
     if(/^p_id_usuario_accion\b/i.test(t)) return 'Parámetro «p_id_usuario_accion»: el usuario que ejecuta la acción; se guarda para auditoría (quién la hizo).';
     if(m=t.match(/^(p_id_[a-z_]+)\s+UUID/i)) return 'Parámetro «'+m[1]+'»: identificador de «'+humano(m[1])+'» (referencia a esa tabla).';
     if(m=t.match(/^(p_[a-z_]+)\s+(DECIMAL\([0-9, ]+\)|DECIMAL|INT2|INT|STRING|BOOL|DATE|TIMESTAMPTZ|UUID)/i)) return 'Parámetro «'+m[1]+'»: '+tipoTexto(m[2])+' — '+humano(m[1])+'.';
@@ -4034,6 +4039,8 @@ fnRes --> res(["resultado económico del contrato"]):::raiz
     if(m=t.match(/^(v_[a-z_]+)\s+(DECIMAL\([0-9, ]+\)|DECIMAL|INT2|INT|STRING|BOOL|DATE|TIMESTAMPTZ|JSONB|UUID)/i)) return 'Variable «'+m[1]+'»: '+tipoTexto(m[2])+' de trabajo — '+humano(m[1])+'.';
     if(m=t.match(/^(v_[a-z_]+)\s*:=/i)) return 'Calcula y guarda un valor en la variable «'+m[1]+'» ('+humano(m[1])+').';
 
+    if(m=t.match(/^([a-z_]+)\s*=\s*excluded\./i)) return 'Upsert (ON CONFLICT): si el registro ya existía, actualiza «'+m[1]+'» con el valor recién enviado.';
+    if(enFuncion && (m=t.match(/^([a-z_]+)\s*=\s[^=]/i))) return 'Actualiza la columna «'+m[1]+'» con el valor indicado (parte de un UPDATE).';
     if(/^\)\s*VALUES\s*\(?/i.test(t)) return 'Cierra la lista de columnas y empieza los valores que se insertan.';
     if(enFuncion && /^[a-z_]+\s*,/i.test(t)) return 'Parte de la lista de columnas o valores de la sentencia.';
     // ===== fin bloque lecturas =====
@@ -4168,6 +4175,28 @@ fnRes --> res(["resultado económico del contrato"]):::raiz
       return '<span class="linea-sql" data-tip="'+tip.replace(/"/g,'&quot;')+'">'+lineaHTML+'</span>';
     }).join('\n');
   });
+
+  var __tip=document.createElement('div');
+  __tip.setAttribute('role','tooltip');
+  __tip.style.cssText='position:fixed;z-index:2147483647;display:none;max-width:360px;white-space:normal;background:#fff;color:#181b27;border:1px solid #d9def0;border-left:3px solid #8b5cf6;border-radius:10px;padding:9px 12px;font-size:12px;line-height:1.5;box-shadow:0 12px 34px rgba(16,20,40,.22);pointer-events:none';
+  __tip.style.fontFamily='Segoe UI, system-ui, sans-serif';
+  document.body.appendChild(__tip);
+  function __obj(e){ return (e.target && e.target.closest) ? e.target.closest('pre.sql [data-tip]') : null; }
+  function __coloca(el){
+    var r=el.getBoundingClientRect(), m=8, vw=window.innerWidth, vh=window.innerHeight;
+    __tip.style.display='block';
+    var tw=__tip.offsetWidth, th=__tip.offsetHeight, top;
+    var left=Math.min(Math.max(m, r.left), Math.max(m, vw-tw-m));
+    if(r.bottom+th+m<=vh) top=r.bottom+4;
+    else if(r.top-th-m>=0) top=r.top-th-4;
+    else top=Math.max(m, vh-th-m);
+    __tip.style.left=Math.round(left)+'px';
+    __tip.style.top=Math.round(top)+'px';
+  }
+  document.addEventListener('mouseover', function(e){ var el=__obj(e); if(!el) return; var x=el.getAttribute('data-tip'); if(!x) return; __tip.textContent=x; __coloca(el); });
+  document.addEventListener('mouseout', function(e){ var el=__obj(e); if(!el) return; var to=e.relatedTarget; if(to && to.closest && to.closest('pre.sql [data-tip]')) return; __tip.style.display='none'; });
+  window.addEventListener('scroll', function(){ __tip.style.display='none'; }, true);
+  window.addEventListener('resize', function(){ __tip.style.display='none'; });
 })();
 </script>
 <!-- TOOLTIPS-LINEA-SQL-FIN -->
