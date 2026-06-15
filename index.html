@@ -3906,6 +3906,8 @@ fnRes --> res(["resultado económico del contrato"]):::raiz
 (function () {
   function textoDe(html){ var d=document.createElement('div'); d.innerHTML=html; return d.textContent; }
   function entreParens(t){ var m=t.match(/\(([^)]*)\)/); return m?m[1].trim():''; }
+  function tipoTexto(tp){ tp=(tp||'').toUpperCase(); if(tp.indexOf('DECIMAL')===0)return 'un monto'; if(tp.indexOf('INT')===0)return 'un número'; if(tp==='STRING')return 'un texto'; if(tp==='BOOL')return 'un Sí/No'; if(tp==='DATE'||tp==='TIMESTAMPTZ')return 'una fecha'; if(tp==='JSONB')return 'un dato en JSON'; if(tp==='UUID')return 'un identificador'; return 'un valor'; }
+  function humano(n){ return n.replace(/^[pv]_(id_)?/,'').replace(/_/g,' '); }
 
   function explicarTipoInline(t){
     var col=(t.match(/^([a-z_]+)\s+/)||[])[1];
@@ -3924,12 +3926,120 @@ fnRes --> res(["resultado económico del contrato"]):::raiz
     return '';
   }
 
-  function explicar(raw){
+  function explicar(raw, enFuncion){
     var t=raw.trim(), m;
     if(t==='') return '';
 
+    // ===== Procedimientos de LECTURA: listados paginados por cursor — explicacion exacta por linea =====
+    if(/^p_id_empresa\b/i.test(t)) return 'Parámetro «p_id_empresa»: la empresa (tenant) dueña de los datos. Obligatorio: decide qué registros se pueden ver.';
+    if(/^p_limite\b/i.test(t)) return 'Parámetro opcional «p_limite»: el tamaño de página que se pide (por defecto 20).';
+    if(/^p_cursor_creado_en\b/i.test(t)) return 'Parámetro opcional «p_cursor_creado_en»: la fecha del último registro de la página anterior; marca desde dónde seguir.';
+    if(/^p_cursor_id\b/i.test(t)) return 'Parámetro opcional «p_cursor_id»: el id del último registro anterior; acompaña a la fecha para no saltarse ni repetir filas con la misma fecha.';
+    if(/^p_busqueda\b/i.test(t)) return 'Parámetro opcional «p_busqueda»: texto a buscar dentro del código o la descripción.';
+    if(/^p_estado\b/i.test(t)) return 'Parámetro opcional «p_estado»: si se manda, filtra solo por ese estado.';
+    if(/^p_[a-z_]+\b.*DEFAULT\s+NULL/i.test(t)){ var po=t.match(/^(p_[a-z_]+)/)[1]; return 'Parámetro OPCIONAL «'+po+'»: si no se envía queda en NULL y no filtra por ese campo.'; }
+
+    if(/^v_limite\s+INT/i.test(t)) return 'Variable «v_limite»: cuántos registros como máximo devuelve esta página.';
+    if(/^v_items\s+JSONB/i.test(t)) return 'Variable «v_items»: el arreglo (lista) de registros de la página, en formato JSONB (el JSON binario que guarda CockroachDB).';
+    if(/^v_hay_mas\s+BOOL/i.test(t)) return 'Variable «v_hay_mas»: Sí/No que indica si todavía quedan más páginas después de esta.';
+    if(/^v_cursor\s+JSONB/i.test(t)) return 'Variable «v_cursor»: el marcador (fecha + id del último registro) para pedir la página siguiente.';
+    if(/^v_n\s+INT/i.test(t)) return 'Variable «v_n»: cuántos registros trae realmente la página (el largo del arreglo «v_items»).';
+    if(/^v_total\b/i.test(t)) return 'Variable «v_total»: total de registros que cumplen el filtro (para el conteo del resumen).';
+    if(/^v_[a-z_]+\s+JSONB/i.test(t)){ var vj=t.match(/^(v_[a-z_]+)/)[1]; return 'Variable «'+vj+'»: guarda en JSON un registro o un dato relacionado que se va a devolver.'; }
+
+    if(/^IF\s+NOT\s+EXISTS.*FROM\s+empresa/i.test(t)) return 'Valida que la empresa exista y esté vigente (estado ACTIVO, no borrada). Si no, corta y devuelve EMPRESA_NO_VIGENTE: la barrera de seguridad multiempresa.';
+    if(m=t.match(/^IF\s+NOT\s+EXISTS.*FROM\s+([a-z_]+)/i)) return 'Valida que «'+m[1]+'» exista y pertenezca a esta empresa; si no, corta y devuelve un error controlado.';
+    if(/^IF\s+p_[a-z_]+/i.test(t)) return 'Valida un parámetro de entrada (regla de negocio); si no cumple, corta y devuelve un error controlado.';
+    if(/:=\s*LEAST\s*\(\s*GREATEST\s*\(\s*COALESCE/i.test(t)) return 'Acota el tamaño de página: si no mandan límite usa 20; nunca menos de 1 ni más de 100. Evita que pidan millones de filas de una vez.';
+
+    if(/^WITH\s+[a-z_]+\s+AS/i.test(t)) return 'Abre una consulta temporal (CTE) llamada «base» que arma la página; se reutiliza abajo para construir el JSON.';
+    if(/row_number\s*\(\s*\)\s*OVER/i.test(t)) return 'Numera las filas 1,2,3... en el orden de salida (columna «_rn»), para luego respetar ese mismo orden al armar el arreglo JSON.';
+    if(/^SELECT\s+[a-z]{1,3}\.[a-z_]/i.test(t)) return 'Elige las columnas de cada registro que se incluyen en la página.';
+    if(/^FROM\s+base\s*;?\s*$/i.test(t)) return 'Toma esos resultados desde la consulta temporal «base» de arriba.';
+    if(m=t.match(/^FROM\s+([a-z_]+)(\s+[a-z]{1,3})?\s*$/i)) return 'Lee de la tabla «'+m[1]+'»'+(m[2]?' (con un alias corto para nombrar sus columnas)':'')+'.';
+    if(/^[a-z]{1,3}\.[a-z_]+(\s*,|\s*$)/i.test(t)) return 'Más columnas que se incluyen en el resultado.';
+
+    if(/^WHERE\s+[a-z]{1,3}\.id\s*=\s*p_id_/i.test(t)) return 'Busca el registro por su id, pero exigiendo además que sea de esta empresa (id_empresa) y que no esté borrado.';
+    if(/id_empresa\s*=\s*p_id_empresa/i.test(t)) return 'Filtro multiempresa (tenant): SOLO trae registros de la empresa que pregunta. Es la barrera para que nadie vea datos de otra empresa.';
+    if(/^AND\b.*eliminado_en\s+IS\s+NULL/i.test(t)) return 'Excluye los registros dados de baja (borrado lógico): si «eliminado_en» tiene fecha, no aparece.';
+    if(/p_busqueda\s+IS\s+NULL\s+OR/i.test(t)||/ILIKE\b/i.test(t)) return 'Filtro OPCIONAL de búsqueda: ILIKE compara sin distinguir mayúsculas y encuentra el texto aunque esté en medio (%texto%). Si «p_busqueda» es NULL, no filtra.';
+    if(/p_estado\s+IS\s+NULL\s+OR/i.test(t)) return 'Filtro OPCIONAL por estado: si «p_estado» es NULL no filtra; si trae valor, deja solo ese estado.';
+    if(/p_id_[a-z_]+\s+IS\s+NULL\s+OR/i.test(t)){ var pf=t.match(/(p_id_[a-z_]+)/)[1]; return 'Filtro OPCIONAL por «'+pf+'»: si es NULL no filtra; si trae valor, restringe a ese.'; }
+
+    if(/p_cursor_creado_en\s+IS\s+NULL\s+OR/i.test(t)||/\(\s*[a-z]{1,3}\.creado_en\s*,\s*[a-z]{1,3}\.id\s*\)\s*</i.test(t)) return 'Paginación por CURSOR (keyset): si vino cursor, solo trae registros más antiguos que el último de la página previa. Compara el par (fecha, id) JUNTOS, así no repite ni se salta filas con la misma fecha. Por eso es rápida: no usa OFFSET.';
+    if(/ORDER BY\s+[a-z]{1,3}\.creado_en\s+DESC\s*,\s*[a-z]{1,3}\.id\s+DESC/i.test(t)) return 'Ordena del más nuevo al más viejo; el id desempata cuando dos filas tienen la misma fecha, dejando un orden estable (clave para que el cursor no falle).';
+    if(/^ORDER BY\b/i.test(t)) return 'Ordena los resultados (aquí, por la fecha más reciente y el id como desempate).';
+    if(/LIMIT\s+v_limite\s*\+\s*1/i.test(t)) return 'Pide UN registro de más que el límite: si ese extra aparece, ya sé que hay otra página (así calculo «hay_mas» sin un conteo aparte).';
+    if(/^LIMIT\s+1\b/i.test(t)) return 'Trae solo el registro más reciente (la asignación vigente o el último relacionado).';
+
+    if(/jsonb_agg\s*\(\s*to_jsonb/i.test(t)) return 'Arma el arreglo JSON de la página: convierte cada fila a JSON, le quita la columna auxiliar «_rn», respeta el orden y descarta el registro extra (deja solo hasta el límite). Si no hubo filas devuelve un arreglo vacío en vez de NULL.';
+    if(/count\s*\(\s*\*\s*\)\s*>\s*v_limite/i.test(t)) return 'Calcula «hay_mas»: verdadero si llegaron más filas que el límite, es decir, si apareció el registro extra que pedimos.';
+    if(/INTO\s+v_items\s*,\s*v_hay_mas/i.test(t)) return 'Guarda el arreglo de la página en «v_items» y el indicador de más-páginas en «v_hay_mas».';
+
+    if(/jsonb_array_length/i.test(t)) return 'Cuenta cuántos registros tiene la página (el largo del arreglo JSON «v_items»). Lo necesito para ubicar el último elemento y armar el cursor.';
+    if(/^IF\s+v_hay_mas\s+AND\s+v_n\s*>\s*0/i.test(t)) return 'Solo arma el cursor si hay más páginas Y la página trae al menos un registro; si no, no hace falta.';
+    if(/^v_cursor\s*:=\s*jsonb_build_object/i.test(t)) return 'Construye el cursor: un objeto JSON con la fecha (creado_en) y el id del ÚLTIMO registro de esta página. La siguiente llamada arranca justo después de ese punto.';
+    if(/^['"]?creado_en['"]?\s*,\s*v_items\s*->/i.test(t)) return 'Toma la fecha (creado_en) del último item. Es «v_n - 1» porque los arreglos empiezan en 0: el último índice es (cantidad menos 1).';
+    if(/^['"]?id['"]?\s*,\s*v_items\s*->/i.test(t)) return 'Toma el id del último item (mismo índice «v_n - 1»). Junto con la fecha forma el cursor.';
+    if(/^v_cursor\s*:=\s*NULL/i.test(t)) return 'No hay más páginas: el cursor queda en NULL, que es la señal de fin de la lista.';
+    if(/^ELSE\s*$/i.test(t)) return 'Rama alternativa: lo que se hace si NO se cumplió la condición de arriba.';
+
+    if(/to_jsonb\s*\(\s*[a-z]{1,3}\s*\)\s+INTO/i.test(t)) return 'Convierte la fila encontrada (completa) a JSON y la guarda en la variable de salida.';
+    if(/^IF\s+v_[a-z_]+\s+IS\s+NULL\s+THEN/i.test(t)) return 'Si la búsqueda no encontró el registro, corta y devuelve un error de no-encontrado.';
+    if(/_NO_ENCONTRAD[OA]\b/i.test(t)) return 'Error controlado: el id pedido no existe o no pertenece a esta empresa.';
+    if(/ERROR_NO_CONTROLADO/i.test(t)) return 'Red de seguridad: ante cualquier error inesperado, devuelve un error genérico controlado en vez de reventar.';
+    if(/count\s*\(\s*\*\s*\)\s*FILTER/i.test(t)) return 'Cuenta solo las filas que cumplen una condición (FILTER), por ejemplo los cierres en estado CERRADO.';
+
+    if(/^['"]?items['"]?\s*,\s*v_items/i.test(t)) return 'Coloca el arreglo de registros de esta página bajo la clave «items» de la respuesta.';
+    if(/^['"]?paginacion['"]?\s*,\s*jsonb_build_object/i.test(t)) return 'Arma el bloque «paginacion» con los datos de navegación: límite, hay_mas y el cursor.';
+    if(/^['"]?cursor_siguiente['"]?\s*,\s*v_cursor/i.test(t)) return 'Entrega el cursor para pedir la página siguiente (NULL si ya no quedan más).';
+    if(/^['"]?hay_mas['"]?\s*,\s*v_hay_mas/i.test(t)) return 'Le dice al que llama si todavía quedan más páginas por traer.';
+    if(/^['"]?limite['"]?\s*,\s*v_limite/i.test(t)) return 'Informa el límite efectivo que se aplicó a esta página.';
+    if(/^['"]?datos['"]?\s*,\s*jsonb_build_object/i.test(t)) return 'Arma el objeto «datos» de la respuesta: lo que el back o el front realmente consumen.';
+    if(/^['"]?codigo_error['"]?\s*,/i.test(t)) return 'Código de error estable (etiqueta fija para que el front lo reconozca y reaccione).';
+    if(/^['"]?codigo['"]?\s*,/i.test(t)) return 'Código de la operación exitosa (etiqueta fija para el front).';
+    if(/^['"]?mensaje['"]?\s*,/i.test(t)) return 'Mensaje legible para mostrar al usuario.';
+    if(/^['"]?exito['"]?\s*,\s*true/i.test(t)) return 'Marca la respuesta como exitosa.';
+    if(/^['"]?exito['"]?\s*,\s*false/i.test(t)) return 'Marca que la operación no se completó (error controlado).';
+    if(m=t.match(/^['"]([a-z_]+)['"]\s*,\s*COALESCE\s*\(\s*sum/i)) return 'Total del resumen: suma de «'+m[1].replace(/_/g,' ')+'» del periodo (0 si no hay).';
+    if(m=t.match(/^['"]([a-z_]+)['"]\s*,\s*count\s*\(/i)) return 'Dato del resumen: «'+m[1].replace(/_/g,' ')+'» (un conteo de filas).';
+    if(/^['"][a-z_]+['"]\s*,/i.test(t)){ var kk=t.match(/^['"]([a-z_]+)['"]/)[1]; return 'Agrega «'+kk+'» al JSON de la respuesta.'; }
+
+    if(/^v_total_gastos\s+DECIMAL/i.test(t)) return 'Variable «v_total_gastos»: la suma de los 8 rubros de gasto del periodo (lo que se resta a lo facturado).';
+    if(/^v_utilidad_bruta\s+DECIMAL/i.test(t)) return 'Variable «v_utilidad_bruta»: utilidad bruta (facturado menos el total de gastos).';
+    if(/^v_utilidad_neta\s+DECIMAL/i.test(t)) return 'Variable «v_utilidad_neta»: utilidad neta (bruta menos impuestos y reparto).';
+    if(/^v_utilidad_final\s+DECIMAL/i.test(t)) return 'Variable «v_utilidad_final»: utilidad final (neta menos penalidades).';
+    if(/^v_recuperacion\s+DECIMAL/i.test(t)) return 'Variable «v_recuperacion»: recuperación de inversión del periodo (entra como un rubro de gasto).';
+    if(/^v_penalidades\s+DECIMAL/i.test(t)) return 'Variable «v_penalidades»: suma de penalidades del periodo (se resta al final).';
+
+    if(/^v_total_gastos\s*:=/i.test(t)) return 'Calcula el TOTAL DE GASTOS: suma los 8 rubros del periodo (directos, varios fijos, iniciales, recuperación, administrativos, indirectos, financieros y SIG), usando 0 donde venga vacío.';
+    if(/^v_utilidad_bruta\s*:=/i.test(t)) return 'Utilidad BRUTA = total facturado menos el total de gastos.';
+    if(/^v_utilidad_neta\s*:=/i.test(t)) return 'Utilidad NETA = utilidad bruta menos impuesto a la renta, renta adicional y reparto de utilidades.';
+    if(/^v_utilidad_final\s*:=/i.test(t)) return 'Utilidad FINAL = utilidad neta menos las penalidades del periodo.';
+    if(/^\+\s*v_recuperacion\b/i.test(t)) return 'Suma la recuperación de inversión del periodo (es un rubro de gasto más).';
+    if(m=t.match(/^\+\s*COALESCE\s*\(\s*(p_[a-z_]+)/i)) return 'Suma al total el rubro «'+humano(m[1])+'» (0 si viene vacío).';
+    if(m=t.match(/^-\s*COALESCE\s*\(\s*(p_[a-z_]+)/i)) return 'Resta «'+humano(m[1])+'» (0 si viene vacío).';
+    if(/COALESCE\s*\(\s*sum\s*\(\s*importe_recuperado/i.test(t)) return 'Suma todo lo recuperado de inversión en el periodo (0 si no hubo).';
+    if(/INTO\s+v_penalidades/i.test(t)) return 'Suma las penalidades registradas del periodo (lo que se descuenta al final).';
+
+    if(m=t.match(/^AND\s+[a-z]{1,3}\.(id_[a-z_]+)\s*=\s*p_id_/i)) return 'Filtro: restringe a un «'+m[1].replace(/^id_/,'').replace(/_/g,' ')+'» concreto (el que se pasó por parámetro).';
+
+    if(/^SELECT\s+jsonb_build_object/i.test(t)) return 'Arma el resumen del periodo en un solo objeto JSON (cuentas y sumas de los cierres).';
+    if(/^\)\s+INTO\s+v_[a-z_]+/i.test(t)) return 'Guarda el resultado de la consulta en la variable indicada.';
+
+    if(/^p_id_usuario_accion\b/i.test(t)) return 'Parámetro «p_id_usuario_accion»: el usuario que ejecuta la acción; se guarda para auditoría (quién la hizo).';
+    if(m=t.match(/^(p_id_[a-z_]+)\s+UUID/i)) return 'Parámetro «'+m[1]+'»: identificador de «'+humano(m[1])+'» (referencia a esa tabla).';
+    if(m=t.match(/^(p_[a-z_]+)\s+(DECIMAL\([0-9, ]+\)|DECIMAL|INT2|INT|STRING|BOOL|DATE|TIMESTAMPTZ|UUID)/i)) return 'Parámetro «'+m[1]+'»: '+tipoTexto(m[2])+' — '+humano(m[1])+'.';
+    if(m=t.match(/^(v_id_[a-z_]+)\b/i)) return 'Variable «'+m[1]+'»: guarda el id de «'+humano(m[1])+'».';
+    if(m=t.match(/^(v_[a-z_]+)\s+(DECIMAL\([0-9, ]+\)|DECIMAL|INT2|INT|STRING|BOOL|DATE|TIMESTAMPTZ|JSONB|UUID)/i)) return 'Variable «'+m[1]+'»: '+tipoTexto(m[2])+' de trabajo — '+humano(m[1])+'.';
+    if(m=t.match(/^(v_[a-z_]+)\s*:=/i)) return 'Calcula y guarda un valor en la variable «'+m[1]+'» ('+humano(m[1])+').';
+
+    if(/^\)\s*VALUES\s*\(?/i.test(t)) return 'Cierra la lista de columnas y empieza los valores que se insertan.';
+    if(enFuncion && /^[a-z_]+\s*,/i.test(t)) return 'Parte de la lista de columnas o valores de la sentencia.';
+    // ===== fin bloque lecturas =====
+
     if(m=t.match(/^CREATE TABLE\s+([a-z_]+)/i)) return 'Crea la tabla «'+m[1]+'» (entidad del dominio).';
-    if(/^\)\s*;?\s*$/.test(t)) return 'Cierra la definición de la tabla.';
+    if(/^\)\s*;?\s*$/.test(t)) return enFuncion ? 'Cierra el paréntesis del bloque abierto arriba (una llamada, un IF o la consulta).' : 'Cierra la definición de la tabla.';
     if(/^\$\$\s*;?\s*$/.test(t)) return 'Delimitador del cuerpo del procedimiento.';
     if(/PRIMARY KEY/.test(t)&&/gen_random_uuid/.test(t)) return 'Clave primaria: identificador único (UUID) generado automáticamente.';
 
@@ -4046,13 +4156,14 @@ fnRes --> res(["resultado económico del contrato"]):::raiz
       var u=/UNIQUE/i.test(t); return (u?'Índice ÚNICO':'Índice')+(u?' — no permite duplicados.':' — acelera las búsquedas.');
     }
 
-    return 'Continúa la sentencia de la línea anterior.';
+    return 'Continúa o complementa la sentencia de la línea anterior.';
   }
 
   document.querySelectorAll('pre.sql').forEach(function (pre){
+    var esFuncion=/CREATE OR REPLACE FUNCTION/i.test(pre.textContent);
     var lineas=pre.innerHTML.split('\n');
     pre.innerHTML=lineas.map(function(lineaHTML){
-      var tip=explicar(textoDe(lineaHTML));
+      var tip=explicar(textoDe(lineaHTML), esFuncion);
       if(!tip) return lineaHTML;
       return '<span class="linea-sql" data-tip="'+tip.replace(/"/g,'&quot;')+'">'+lineaHTML+'</span>';
     }).join('\n');
