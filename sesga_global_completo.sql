@@ -3924,18 +3924,18 @@ END;
 $$;
 
 -- ==================== ACTUALIZACION GRUPO 5: indices estrella + procedimientos de lectura ====================
--- (activos_e_inversion + cierre_mensual: 10 indices _listado + 13 funciones de lectura)
+-- (lectura con lenguaje ubicuo de Gerson; traslados corregido a una sola funcion)
 
-CREATE INDEX indice_activo_listado ON activo (id_empresa, creado_en DESC, id DESC) STORING (codigo, descripcion, estado, placa, marca, modelo, anio_fabricacion, costo_adquisicion, id_clasificacion_activo, id_tipo_adquisicion_activo) WHERE eliminado_en IS NULL;
-CREATE INDEX indice_activo_asignacion_contrato_listado ON activo_asignacion_contrato (id_empresa, id_activo, creado_en DESC, id DESC) STORING (id_contrato, id_zona, inversion_asignada, saldo_inversion_pendiente, cuota_recuperacion_mensual, fecha_inicio, fecha_fin, estado) WHERE eliminado_en IS NULL;
-CREATE INDEX indice_activo_registro_trabajo_listado ON activo_registro_trabajo (id_empresa, id_activo, creado_en DESC, id DESC) STORING (id_contrato, id_zona, id_operario, id_periodo, fecha, horas_trabajadas, descripcion_trabajo, valorizacion_trabajo, dias_depreciados, kilometraje_inicio, kilometraje_fin) WHERE eliminado_en IS NULL;
-CREATE INDEX indice_activo_traslado_listado ON activo_traslado (id_empresa, id_activo, creado_en DESC, id DESC) STORING (id_contrato_origen, id_zona_origen, id_contrato_destino, id_zona_destino, fecha_traslado, saldo_trasladado, motivo);
-CREATE INDEX indice_herramienta_listado ON herramienta (id_empresa, creado_en DESC, id DESC) STORING (codigo, descripcion, marca, modelo, numero_serie, estado, costo_adquisicion, id_tipo_herramienta) WHERE eliminado_en IS NULL;
-CREATE INDEX indice_herramienta_movimiento_listado ON herramienta_movimiento (id_empresa, id_herramienta, creado_en DESC, id DESC) STORING (tipo_movimiento, fecha, id_periodo, id_contrato_origen, id_zona_origen, id_contrato_destino, id_zona_destino, cantidad, costo, valorizacion, motivo);
-CREATE INDEX indice_recuperacion_inversion_mensual_listado ON recuperacion_inversion_mensual (id_empresa, creado_en DESC, id DESC) STORING (id_activo, id_contrato, id_periodo, importe_recuperado, saldo_antes, saldo_despues, parado);
-CREATE INDEX indice_cierre_mensual_listado ON cierre_mensual (id_empresa, creado_en DESC, id DESC) STORING (id_contrato, id_periodo, total_facturado, total_gastos, utilidad_bruta, utilidad_neta, utilidad_final, estado, fecha_cierre) WHERE eliminado_en IS NULL;
-CREATE INDEX indice_penalidad_listado ON penalidad (id_empresa, creado_en DESC, id DESC) STORING (id_contrato, id_periodo, descripcion, importe) WHERE eliminado_en IS NULL;
-CREATE INDEX indice_provision_listado ON provision (id_empresa, creado_en DESC, id DESC) STORING (id_contrato, id_periodo, descripcion, importe, aplicado) WHERE eliminado_en IS NULL;
+CREATE INDEX idx_activo_listado ON activo (id_empresa, creado_en DESC, id DESC) STORING (codigo, descripcion, estado, placa, marca, modelo, anio_fabricacion, costo_adquisicion, id_clasificacion_activo, id_tipo_adquisicion_activo) WHERE eliminado_en IS NULL;
+CREATE INDEX idx_activo_asignacion_contrato_listado ON activo_asignacion_contrato (id_empresa, id_activo, creado_en DESC, id DESC) STORING (id_contrato, id_zona, inversion_asignada, saldo_inversion_pendiente, cuota_recuperacion_mensual, fecha_inicio, fecha_fin, estado) WHERE eliminado_en IS NULL;
+CREATE INDEX idx_activo_registro_trabajo_listado ON activo_registro_trabajo (id_empresa, id_activo, creado_en DESC, id DESC) STORING (id_contrato, id_zona, id_operario, id_periodo, fecha, horas_trabajadas, descripcion_trabajo, valorizacion_trabajo, dias_depreciados, kilometraje_inicio, kilometraje_fin) WHERE eliminado_en IS NULL;
+CREATE INDEX idx_activo_traslado_listado ON activo_traslado (id_empresa, id_activo, creado_en DESC, id DESC) STORING (id_contrato_origen, id_zona_origen, id_contrato_destino, id_zona_destino, fecha_traslado, saldo_trasladado, motivo);
+CREATE INDEX idx_herramienta_listado ON herramienta (id_empresa, creado_en DESC, id DESC) STORING (codigo, descripcion, marca, modelo, numero_serie, estado, costo_adquisicion, id_tipo_herramienta) WHERE eliminado_en IS NULL;
+CREATE INDEX idx_herramienta_movimiento_listado ON herramienta_movimiento (id_empresa, id_herramienta, creado_en DESC, id DESC) STORING (tipo_movimiento, fecha, id_periodo, id_contrato_origen, id_zona_origen, id_contrato_destino, id_zona_destino, cantidad, costo, valorizacion, motivo);
+CREATE INDEX idx_recuperacion_inversion_mensual_listado ON recuperacion_inversion_mensual (id_empresa, creado_en DESC, id DESC) STORING (id_activo, id_contrato, id_periodo, importe_recuperado, saldo_antes, saldo_despues, parado);
+CREATE INDEX idx_cierre_mensual_listado ON cierre_mensual (id_empresa, creado_en DESC, id DESC) STORING (id_contrato, id_periodo, total_facturado, total_gastos, utilidad_bruta, utilidad_neta, utilidad_final, estado, fecha_cierre) WHERE eliminado_en IS NULL;
+CREATE INDEX idx_penalidad_listado ON penalidad (id_empresa, creado_en DESC, id DESC) STORING (id_contrato, id_periodo, descripcion, importe) WHERE eliminado_en IS NULL;
+CREATE INDEX idx_provision_listado ON provision (id_empresa, creado_en DESC, id DESC) STORING (id_contrato, id_periodo, descripcion, importe, aplicado) WHERE eliminado_en IS NULL;
 
 CREATE OR REPLACE FUNCTION fn_listar_activos(
   p_id_empresa UUID,
@@ -3949,23 +3949,23 @@ CREATE OR REPLACE FUNCTION fn_listar_activos(
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  v_limite INT;
-  v_items JSONB;
-  v_hay_mas BOOL;
-  v_n INT;
-  v_cursor JSONB;
+  v_limite_pagina INT;
+  v_activos_pagina JSONB;
+  v_existen_mas_activos BOOL;
+  v_cantidad_activos_pagina INT;
+  v_cursor_siguiente JSONB;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
   END IF;
 
-  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
 
-  WITH base AS (
+  WITH activos_ordenados_para_listado AS (
     SELECT a.id, a.codigo, a.descripcion, a.estado, a.placa, a.marca, a.modelo,
            a.anio_fabricacion, a.costo_adquisicion, a.id_clasificacion_activo,
            a.id_tipo_adquisicion_activo, a.creado_en,
-           row_number() OVER (ORDER BY a.creado_en DESC, a.id DESC) AS _rn
+           row_number() OVER (ORDER BY a.creado_en DESC, a.id DESC) AS orden_en_pagina
     FROM activo a
     WHERE a.id_empresa = p_id_empresa
       AND a.eliminado_en IS NULL
@@ -3974,22 +3974,26 @@ BEGIN
       AND (p_busqueda IS NULL OR a.codigo ILIKE '%' || p_busqueda || '%' OR a.descripcion ILIKE '%' || p_busqueda || '%')
       AND (p_cursor_creado_en IS NULL OR (a.creado_en, a.id) < (p_cursor_creado_en, p_cursor_id))
     ORDER BY a.creado_en DESC, a.id DESC
-    LIMIT v_limite + 1
+    LIMIT v_limite_pagina + 1
   )
   SELECT
-    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn <= v_limite), '[]'::jsonb),
-    count(*) > v_limite
-  INTO v_items, v_hay_mas
-  FROM base;
+    COALESCE(
+      jsonb_agg(to_jsonb(activos_ordenados_para_listado) - 'orden_en_pagina' ORDER BY activos_ordenados_para_listado.orden_en_pagina)
+      FILTER (WHERE activos_ordenados_para_listado.orden_en_pagina <= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) > v_limite_pagina
+  INTO v_activos_pagina, v_existen_mas_activos
+  FROM activos_ordenados_para_listado;
 
-  v_n := jsonb_array_length(v_items);
-  IF v_hay_mas AND v_n > 0 THEN
-    v_cursor := jsonb_build_object(
-      'creado_en', v_items -> (v_n - 1) -> 'creado_en',
-      'id', v_items -> (v_n - 1) -> 'id'
+  v_cantidad_activos_pagina := jsonb_array_length(v_activos_pagina);
+  IF v_existen_mas_activos AND v_cantidad_activos_pagina > 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_activos_pagina -> (v_cantidad_activos_pagina - 1) -> 'creado_en',
+      'id', v_activos_pagina -> (v_cantidad_activos_pagina - 1) -> 'id'
     );
   ELSE
-    v_cursor := NULL;
+    v_cursor_siguiente := NULL;
   END IF;
 
   RETURN jsonb_build_object(
@@ -3997,11 +4001,11 @@ BEGIN
     'codigo', 'ACTIVOS_LISTADOS',
     'mensaje', 'Listado de activos obtenido',
     'datos', jsonb_build_object(
-      'items', v_items,
+      'items', v_activos_pagina,
       'paginacion', jsonb_build_object(
-        'limite', v_limite,
-        'hay_mas', v_hay_mas,
-        'cursor_siguiente', v_cursor
+        'limite', v_limite_pagina,
+        'hay_mas', v_existen_mas_activos,
+        'cursor_siguiente', v_cursor_siguiente
       )
     )
   );
@@ -4010,7 +4014,6 @@ EXCEPTION
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVOS_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar los activos');
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION fn_obtener_detalle_activo(
   p_id_empresa UUID,
   p_id_activo UUID
@@ -4058,51 +4061,58 @@ CREATE OR REPLACE FUNCTION fn_listar_herramientas(
   p_id_empresa UUID,
   p_estado STRING,
   p_id_tipo_herramienta UUID,
-  p_busqueda STRING,
-  p_limite INT,
+  p_texto_busqueda  STRING,
+  p_limite_pagina  INT,
   p_cursor_creado_en TIMESTAMPTZ,
   p_cursor_id UUID
 ) RETURNS JSONB
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  v_limite INT;
-  v_items JSONB;
-  v_hay_mas BOOL;
-  v_n INT;
-  v_cursor JSONB;
+  v_limite_pagina INT;
+  v_herramientas_pagina JSONB;
+  v_existen_mas_herramientas BOOL;
+  v_cantidad_herramientas_pagina INT;
+  v_cursor_siguiente JSONB;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
   END IF;
 
-  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite_pagina , 20), 1), 100);
 
-  WITH base AS (
+  WITH herramientas_ordenadas_para_listado AS (
     SELECT h.id, h.codigo, h.descripcion, h.marca, h.modelo, h.numero_serie,
            h.estado, h.costo_adquisicion, h.id_tipo_herramienta, h.creado_en,
-           row_number() OVER (ORDER BY h.creado_en DESC, h.id DESC) AS _rn
+           row_number() OVER (ORDER BY h.creado_en DESC, h.id DESC) AS orden_en_pagina
     FROM herramienta h
     WHERE h.id_empresa = p_id_empresa
       AND h.eliminado_en IS NULL
       AND (p_estado IS NULL OR h.estado = p_estado)
       AND (p_id_tipo_herramienta IS NULL OR h.id_tipo_herramienta = p_id_tipo_herramienta)
-      AND (p_busqueda IS NULL OR h.codigo ILIKE '%' || p_busqueda || '%' OR h.descripcion ILIKE '%' || p_busqueda || '%')
+      AND (p_texto_busqueda  IS NULL OR h.codigo ILIKE '%' || p_texto_busqueda  || '%' OR h.descripcion ILIKE '%' || p_texto_busqueda  || '%')
       AND (p_cursor_creado_en IS NULL OR (h.creado_en, h.id) < (p_cursor_creado_en, p_cursor_id))
     ORDER BY h.creado_en DESC, h.id DESC
-    LIMIT v_limite + 1
+    LIMIT v_limite_pagina + 1
   )
   SELECT
-    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn <= v_limite), '[]'::jsonb),
-    count(*) > v_limite
-  INTO v_items, v_hay_mas
-  FROM base;
+    COALESCE(
+      jsonb_agg(to_jsonb(herramientas_ordenadas_para_listado) - 'orden_en_pagina' ORDER BY herramientas_ordenadas_para_listado.orden_en_pagina)
+      FILTER (WHERE herramientas_ordenadas_para_listado.orden_en_pagina <= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) > v_limite_pagina
+  INTO v_herramientas_pagina, v_existen_mas_herramientas
+  FROM herramientas_ordenadas_para_listado;
 
-  v_n := jsonb_array_length(v_items);
-  IF v_hay_mas AND v_n > 0 THEN
-    v_cursor := jsonb_build_object('creado_en', v_items -> (v_n - 1) -> 'creado_en', 'id', v_items -> (v_n - 1) -> 'id');
+  v_cantidad_herramientas_pagina := jsonb_array_length(v_herramientas_pagina);
+  IF v_existen_mas_herramientas AND v_cantidad_herramientas_pagina > 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_herramientas_pagina -> (v_cantidad_herramientas_pagina - 1) -> 'creado_en',
+      'id', v_herramientas_pagina -> (v_cantidad_herramientas_pagina - 1) -> 'id'
+    );
   ELSE
-    v_cursor := NULL;
+    v_cursor_siguiente := NULL;
   END IF;
 
   RETURN jsonb_build_object(
@@ -4110,8 +4120,8 @@ BEGIN
     'codigo', 'HERRAMIENTAS_LISTADAS',
     'mensaje', 'Listado de herramientas obtenido',
     'datos', jsonb_build_object(
-      'items', v_items,
-      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+      'items', v_herramientas_pagina,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas_herramientas, 'cursor_siguiente', v_cursor_siguiente)
     )
   );
 EXCEPTION
@@ -4119,7 +4129,6 @@ EXCEPTION
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'HERRAMIENTAS_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar las herramientas');
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION fn_obtener_detalle_herramienta(
   p_id_empresa UUID,
   p_id_herramienta UUID
@@ -4163,6 +4172,7 @@ EXCEPTION
 END;
 $$;
 
+
 CREATE OR REPLACE FUNCTION fn_listar_movimientos_herramienta(
   p_id_empresa UUID,
   p_id_herramienta UUID,
@@ -4175,11 +4185,11 @@ CREATE OR REPLACE FUNCTION fn_listar_movimientos_herramienta(
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  v_limite INT;
-  v_items JSONB;
-  v_hay_mas BOOL;
-  v_n INT;
-  v_cursor JSONB;
+  v_limite_pagina INT;
+  v_movimientos_herramienta_pagina JSONB;
+  v_existen_mas_movimientos BOOL;
+  v_cantidad_movimientos_pagina INT;
+  v_cursor_siguiente JSONB;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
@@ -4189,13 +4199,13 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'HERRAMIENTA_NO_VALIDA', 'mensaje', 'La herramienta no existe o no pertenece a la empresa');
   END IF;
 
-  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
 
-  WITH base AS (
+  WITH movimientos_herramienta_ordenados_para_listado AS (
     SELECT m.id, m.tipo_movimiento, m.fecha, m.id_periodo,
            m.id_contrato_origen, m.id_zona_origen, m.id_contrato_destino, m.id_zona_destino,
            m.cantidad, m.costo, m.valorizacion, m.motivo, m.creado_en,
-           row_number() OVER (ORDER BY m.creado_en DESC, m.id DESC) AS _rn
+           row_number() OVER (ORDER BY m.creado_en DESC, m.id DESC) AS orden_en_pagina
     FROM herramienta_movimiento m
     WHERE m.id_empresa = p_id_empresa
       AND m.id_herramienta = p_id_herramienta
@@ -4203,19 +4213,26 @@ BEGIN
       AND (p_tipo_movimiento IS NULL OR m.tipo_movimiento = p_tipo_movimiento)
       AND (p_cursor_creado_en IS NULL OR (m.creado_en, m.id) < (p_cursor_creado_en, p_cursor_id))
     ORDER BY m.creado_en DESC, m.id DESC
-    LIMIT v_limite + 1
+    LIMIT v_limite_pagina + 1
   )
   SELECT
-    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn <= v_limite), '[]'::jsonb),
-    count(*) > v_limite
-  INTO v_items, v_hay_mas
-  FROM base;
+    COALESCE(
+      jsonb_agg(to_jsonb(movimientos_herramienta_ordenados_para_listado) - 'orden_en_pagina' ORDER BY movimientos_herramienta_ordenados_para_listado.orden_en_pagina)
+      FILTER (WHERE movimientos_herramienta_ordenados_para_listado.orden_en_pagina <= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) > v_limite_pagina
+  INTO v_movimientos_herramienta_pagina, v_existen_mas_movimientos
+  FROM movimientos_herramienta_ordenados_para_listado;
 
-  v_n := jsonb_array_length(v_items);
-  IF v_hay_mas AND v_n > 0 THEN
-    v_cursor := jsonb_build_object('creado_en', v_items -> (v_n - 1) -> 'creado_en', 'id', v_items -> (v_n - 1) -> 'id');
+  v_cantidad_movimientos_pagina := jsonb_array_length(v_movimientos_herramienta_pagina);
+  IF v_existen_mas_movimientos AND v_cantidad_movimientos_pagina > 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_movimientos_herramienta_pagina -> (v_cantidad_movimientos_pagina - 1) -> 'creado_en',
+      'id', v_movimientos_herramienta_pagina -> (v_cantidad_movimientos_pagina - 1) -> 'id'
+    );
   ELSE
-    v_cursor := NULL;
+    v_cursor_siguiente := NULL;
   END IF;
 
   RETURN jsonb_build_object(
@@ -4223,8 +4240,8 @@ BEGIN
     'codigo', 'MOVIMIENTOS_HERRAMIENTA_LISTADOS',
     'mensaje', 'Listado de movimientos de la herramienta obtenido',
     'datos', jsonb_build_object(
-      'items', v_items,
-      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+      'items', v_movimientos_herramienta_pagina,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas_movimientos, 'cursor_siguiente', v_cursor_siguiente)
     )
   );
 EXCEPTION
@@ -4232,7 +4249,6 @@ EXCEPTION
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'MOVIMIENTOS_HERRAMIENTA_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar los movimientos');
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION fn_listar_asignaciones_activo(
   p_id_empresa UUID,
   p_id_activo UUID,
@@ -4244,11 +4260,11 @@ CREATE OR REPLACE FUNCTION fn_listar_asignaciones_activo(
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  v_limite INT;
-  v_items JSONB;
-  v_hay_mas BOOL;
-  v_n INT;
-  v_cursor JSONB;
+  v_limite_pagina INT;
+  v_asignaciones_activo_pagina JSONB;
+  v_existen_mas_asignaciones BOOL;
+  v_cantidad_asignaciones_pagina INT;
+  v_cursor_siguiente JSONB;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
@@ -4258,9 +4274,9 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_VALIDO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
   END IF;
 
-  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
 
-  WITH base AS (
+  WITH asignaciones_activo_ordenadas_para_listado AS (
     SELECT ac.id, ac.id_contrato, ac.id_zona, ac.inversion_asignada, ac.saldo_inversion_pendiente,
            ac.cuota_recuperacion_mensual, ac.fecha_inicio, ac.fecha_fin, ac.estado, ac.creado_en,
            row_number() OVER (ORDER BY ac.creado_en DESC, ac.id DESC) AS _rn
@@ -4271,19 +4287,19 @@ BEGIN
       AND (p_estado IS NULL OR ac.estado = p_estado)
       AND (p_cursor_creado_en IS NULL OR (ac.creado_en, ac.id) < (p_cursor_creado_en, p_cursor_id))
     ORDER BY ac.creado_en DESC, ac.id DESC
-    LIMIT v_limite + 1
+    LIMIT v_limite_pagina + 1
   )
   SELECT
-    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn <= v_limite), '[]'::jsonb),
-    count(*) > v_limite
-  INTO v_items, v_hay_mas
-  FROM base;
+    COALESCE(jsonb_agg(to_jsonb(asignaciones_activo_ordenadas_para_listado) - '_rn' ORDER BY asignaciones_activo_ordenadas_para_listado._rn) FILTER (WHERE asignaciones_activo_ordenadas_para_listado._rn <= v_limite_pagina), '[]'::jsonb),
+    count(*) > v_limite_pagina
+  INTO v_asignaciones_activo_pagina, v_existen_mas_asignaciones
+  FROM asignaciones_activo_ordenadas_para_listado;
 
-  v_n := jsonb_array_length(v_items);
-  IF v_hay_mas AND v_n > 0 THEN
-    v_cursor := jsonb_build_object('creado_en', v_items -> (v_n - 1) -> 'creado_en', 'id', v_items -> (v_n - 1) -> 'id');
+  v_cantidad_asignaciones_pagina := jsonb_array_length(v_asignaciones_activo_pagina);
+  IF v_existen_mas_asignaciones AND v_cantidad_asignaciones_pagina > 0 THEN
+    v_cursor_siguiente := jsonb_build_object('creado_en', v_asignaciones_activo_pagina -> (v_cantidad_asignaciones_pagina - 1) -> 'creado_en', 'id', v_asignaciones_activo_pagina -> (v_cantidad_asignaciones_pagina - 1) -> 'id');
   ELSE
-    v_cursor := NULL;
+    v_cursor_siguiente := NULL;
   END IF;
 
   RETURN jsonb_build_object(
@@ -4291,8 +4307,8 @@ BEGIN
     'codigo', 'ASIGNACIONES_ACTIVO_LISTADAS',
     'mensaje', 'Listado de asignaciones del activo obtenido',
     'datos', jsonb_build_object(
-      'items', v_items,
-      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+      'items', v_asignaciones_activo_pagina,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas_asignaciones, 'cursor_siguiente', v_cursor_siguiente)
     )
   );
 EXCEPTION
@@ -4313,11 +4329,11 @@ CREATE OR REPLACE FUNCTION fn_listar_trabajos_activo(
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  v_limite INT;
-  v_items JSONB;
-  v_hay_mas BOOL;
-  v_n INT;
-  v_cursor JSONB;
+  v_limite_pagina INT;
+  v_trabajos_activo_pagina JSONB;
+  v_existen_mas_trabajos BOOL;
+  v_cantidad_trabajos_pagina INT;
+  v_cursor_siguiente JSONB;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
@@ -4327,13 +4343,13 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_VALIDO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
   END IF;
 
-  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
 
-  WITH base AS (
+  WITH trabajos_activo_ordenados_para_listado AS (
     SELECT t.id, t.id_contrato, t.id_zona, t.id_operario, t.id_periodo, t.fecha,
            t.horas_trabajadas, t.descripcion_trabajo, t.valorizacion_trabajo, t.dias_depreciados,
            t.kilometraje_inicio, t.kilometraje_fin, t.creado_en,
-           row_number() OVER (ORDER BY t.creado_en DESC, t.id DESC) AS _rn
+           row_number() OVER (ORDER BY t.creado_en DESC, t.id DESC) AS orden_en_pagina
     FROM activo_registro_trabajo t
     WHERE t.id_empresa = p_id_empresa
       AND t.id_activo = p_id_activo
@@ -4342,19 +4358,26 @@ BEGIN
       AND (p_id_periodo IS NULL OR t.id_periodo = p_id_periodo)
       AND (p_cursor_creado_en IS NULL OR (t.creado_en, t.id) < (p_cursor_creado_en, p_cursor_id))
     ORDER BY t.creado_en DESC, t.id DESC
-    LIMIT v_limite + 1
+    LIMIT v_limite_pagina + 1
   )
   SELECT
-    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn <= v_limite), '[]'::jsonb),
-    count(*) > v_limite
-  INTO v_items, v_hay_mas
-  FROM base;
+    COALESCE(
+      jsonb_agg(to_jsonb(trabajos_activo_ordenados_para_listado) - 'orden_en_pagina' ORDER BY trabajos_activo_ordenados_para_listado.orden_en_pagina)
+      FILTER (WHERE trabajos_activo_ordenados_para_listado.orden_en_pagina <= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) > v_limite_pagina
+  INTO v_trabajos_activo_pagina, v_existen_mas_trabajos
+  FROM trabajos_activo_ordenados_para_listado;
 
-  v_n := jsonb_array_length(v_items);
-  IF v_hay_mas AND v_n > 0 THEN
-    v_cursor := jsonb_build_object('creado_en', v_items -> (v_n - 1) -> 'creado_en', 'id', v_items -> (v_n - 1) -> 'id');
+  v_cantidad_trabajos_pagina := jsonb_array_length(v_trabajos_activo_pagina);
+  IF v_existen_mas_trabajos AND v_cantidad_trabajos_pagina > 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_trabajos_activo_pagina -> (v_cantidad_trabajos_pagina - 1) -> 'creado_en',
+      'id', v_trabajos_activo_pagina -> (v_cantidad_trabajos_pagina - 1) -> 'id'
+    );
   ELSE
-    v_cursor := NULL;
+    v_cursor_siguiente := NULL;
   END IF;
 
   RETURN jsonb_build_object(
@@ -4362,8 +4385,8 @@ BEGIN
     'codigo', 'TRABAJOS_ACTIVO_LISTADOS',
     'mensaje', 'Listado de trabajos del activo obtenido',
     'datos', jsonb_build_object(
-      'items', v_items,
-      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+      'items', v_trabajos_activo_pagina,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas_trabajos, 'cursor_siguiente', v_cursor_siguiente)
     )
   );
 EXCEPTION
@@ -4382,11 +4405,11 @@ CREATE OR REPLACE FUNCTION fn_listar_traslados_activo(
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  v_limite INT;
-  v_items JSONB;
-  v_hay_mas BOOL;
-  v_n INT;
-  v_cursor JSONB;
+  v_limite_pagina INT;
+  v_traslados_activo_pagina JSONB;
+  v_existen_mas_traslados BOOL;
+  v_cantidad_traslados_pagina INT;
+  v_cursor_siguiente JSONB;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
@@ -4396,30 +4419,37 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_VALIDO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
   END IF;
 
-  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
 
-  WITH base AS (
+  WITH traslados_activo_ordenados_para_listado AS (
     SELECT t.id, t.id_contrato_origen, t.id_zona_origen, t.id_contrato_destino, t.id_zona_destino,
            t.fecha_traslado, t.saldo_trasladado, t.motivo, t.creado_en,
-           row_number() OVER (ORDER BY t.creado_en DESC, t.id DESC) AS _rn
+           row_number() OVER (ORDER BY t.creado_en DESC, t.id DESC) AS orden_en_pagina
     FROM activo_traslado t
     WHERE t.id_empresa = p_id_empresa
       AND t.id_activo = p_id_activo
       AND (p_cursor_creado_en IS NULL OR (t.creado_en, t.id) < (p_cursor_creado_en, p_cursor_id))
     ORDER BY t.creado_en DESC, t.id DESC
-    LIMIT v_limite + 1
+    LIMIT v_limite_pagina + 1
   )
   SELECT
-    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn <= v_limite), '[]'::jsonb),
-    count(*) > v_limite
-  INTO v_items, v_hay_mas
-  FROM base;
+    COALESCE(
+      jsonb_agg(to_jsonb(traslados_activo_ordenados_para_listado) - 'orden_en_pagina' ORDER BY traslados_activo_ordenados_para_listado.orden_en_pagina)
+      FILTER (WHERE traslados_activo_ordenados_para_listado.orden_en_pagina <= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) > v_limite_pagina
+  INTO v_traslados_activo_pagina, v_existen_mas_traslados
+  FROM traslados_activo_ordenados_para_listado;
 
-  v_n := jsonb_array_length(v_items);
-  IF v_hay_mas AND v_n > 0 THEN
-    v_cursor := jsonb_build_object('creado_en', v_items -> (v_n - 1) -> 'creado_en', 'id', v_items -> (v_n - 1) -> 'id');
+  v_cantidad_traslados_pagina := jsonb_array_length(v_traslados_activo_pagina);
+  IF v_existen_mas_traslados AND v_cantidad_traslados_pagina > 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_traslados_activo_pagina -> (v_cantidad_traslados_pagina - 1) -> 'creado_en',
+      'id', v_traslados_activo_pagina -> (v_cantidad_traslados_pagina - 1) -> 'id'
+    );
   ELSE
-    v_cursor := NULL;
+    v_cursor_siguiente := NULL;
   END IF;
 
   RETURN jsonb_build_object(
@@ -4427,8 +4457,8 @@ BEGIN
     'codigo', 'TRASLADOS_ACTIVO_LISTADOS',
     'mensaje', 'Listado de traslados del activo obtenido',
     'datos', jsonb_build_object(
-      'items', v_items,
-      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+      'items', v_traslados_activo_pagina,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas_traslados, 'cursor_siguiente', v_cursor_siguiente)
     )
   );
 EXCEPTION
@@ -4436,6 +4466,7 @@ EXCEPTION
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'TRASLADOS_ACTIVO_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar los traslados');
 END;
 $$;
+
 
 CREATE OR REPLACE FUNCTION fn_listar_recuperaciones_inversion(
   p_id_empresa UUID,
@@ -4449,22 +4480,22 @@ CREATE OR REPLACE FUNCTION fn_listar_recuperaciones_inversion(
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  v_limite INT;
-  v_items JSONB;
-  v_hay_mas BOOL;
-  v_n INT;
-  v_cursor JSONB;
+  v_limite_pagina INT;
+  v_recuperaciones_inversion_pagina JSONB;
+  v_existen_mas_recuperaciones BOOL;
+  v_cantidad_recuperaciones_pagina INT;
+  v_cursor_siguiente JSONB;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
   END IF;
 
-  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
 
-  WITH base AS (
+  WITH recuperaciones_inversion_ordenadas_para_listado AS (
     SELECT r.id, r.id_activo, r.id_contrato, r.id_periodo, r.importe_recuperado,
            r.saldo_antes, r.saldo_despues, r.parado, r.creado_en,
-           row_number() OVER (ORDER BY r.creado_en DESC, r.id DESC) AS _rn
+           row_number() OVER (ORDER BY r.creado_en DESC, r.id DESC) AS orden_en_pagina
     FROM recuperacion_inversion_mensual r
     WHERE r.id_empresa = p_id_empresa
       AND (p_id_activo IS NULL OR r.id_activo = p_id_activo)
@@ -4472,19 +4503,26 @@ BEGIN
       AND (p_id_periodo IS NULL OR r.id_periodo = p_id_periodo)
       AND (p_cursor_creado_en IS NULL OR (r.creado_en, r.id) < (p_cursor_creado_en, p_cursor_id))
     ORDER BY r.creado_en DESC, r.id DESC
-    LIMIT v_limite + 1
+    LIMIT v_limite_pagina + 1
   )
   SELECT
-    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn <= v_limite), '[]'::jsonb),
-    count(*) > v_limite
-  INTO v_items, v_hay_mas
-  FROM base;
+    COALESCE(
+      jsonb_agg(to_jsonb(recuperaciones_inversion_ordenadas_para_listado) - 'orden_en_pagina' ORDER BY recuperaciones_inversion_ordenadas_para_listado.orden_en_pagina)
+      FILTER (WHERE recuperaciones_inversion_ordenadas_para_listado.orden_en_pagina <= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) > v_limite_pagina
+  INTO v_recuperaciones_inversion_pagina, v_existen_mas_recuperaciones
+  FROM recuperaciones_inversion_ordenadas_para_listado;
 
-  v_n := jsonb_array_length(v_items);
-  IF v_hay_mas AND v_n > 0 THEN
-    v_cursor := jsonb_build_object('creado_en', v_items -> (v_n - 1) -> 'creado_en', 'id', v_items -> (v_n - 1) -> 'id');
+  v_cantidad_recuperaciones_pagina := jsonb_array_length(v_recuperaciones_inversion_pagina);
+  IF v_existen_mas_recuperaciones AND v_cantidad_recuperaciones_pagina > 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_recuperaciones_inversion_pagina -> (v_cantidad_recuperaciones_pagina - 1) -> 'creado_en',
+      'id', v_recuperaciones_inversion_pagina -> (v_cantidad_recuperaciones_pagina - 1) -> 'id'
+    );
   ELSE
-    v_cursor := NULL;
+    v_cursor_siguiente := NULL;
   END IF;
 
   RETURN jsonb_build_object(
@@ -4492,8 +4530,8 @@ BEGIN
     'codigo', 'RECUPERACIONES_LISTADAS',
     'mensaje', 'Listado de recuperaciones de inversion obtenido',
     'datos', jsonb_build_object(
-      'items', v_items,
-      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+      'items', v_recuperaciones_inversion_pagina,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas_recuperaciones, 'cursor_siguiente', v_cursor_siguiente)
     )
   );
 EXCEPTION
@@ -4514,22 +4552,22 @@ CREATE OR REPLACE FUNCTION fn_listar_cierres_mensuales(
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  v_limite INT;
-  v_items JSONB;
-  v_hay_mas BOOL;
-  v_n INT;
-  v_cursor JSONB;
+  v_limite_pagina INT;
+  v_cierres_mensuales_pagina JSONB;
+  v_existen_mas_cierres BOOL;
+  v_cantidad_cierres_pagina INT;
+  v_cursor_siguiente JSONB;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
   END IF;
 
-  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
 
-  WITH base AS (
+  WITH cierres_mensuales_ordenados_para_listado AS (
     SELECT c.id, c.id_contrato, c.id_periodo, c.total_facturado, c.total_gastos,
            c.utilidad_bruta, c.utilidad_neta, c.utilidad_final, c.estado, c.fecha_cierre, c.creado_en,
-           row_number() OVER (ORDER BY c.creado_en DESC, c.id DESC) AS _rn
+           row_number() OVER (ORDER BY c.creado_en DESC, c.id DESC) AS orden_en_pagina
     FROM cierre_mensual c
     WHERE c.id_empresa = p_id_empresa
       AND c.eliminado_en IS NULL
@@ -4538,19 +4576,26 @@ BEGIN
       AND (p_estado IS NULL OR c.estado = p_estado)
       AND (p_cursor_creado_en IS NULL OR (c.creado_en, c.id) < (p_cursor_creado_en, p_cursor_id))
     ORDER BY c.creado_en DESC, c.id DESC
-    LIMIT v_limite + 1
+    LIMIT v_limite_pagina + 1
   )
   SELECT
-    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn <= v_limite), '[]'::jsonb),
-    count(*) > v_limite
-  INTO v_items, v_hay_mas
-  FROM base;
+    COALESCE(
+      jsonb_agg(to_jsonb(cierres_mensuales_ordenados_para_listado) - 'orden_en_pagina' ORDER BY cierres_mensuales_ordenados_para_listado.orden_en_pagina)
+      FILTER (WHERE cierres_mensuales_ordenados_para_listado.orden_en_pagina <= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) > v_limite_pagina
+  INTO v_cierres_mensuales_pagina, v_existen_mas_cierres
+  FROM cierres_mensuales_ordenados_para_listado;
 
-  v_n := jsonb_array_length(v_items);
-  IF v_hay_mas AND v_n > 0 THEN
-    v_cursor := jsonb_build_object('creado_en', v_items -> (v_n - 1) -> 'creado_en', 'id', v_items -> (v_n - 1) -> 'id');
+  v_cantidad_cierres_pagina := jsonb_array_length(v_cierres_mensuales_pagina);
+  IF v_existen_mas_cierres AND v_cantidad_cierres_pagina > 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_cierres_mensuales_pagina -> (v_cantidad_cierres_pagina - 1) -> 'creado_en',
+      'id', v_cierres_mensuales_pagina -> (v_cantidad_cierres_pagina - 1) -> 'id'
+    );
   ELSE
-    v_cursor := NULL;
+    v_cursor_siguiente := NULL;
   END IF;
 
   RETURN jsonb_build_object(
@@ -4558,8 +4603,8 @@ BEGIN
     'codigo', 'CIERRES_MENSUALES_LISTADOS',
     'mensaje', 'Listado de cierres mensuales obtenido',
     'datos', jsonb_build_object(
-      'items', v_items,
-      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+      'items', v_cierres_mensuales_pagina,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas_cierres, 'cursor_siguiente', v_cursor_siguiente)
     )
   );
 EXCEPTION
@@ -4567,7 +4612,6 @@ EXCEPTION
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'CIERRES_MENSUALES_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar los cierres');
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION fn_listar_penalidades(
   p_id_empresa UUID,
   p_id_contrato UUID,
@@ -4579,19 +4623,19 @@ CREATE OR REPLACE FUNCTION fn_listar_penalidades(
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  v_limite INT;
-  v_items JSONB;
-  v_hay_mas BOOL;
-  v_n INT;
-  v_cursor JSONB;
+  v_limite_pagina INT;
+  v_penalidades_pagina JSONB;
+  v_existen_mas_penalidades BOOL;
+  v_cantidad_penalidades_pagina INT;
+  v_cursor_siguiente JSONB;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
   END IF;
 
-  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
 
-  WITH base AS (
+  WITH penalidades_ordenadas_para_listado  AS (
     SELECT pe.id, pe.id_contrato, pe.id_periodo, pe.descripcion, pe.importe, pe.creado_en,
            row_number() OVER (ORDER BY pe.creado_en DESC, pe.id DESC) AS _rn
     FROM penalidad pe
@@ -4601,19 +4645,19 @@ BEGIN
       AND (p_id_periodo IS NULL OR pe.id_periodo = p_id_periodo)
       AND (p_cursor_creado_en IS NULL OR (pe.creado_en, pe.id) < (p_cursor_creado_en, p_cursor_id))
     ORDER BY pe.creado_en DESC, pe.id DESC
-    LIMIT v_limite + 1
+    LIMIT v_limite_pagina + 1
   )
   SELECT
-    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn <= v_limite), '[]'::jsonb),
-    count(*) > v_limite
-  INTO v_items, v_hay_mas
-  FROM base;
+    COALESCE(jsonb_agg(to_jsonb(penalidades_ordenadas_para_listado ) - '_rn' ORDER BY penalidades_ordenadas_para_listado ._rn) FILTER (WHERE penalidades_ordenadas_para_listado ._rn <= v_limite_pagina), '[]'::jsonb),
+    count(*) > v_limite_pagina
+  INTO v_penalidades_pagina, v_existen_mas_penalidades
+  FROM penalidades_ordenadas_para_listado ;
 
-  v_n := jsonb_array_length(v_items);
-  IF v_hay_mas AND v_n > 0 THEN
-    v_cursor := jsonb_build_object('creado_en', v_items -> (v_n - 1) -> 'creado_en', 'id', v_items -> (v_n - 1) -> 'id');
+  v_cantidad_penalidades_pagina := jsonb_array_length(v_penalidades_pagina);
+  IF v_existen_mas_penalidades AND v_cantidad_penalidades_pagina > 0 THEN
+    v_cursor_siguiente := jsonb_build_object('creado_en', v_penalidades_pagina -> (v_cantidad_penalidades_pagina - 1) -> 'creado_en', 'id', v_penalidades_pagina -> (v_cantidad_penalidades_pagina - 1) -> 'id');
   ELSE
-    v_cursor := NULL;
+    v_cursor_siguiente := NULL;
   END IF;
 
   RETURN jsonb_build_object(
@@ -4621,8 +4665,8 @@ BEGIN
     'codigo', 'PENALIDADES_LISTADAS',
     'mensaje', 'Listado de penalidades obtenido',
     'datos', jsonb_build_object(
-      'items', v_items,
-      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+      'items', v_penalidades_pagina,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas_penalidades, 'cursor_siguiente', v_cursor_siguiente)
     )
   );
 EXCEPTION
@@ -4642,21 +4686,21 @@ CREATE OR REPLACE FUNCTION fn_listar_provisiones(
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  v_limite INT;
-  v_items JSONB;
-  v_hay_mas BOOL;
-  v_n INT;
-  v_cursor JSONB;
+  v_limite_pagina INT;
+  v_provisiones_pagina JSONB;
+  v_existen_mas_provisiones BOOL;
+  v_cantidad_provisiones_pagina INT;
+  v_cursor_siguiente JSONB;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
   END IF;
 
-  v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
 
-  WITH base AS (
+  WITH provisiones_ordenadas_para_listado AS (
     SELECT pr.id, pr.id_contrato, pr.id_periodo, pr.descripcion, pr.importe, pr.aplicado, pr.creado_en,
-           row_number() OVER (ORDER BY pr.creado_en DESC, pr.id DESC) AS _rn
+           row_number() OVER (ORDER BY pr.creado_en DESC, pr.id DESC) AS orden_en_pagina
     FROM provision pr
     WHERE pr.id_empresa = p_id_empresa
       AND pr.eliminado_en IS NULL
@@ -4664,19 +4708,23 @@ BEGIN
       AND (p_id_periodo IS NULL OR pr.id_periodo = p_id_periodo)
       AND (p_cursor_creado_en IS NULL OR (pr.creado_en, pr.id) < (p_cursor_creado_en, p_cursor_id))
     ORDER BY pr.creado_en DESC, pr.id DESC
-    LIMIT v_limite + 1
+    LIMIT v_limite_pagina + 1
   )
   SELECT
-    COALESCE(jsonb_agg(to_jsonb(base) - '_rn' ORDER BY base._rn) FILTER (WHERE base._rn <= v_limite), '[]'::jsonb),
-    count(*) > v_limite
-  INTO v_items, v_hay_mas
-  FROM base;
+    COALESCE(
+      jsonb_agg(to_jsonb(provisiones_ordenadas_para_listado) - 'orden_en_pagina' ORDER BY provisiones_ordenadas_para_listado.orden_en_pagina)
+      FILTER (WHERE provisiones_ordenadas_para_listado.orden_en_pagina <= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) > v_limite_pagina
+  INTO v_provisiones_pagina, v_existen_mas_provisiones
+  FROM provisiones_ordenadas_para_listado;
 
-  v_n := jsonb_array_length(v_items);
-  IF v_hay_mas AND v_n > 0 THEN
-    v_cursor := jsonb_build_object('creado_en', v_items -> (v_n - 1) -> 'creado_en', 'id', v_items -> (v_n - 1) -> 'id');
+  v_cantidad_provisiones_pagina := jsonb_array_length(v_provisiones_pagina);
+  IF v_existen_mas_provisiones AND v_cantidad_provisiones_pagina > 0 THEN
+    v_cursor_siguiente := jsonb_build_object('creado_en', v_provisiones_pagina -> (v_cantidad_provisiones_pagina - 1) -> 'creado_en', 'id', v_provisiones_pagina -> (v_cantidad_provisiones_pagina - 1) -> 'id');
   ELSE
-    v_cursor := NULL;
+    v_cursor_siguiente := NULL;
   END IF;
 
   RETURN jsonb_build_object(
@@ -4684,8 +4732,8 @@ BEGIN
     'codigo', 'PROVISIONES_LISTADAS',
     'mensaje', 'Listado de provisiones obtenido',
     'datos', jsonb_build_object(
-      'items', v_items,
-      'paginacion', jsonb_build_object('limite', v_limite, 'hay_mas', v_hay_mas, 'cursor_siguiente', v_cursor)
+      'items', v_provisiones_pagina,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas_provisiones, 'cursor_siguiente', v_cursor_siguiente)
     )
   );
 EXCEPTION
@@ -4693,7 +4741,6 @@ EXCEPTION
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'PROVISIONES_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar las provisiones');
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION fn_obtener_resumen_cierre_por_periodo(
   p_id_empresa UUID,
   p_id_periodo UUID
