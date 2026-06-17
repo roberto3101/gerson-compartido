@@ -2214,52 +2214,59 @@ WHERE
     eliminado_en IS NULL;
 
 -- ==================== INDICES ====================
--- >>> indices/activos-e-inversion/indice_activo.sql
-CREATE INDEX indice_activo_empresa ON activo (id_empresa) WHERE eliminado_en IS NULL;
-CREATE INDEX indice_activo_estado ON activo (id_empresa, estado) WHERE eliminado_en IS NULL;
+-- >>> indices/activos-e-inversion/idx_activo.sql
+CREATE INDEX idx_activo_estado ON activo (id_empresa, estado) WHERE eliminado_en IS NULL;
+CREATE INDEX idx_star_activo_listado ON activo (id_empresa, creado_en DESC, id DESC) STORING (codigo, descripcion, estado, placa, marca, modelo, anio_fabricacion, costo_adquisicion, id_clasificacion_activo, id_tipo_adquisicion_activo) WHERE eliminado_en IS NULL;
 
--- >>> indices/activos-e-inversion/indice_activo_asignacion_contrato.sql
-CREATE INDEX indice_activo_asignacion_contrato_activo ON activo_asignacion_contrato (id_activo, id_contrato);
-CREATE INDEX indice_activo_asignacion_contrato_empresa ON activo_asignacion_contrato (id_empresa);
-CREATE INDEX indice_activo_asignacion_contrato_estado ON activo_asignacion_contrato (id_activo, id_contrato) WHERE estado = 'ACTIVO';
+-- >>> indices/activos-e-inversion/idx_activo_asignacion_contrato.sql
+CREATE INDEX idx_activo_asignacion_contrato_activo ON activo_asignacion_contrato (id_activo, id_contrato);
+CREATE INDEX idx_activo_asignacion_contrato_empresa ON activo_asignacion_contrato (id_empresa);
+CREATE INDEX idx_activo_asignacion_contrato_estado ON activo_asignacion_contrato (id_activo, id_contrato) WHERE estado = 'ACTIVO';
+CREATE INDEX idx_star_activo_asignacion_contrato_listado ON activo_asignacion_contrato (id_empresa, id_activo, creado_en DESC, id DESC) STORING (id_contrato, id_zona, inversion_asignada, saldo_inversion_pendiente, cuota_recuperacion_mensual, fecha_inicio, fecha_fin, estado) WHERE eliminado_en IS NULL;
 
--- >>> indices/activos-e-inversion/indice_activo_registro_trabajo.sql
-CREATE INDEX indice_activo_registro_trabajo_activo ON activo_registro_trabajo (id_activo, id_periodo);
-CREATE INDEX indice_activo_registro_trabajo_contrato ON activo_registro_trabajo (id_contrato, id_periodo);
+-- >>> indices/activos-e-inversion/idx_activo_registro_trabajo.sql
+CREATE INDEX idx_activo_registro_trabajo_activo ON activo_registro_trabajo (id_activo, id_periodo);
+CREATE INDEX idx_activo_registro_trabajo_contrato ON activo_registro_trabajo (id_contrato, id_periodo);
+CREATE INDEX idx_star_activo_registro_trabajo_listado ON activo_registro_trabajo (id_empresa, id_activo, creado_en DESC, id DESC) STORING (id_contrato, id_zona, id_operario, id_periodo, fecha, horas_trabajadas, descripcion_trabajo, valorizacion_trabajo, dias_depreciados, kilometraje_inicio, kilometraje_fin) WHERE eliminado_en IS NULL;
 
--- >>> indices/activos-e-inversion/indice_activo_traslado.sql
-CREATE INDEX indice_activo_traslado_activo ON activo_traslado (id_activo);
+-- >>> indices/activos-e-inversion/idx_activo_traslado.sql
+CREATE INDEX idx_activo_traslado_activo ON activo_traslado (id_activo);
+CREATE INDEX idx_star_activo_traslado_listado ON activo_traslado (id_empresa, id_activo, creado_en DESC, id DESC) STORING (id_contrato_origen, id_zona_origen, id_contrato_destino, id_zona_destino, fecha_traslado, saldo_trasladado, motivo);
 
--- >>> indices/activos-e-inversion/indice_clasificacion_activo.sql
-CREATE UNIQUE INDEX indice_clasificacion_activo_codigo ON clasificacion_activo (id_empresa, codigo) WHERE eliminado_en IS NULL;
+-- >>> indices/activos-e-inversion/idx_clasificacion_activo.sql
+CREATE UNIQUE INDEX idx_unico_clasificacion_activo_codigo ON clasificacion_activo (id_empresa, codigo) WHERE eliminado_en IS NULL;
 
--- >>> indices/activos-e-inversion/indice_herramienta.sql
-CREATE INDEX indice_herramienta_empresa ON herramienta (id_empresa) WHERE eliminado_en IS NULL;
+-- >>> indices/activos-e-inversion/idx_herramienta.sql
+CREATE INDEX idx_star_herramienta_listado ON herramienta (id_empresa, creado_en DESC, id DESC) STORING (codigo, descripcion, marca, modelo, numero_serie, estado, costo_adquisicion, id_tipo_herramienta) WHERE eliminado_en IS NULL;
 
--- >>> indices/activos-e-inversion/indice_herramienta_movimiento.sql
-CREATE INDEX indice_herramienta_movimiento_periodo ON herramienta_movimiento (id_empresa, id_periodo);
-CREATE INDEX indice_herramienta_movimiento_origen ON herramienta_movimiento (id_contrato_origen);
-CREATE INDEX indice_herramienta_movimiento_destino ON herramienta_movimiento (id_contrato_destino);
+-- >>> indices/activos-e-inversion/idx_herramienta_movimiento.sql
+CREATE INDEX idx_herramienta_movimiento_periodo ON herramienta_movimiento (id_empresa, id_periodo);
+CREATE INDEX idx_herramienta_movimiento_origen ON herramienta_movimiento (id_contrato_origen);
+CREATE INDEX idx_herramienta_movimiento_destino ON herramienta_movimiento (id_contrato_destino);
+CREATE INDEX idx_star_herramienta_movimiento_listado ON herramienta_movimiento (id_empresa, id_herramienta, creado_en DESC, id DESC) STORING (tipo_movimiento, fecha, id_periodo, id_contrato_origen, id_zona_origen, id_contrato_destino, id_zona_destino, cantidad, costo, valorizacion, motivo);
 
--- >>> indices/activos-e-inversion/indice_recuperacion_inversion_mensual.sql
-CREATE INDEX indice_recuperacion_inversion_mensual_contrato ON recuperacion_inversion_mensual (id_contrato, id_periodo);
-CREATE INDEX indice_recuperacion_inversion_mensual_activo ON recuperacion_inversion_mensual (id_activo);
+-- >>> indices/activos-e-inversion/idx_recuperacion_inversion_mensual.sql
+CREATE INDEX idx_recuperacion_inversion_mensual_contrato ON recuperacion_inversion_mensual (id_contrato, id_periodo);
+CREATE INDEX idx_recuperacion_inversion_mensual_activo ON recuperacion_inversion_mensual (id_activo);
+CREATE INDEX idx_star_recuperacion_inversion_mensual_listado ON recuperacion_inversion_mensual (id_empresa, creado_en DESC, id DESC) STORING (id_activo, id_contrato, id_periodo, importe_recuperado, saldo_antes, saldo_despues, parado);
 
--- >>> indices/activos-e-inversion/indice_tipo_adquisicion_activo.sql
-CREATE UNIQUE INDEX indice_tipo_adquisicion_activo_codigo ON tipo_adquisicion_activo (id_empresa, codigo) WHERE eliminado_en IS NULL;
+-- >>> indices/activos-e-inversion/idx_tipo_adquisicion_activo.sql
+CREATE UNIQUE INDEX idx_unico_tipo_adquisicion_activo_codigo ON tipo_adquisicion_activo (id_empresa, codigo) WHERE eliminado_en IS NULL;
 
--- >>> indices/activos-e-inversion/indice_tipo_herramienta.sql
-CREATE UNIQUE INDEX indice_tipo_herramienta_codigo ON tipo_herramienta (id_empresa, codigo) WHERE eliminado_en IS NULL;
+-- >>> indices/activos-e-inversion/idx_tipo_herramienta.sql
+CREATE UNIQUE INDEX idx_unico_tipo_herramienta_codigo ON tipo_herramienta (id_empresa, codigo) WHERE eliminado_en IS NULL;
 
--- >>> indices/cierre-mensual/indice_cierre_mensual.sql
-CREATE INDEX indice_cierre_mensual_empresa ON cierre_mensual (id_empresa) WHERE eliminado_en IS NULL;
-CREATE INDEX indice_cierre_mensual_estado ON cierre_mensual (id_empresa, estado);
+-- >>> indices/cierre-mensual/idx_cierre_mensual.sql
+CREATE INDEX idx_cierre_mensual_estado ON cierre_mensual (id_empresa, estado);
+CREATE INDEX idx_star_cierre_mensual_listado ON cierre_mensual (id_empresa, creado_en DESC, id DESC) STORING (id_contrato, id_periodo, total_facturado, total_gastos, utilidad_bruta, utilidad_neta, utilidad_final, estado, fecha_cierre) WHERE eliminado_en IS NULL;
 
--- >>> indices/cierre-mensual/indice_penalidad.sql
-CREATE INDEX indice_penalidad_contrato_periodo ON penalidad (id_contrato, id_periodo);
+-- >>> indices/cierre-mensual/idx_penalidad.sql
+CREATE INDEX idx_penalidad_contrato_periodo ON penalidad (id_contrato, id_periodo);
+CREATE INDEX idx_star_penalidad_listado ON penalidad (id_empresa, creado_en DESC, id DESC) STORING (id_contrato, id_periodo, descripcion, importe) WHERE eliminado_en IS NULL;
 
--- >>> indices/cierre-mensual/indice_provision.sql
-CREATE INDEX indice_provision_contrato_periodo ON provision (id_contrato, id_periodo);
+-- >>> indices/cierre-mensual/idx_provision.sql
+CREATE INDEX idx_provision_contrato_periodo ON provision (id_contrato, id_periodo);
+CREATE INDEX idx_star_provision_listado ON provision (id_empresa, creado_en DESC, id DESC) STORING (id_contrato, id_periodo, descripcion, importe, aplicado) WHERE eliminado_en IS NULL;
 
 -- >>> indices/costeo_directo/indice_erp_importacion_detalle.sql
 CREATE INDEX idx_erp_importacion_detalle_importacion ON erp_importacion_detalle (id_erp_importacion);

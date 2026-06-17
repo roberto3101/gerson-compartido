@@ -2257,7 +2257,7 @@ $$;</pre>
         </summary>
         <div class="sp-body">
           <p class="h">Por qué</p>
-          <p>Lectura frontal del inventario. Paginación por cursor (creado_en DESC, id DESC), filtros opcionales por estado, clasificación y búsqueda en código/descripción. Se apoya en el índice estrella indice_activo_listado.</p>
+          <p>Lectura frontal del inventario. Paginación por cursor (creado_en DESC, id DESC), filtros opcionales por estado, clasificación y búsqueda en código/descripción. Se apoya en el índice estrella idx_star_activo_listado.</p>
           <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_activos(
   p_id_empresa UUID,
   p_estado STRING,
@@ -2400,7 +2400,7 @@ $;</pre>
         </summary>
         <div class="sp-body">
           <p class="h">Por qué</p>
-          <p>Filtros por estado, tipo y búsqueda. Índice estrella indice_herramienta_listado.</p>
+          <p>Filtros por estado, tipo y búsqueda. Índice estrella idx_star_herramienta_listado.</p>
           <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_herramientas(
   p_id_empresa UUID,
   p_estado STRING,
@@ -2538,7 +2538,7 @@ $;</pre>
         </summary>
         <div class="sp-body">
           <p class="h">Por qué</p>
-          <p>Por herramienta (valida que sea de la empresa), filtros por periodo y tipo de movimiento. Índice estrella indice_herramienta_movimiento_listado.</p>
+          <p>Por herramienta (valida que sea de la empresa), filtros por periodo y tipo de movimiento. Índice estrella idx_star_herramienta_movimiento_listado.</p>
           <pre class="sql">
 CREATE OR REPLACE FUNCTION fn_listar_movimientos_herramienta(
   p_id_empresa UUID,
@@ -2627,7 +2627,7 @@ $;</pre>
         </summary>
         <div class="sp-body">
           <p class="h">Por qué</p>
-          <p>Por activo (valida tenant), filtro opcional por estado. Índice estrella indice_activo_asignacion_contrato_listado.</p>
+          <p>Por activo (valida tenant), filtro opcional por estado. Índice estrella idx_star_activo_asignacion_contrato_listado.</p>
           <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_asignaciones_activo(
   p_id_empresa UUID,
   p_id_activo UUID,
@@ -2706,7 +2706,7 @@ $;</pre>
         </summary>
         <div class="sp-body">
           <p class="h">Por qué</p>
-          <p>Por activo, filtros opcionales por contrato y periodo. Índice estrella indice_activo_registro_trabajo_listado.</p>
+          <p>Por activo, filtros opcionales por contrato y periodo. Índice estrella idx_star_activo_registro_trabajo_listado.</p>
           <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_trabajos_activo(
   p_id_empresa UUID,
   p_id_activo UUID,
@@ -2962,7 +2962,7 @@ $;</pre>
         </summary>
         <div class="sp-body">
           <p class="h">Por qué</p>
-          <p>Filtros por contrato, periodo y estado. STORING de las columnas del resumen (facturado, total_gastos, utilidades, estado). Índice estrella indice_cierre_mensual_listado.</p>
+          <p>Filtros por contrato, periodo y estado. STORING de las columnas del resumen (facturado, total_gastos, utilidades, estado). Índice estrella idx_star_cierre_mensual_listado.</p>
           <pre class="sql">
 CREATE OR REPLACE FUNCTION fn_listar_cierres_mensuales(
   p_id_empresa UUID,
@@ -3047,7 +3047,7 @@ $;</pre>
         </summary>
         <div class="sp-body">
           <p class="h">Por qué</p>
-          <p>Filtros por contrato y periodo. Índice estrella indice_penalidad_listado.</p>
+          <p>Filtros por contrato y periodo. Índice estrella idx_star_penalidad_listado.</p>
           <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_penalidades(
   p_id_empresa UUID,
   p_id_contrato UUID,
@@ -3121,7 +3121,7 @@ $;</pre>
         </summary>
         <div class="sp-body">
           <p class="h">Por qué</p>
-          <p>Filtros por contrato y periodo; incluye el flag aplicado. Índice estrella indice_provision_listado.</p>
+          <p>Filtros por contrato y periodo; incluye el flag aplicado. Índice estrella idx_star_provision_listado.</p>
           <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_provisiones(
   p_id_empresa UUID,
   p_id_contrato UUID,
@@ -3259,7 +3259,7 @@ $;</pre>
       <div class="gcard g-raiz">
         <span class="badge t-raiz"><span class="dot d-raiz"></span>★ Índice estrella</span>
         <p>Nombre interno nuestro (no del motor): un solo índice <b>compuesto + parcial + covering</b> alineado al listado dominante de la tabla. Entra por <span class="mono">id_empresa</span>, ordena igual que la paginación por cursor (<span class="mono">creado_en DESC, id DESC</span>) y con <span class="mono">STORING</span> trae las columnas del resumen. Concentra en UN índice el patrón de lectura crítico.</p>
-        <p class="ej">Ej.: <b>indice_activo_listado</b> → acelera <b>fn_listar_activos</b></p>
+        <p class="ej">Ej.: <b>idx_star_activo_listado</b> → acelera <b>fn_listar_activos</b></p>
       </div>
       <div class="gcard g-entidad">
         <span class="badge t-entidad"><span class="dot d-entidad"></span>Compuesto</span>
@@ -3305,12 +3305,12 @@ $;</pre>
         <div class="sp-body">
           <p class="h">Por qué / para qué</p>
           <ul>
-            <li><b>★ indice_activo_listado</b> — estrella de <span class="mono">fn_listar_activos</span>: <i>covering</i> (STORING de las columnas del resumen), parcial y ordenado para la paginación por cursor.</li>
-            <li><b>indice_activo_estado</b> — acelera filtrar activos por <span class="mono">estado</span> dentro de la empresa.</li>
+            <li><b>★ idx_star_activo_listado</b> — estrella de <span class="mono">fn_listar_activos</span>: <i>covering</i> (STORING de las columnas del resumen), parcial y ordenado para la paginación por cursor.</li>
+            <li><b>idx_activo_estado</b> — acelera filtrar activos por <span class="mono">estado</span> dentro de la empresa.</li>
           </ul>
-          <div class="sp-note">★ El estrella reemplazó al antiguo <span class="mono">indice_activo_empresa</span>, que quedaba redundante (mismo prefijo <span class="mono">id_empresa</span> y mismo parcial).</div>
-          <pre class="sql">CREATE INDEX indice_activo_estado ON activo (id_empresa, estado) WHERE eliminado_en IS NULL;
-CREATE INDEX indice_activo_listado ON activo (id_empresa, creado_en DESC, id DESC)
+          <div class="sp-note">★ El estrella reemplazó al antiguo <span class="mono">idx_activo_empresa</span>, que quedaba redundante (mismo prefijo <span class="mono">id_empresa</span> y mismo parcial).</div>
+          <pre class="sql">CREATE INDEX idx_activo_estado ON activo (id_empresa, estado) WHERE eliminado_en IS NULL;
+CREATE INDEX idx_star_activo_listado ON activo (id_empresa, creado_en DESC, id DESC)
   STORING (codigo, descripcion, estado, placa, marca, modelo, anio_fabricacion, costo_adquisicion, id_clasificacion_activo, id_tipo_adquisicion_activo)
   WHERE eliminado_en IS NULL;</pre>
         </div>
@@ -3325,13 +3325,13 @@ CREATE INDEX indice_activo_listado ON activo (id_empresa, creado_en DESC, id DES
         <div class="sp-body">
           <p class="h">Por qué / para qué</p>
           <ul>
-            <li><b>★ indice_activo_asignacion_contrato_listado</b> — estrella de <span class="mono">fn_listar_asignaciones_activo</span> (por empresa + activo, paginado).</li>
+            <li><b>★ idx_star_activo_asignacion_contrato_listado</b> — estrella de <span class="mono">fn_listar_asignaciones_activo</span> (por empresa + activo, paginado).</li>
             <li><b>_activo</b> (id_activo, id_contrato) — localizar la asignación de un activo en un contrato (lo usan recuperación y traslado).</li>
             <li><b>_estado</b> parcial <span class="mono">WHERE estado='ACTIVO'</span> — la asignación <b>vigente</b> de un activo.</li>
           </ul>
-          <pre class="sql">CREATE INDEX indice_activo_asignacion_contrato_activo ON activo_asignacion_contrato (id_activo, id_contrato);
-CREATE INDEX indice_activo_asignacion_contrato_estado ON activo_asignacion_contrato (id_activo, id_contrato) WHERE estado = 'ACTIVO';
-CREATE INDEX indice_activo_asignacion_contrato_listado ON activo_asignacion_contrato (id_empresa, id_activo, creado_en DESC, id DESC)
+          <pre class="sql">CREATE INDEX idx_activo_asignacion_contrato_activo ON activo_asignacion_contrato (id_activo, id_contrato);
+CREATE INDEX idx_activo_asignacion_contrato_estado ON activo_asignacion_contrato (id_activo, id_contrato) WHERE estado = 'ACTIVO';
+CREATE INDEX idx_star_activo_asignacion_contrato_listado ON activo_asignacion_contrato (id_empresa, id_activo, creado_en DESC, id DESC)
   STORING (id_contrato, id_zona, inversion_asignada, saldo_inversion_pendiente, cuota_recuperacion_mensual, fecha_inicio, fecha_fin, estado)
   WHERE eliminado_en IS NULL;</pre>
         </div>
@@ -3346,12 +3346,12 @@ CREATE INDEX indice_activo_asignacion_contrato_listado ON activo_asignacion_cont
         <div class="sp-body">
           <p class="h">Por qué / para qué</p>
           <ul>
-            <li><b>★ indice_activo_registro_trabajo_listado</b> — estrella de <span class="mono">fn_listar_trabajos_activo</span> (por empresa + activo, paginado).</li>
+            <li><b>★ idx_star_activo_registro_trabajo_listado</b> — estrella de <span class="mono">fn_listar_trabajos_activo</span> (por empresa + activo, paginado).</li>
             <li><b>_activo</b> (id_activo, id_periodo) y <b>_contrato</b> (id_contrato, id_periodo) — trabajos de un activo o un contrato en un periodo.</li>
           </ul>
-          <pre class="sql">CREATE INDEX indice_activo_registro_trabajo_activo ON activo_registro_trabajo (id_activo, id_periodo);
-CREATE INDEX indice_activo_registro_trabajo_contrato ON activo_registro_trabajo (id_contrato, id_periodo);
-CREATE INDEX indice_activo_registro_trabajo_listado ON activo_registro_trabajo (id_empresa, id_activo, creado_en DESC, id DESC)
+          <pre class="sql">CREATE INDEX idx_activo_registro_trabajo_activo ON activo_registro_trabajo (id_activo, id_periodo);
+CREATE INDEX idx_activo_registro_trabajo_contrato ON activo_registro_trabajo (id_contrato, id_periodo);
+CREATE INDEX idx_star_activo_registro_trabajo_listado ON activo_registro_trabajo (id_empresa, id_activo, creado_en DESC, id DESC)
   STORING (id_contrato, id_zona, id_operario, id_periodo, fecha, horas_trabajadas, descripcion_trabajo, valorizacion_trabajo, dias_depreciados, kilometraje_inicio, kilometraje_fin)
   WHERE eliminado_en IS NULL;</pre>
         </div>
@@ -3366,11 +3366,11 @@ CREATE INDEX indice_activo_registro_trabajo_listado ON activo_registro_trabajo (
         <div class="sp-body">
           <p class="h">Por qué / para qué</p>
           <ul>
-            <li><b>★ indice_activo_traslado_listado</b> — estrella de <span class="mono">fn_listar_traslados_activo</span>. <b>Sin</b> parcial: es tabla-evento, no tiene <span class="mono">eliminado_en</span>.</li>
+            <li><b>★ idx_star_activo_traslado_listado</b> — estrella de <span class="mono">fn_listar_traslados_activo</span>. <b>Sin</b> parcial: es tabla-evento, no tiene <span class="mono">eliminado_en</span>.</li>
             <li><b>_activo</b> (id_activo) — traslados de un activo puntual.</li>
           </ul>
-          <pre class="sql">CREATE INDEX indice_activo_traslado_activo ON activo_traslado (id_activo);
-CREATE INDEX indice_activo_traslado_listado ON activo_traslado (id_empresa, id_activo, creado_en DESC, id DESC)
+          <pre class="sql">CREATE INDEX idx_activo_traslado_activo ON activo_traslado (id_activo);
+CREATE INDEX idx_star_activo_traslado_listado ON activo_traslado (id_empresa, id_activo, creado_en DESC, id DESC)
   STORING (id_contrato_origen, id_zona_origen, id_contrato_destino, id_zona_destino, fecha_traslado, saldo_trasladado, motivo);</pre>
         </div>
       </details>
@@ -3384,9 +3384,9 @@ CREATE INDEX indice_activo_traslado_listado ON activo_traslado (id_empresa, id_a
         <div class="sp-body">
           <p class="h">Por qué / para qué</p>
           <ul>
-            <li><b>★ indice_herramienta_listado</b> — estrella de <span class="mono">fn_listar_herramientas</span> (covering + parcial + orden de cursor). Reemplazó al <span class="mono">indice_herramienta_empresa</span> redundante.</li>
+            <li><b>★ idx_star_herramienta_listado</b> — estrella de <span class="mono">fn_listar_herramientas</span> (covering + parcial + orden de cursor). Reemplazó al <span class="mono">idx_herramienta_empresa</span> redundante.</li>
           </ul>
-          <pre class="sql">CREATE INDEX indice_herramienta_listado ON herramienta (id_empresa, creado_en DESC, id DESC)
+          <pre class="sql">CREATE INDEX idx_star_herramienta_listado ON herramienta (id_empresa, creado_en DESC, id DESC)
   STORING (codigo, descripcion, marca, modelo, numero_serie, estado, costo_adquisicion, id_tipo_herramienta)
   WHERE eliminado_en IS NULL;</pre>
         </div>
@@ -3401,13 +3401,13 @@ CREATE INDEX indice_activo_traslado_listado ON activo_traslado (id_empresa, id_a
         <div class="sp-body">
           <p class="h">Por qué / para qué</p>
           <ul>
-            <li><b>★ indice_herramienta_movimiento_listado</b> — estrella de <span class="mono">fn_listar_movimientos_herramienta</span> (por empresa + herramienta). <b>Sin</b> parcial: tabla-evento sin <span class="mono">eliminado_en</span>.</li>
+            <li><b>★ idx_star_herramienta_movimiento_listado</b> — estrella de <span class="mono">fn_listar_movimientos_herramienta</span> (por empresa + herramienta). <b>Sin</b> parcial: tabla-evento sin <span class="mono">eliminado_en</span>.</li>
             <li><b>_periodo</b>, <b>_origen</b>, <b>_destino</b> — trazabilidad por periodo y por contrato de origen/destino.</li>
           </ul>
-          <pre class="sql">CREATE INDEX indice_herramienta_movimiento_periodo ON herramienta_movimiento (id_empresa, id_periodo);
-CREATE INDEX indice_herramienta_movimiento_origen ON herramienta_movimiento (id_contrato_origen);
-CREATE INDEX indice_herramienta_movimiento_destino ON herramienta_movimiento (id_contrato_destino);
-CREATE INDEX indice_herramienta_movimiento_listado ON herramienta_movimiento (id_empresa, id_herramienta, creado_en DESC, id DESC)
+          <pre class="sql">CREATE INDEX idx_herramienta_movimiento_periodo ON herramienta_movimiento (id_empresa, id_periodo);
+CREATE INDEX idx_herramienta_movimiento_origen ON herramienta_movimiento (id_contrato_origen);
+CREATE INDEX idx_herramienta_movimiento_destino ON herramienta_movimiento (id_contrato_destino);
+CREATE INDEX idx_star_herramienta_movimiento_listado ON herramienta_movimiento (id_empresa, id_herramienta, creado_en DESC, id DESC)
   STORING (tipo_movimiento, fecha, id_periodo, id_contrato_origen, id_zona_origen, id_contrato_destino, id_zona_destino, cantidad, costo, valorizacion, motivo);</pre>
         </div>
       </details>
@@ -3421,12 +3421,12 @@ CREATE INDEX indice_herramienta_movimiento_listado ON herramienta_movimiento (id
         <div class="sp-body">
           <p class="h">Por qué / para qué</p>
           <ul>
-            <li><b>★ indice_recuperacion_inversion_mensual_listado</b> — estrella de <span class="mono">fn_listar_recuperaciones_inversion</span>. <b>Sin</b> parcial: tabla-ledger sin <span class="mono">eliminado_en</span>.</li>
+            <li><b>★ idx_star_recuperacion_inversion_mensual_listado</b> — estrella de <span class="mono">fn_listar_recuperaciones_inversion</span>. <b>Sin</b> parcial: tabla-ledger sin <span class="mono">eliminado_en</span>.</li>
             <li><b>_contrato</b> (id_contrato, id_periodo) — lo usa <span class="mono">fn_ejecutar_cierre_mensual</span> para sumar la recuperación del periodo; <b>_activo</b> (id_activo) — recuperaciones de un activo.</li>
           </ul>
-          <pre class="sql">CREATE INDEX indice_recuperacion_inversion_mensual_contrato ON recuperacion_inversion_mensual (id_contrato, id_periodo);
-CREATE INDEX indice_recuperacion_inversion_mensual_activo ON recuperacion_inversion_mensual (id_activo);
-CREATE INDEX indice_recuperacion_inversion_mensual_listado ON recuperacion_inversion_mensual (id_empresa, creado_en DESC, id DESC)
+          <pre class="sql">CREATE INDEX idx_recuperacion_inversion_mensual_contrato ON recuperacion_inversion_mensual (id_contrato, id_periodo);
+CREATE INDEX idx_recuperacion_inversion_mensual_activo ON recuperacion_inversion_mensual (id_activo);
+CREATE INDEX idx_star_recuperacion_inversion_mensual_listado ON recuperacion_inversion_mensual (id_empresa, creado_en DESC, id DESC)
   STORING (id_activo, id_contrato, id_periodo, importe_recuperado, saldo_antes, saldo_despues, parado);</pre>
         </div>
       </details>
@@ -3442,9 +3442,9 @@ CREATE INDEX indice_recuperacion_inversion_mensual_listado ON recuperacion_inver
           <ul>
             <li><b>Índice ÚNICO parcial</b> por <span class="mono">(id_empresa, codigo)</span> — garantiza que el <b>código no se repita</b> dentro de la empresa (y como es <span class="mono">WHERE eliminado_en IS NULL</span>, un código borrado puede reutilizarse). No llevan estrella: no se listan con paginación frontal, son catálogos chicos.</li>
           </ul>
-          <pre class="sql">CREATE UNIQUE INDEX indice_clasificacion_activo_codigo ON clasificacion_activo (id_empresa, codigo) WHERE eliminado_en IS NULL;
-CREATE UNIQUE INDEX indice_tipo_adquisicion_activo_codigo ON tipo_adquisicion_activo (id_empresa, codigo) WHERE eliminado_en IS NULL;
-CREATE UNIQUE INDEX indice_tipo_herramienta_codigo ON tipo_herramienta (id_empresa, codigo) WHERE eliminado_en IS NULL;</pre>
+          <pre class="sql">CREATE UNIQUE INDEX idx_unico_clasificacion_activo_codigo ON clasificacion_activo (id_empresa, codigo) WHERE eliminado_en IS NULL;
+CREATE UNIQUE INDEX idx_unico_tipo_adquisicion_activo_codigo ON tipo_adquisicion_activo (id_empresa, codigo) WHERE eliminado_en IS NULL;
+CREATE UNIQUE INDEX idx_unico_tipo_herramienta_codigo ON tipo_herramienta (id_empresa, codigo) WHERE eliminado_en IS NULL;</pre>
         </div>
       </details>
 
@@ -3457,11 +3457,11 @@ CREATE UNIQUE INDEX indice_tipo_herramienta_codigo ON tipo_herramienta (id_empre
         <div class="sp-body">
           <p class="h">Por qué / para qué</p>
           <ul>
-            <li><b>★ indice_cierre_mensual_listado</b> — estrella de <span class="mono">fn_listar_cierres_mensuales</span>: STORING de las columnas del resumen (facturado, total_gastos, utilidades, estado).</li>
+            <li><b>★ idx_star_cierre_mensual_listado</b> — estrella de <span class="mono">fn_listar_cierres_mensuales</span>: STORING de las columnas del resumen (facturado, total_gastos, utilidades, estado).</li>
             <li><b>_estado</b> (id_empresa, estado) — cierres por estado y apoya el <span class="mono">fn_obtener_resumen_cierre_por_periodo</span>.</li>
           </ul>
-          <pre class="sql">CREATE INDEX indice_cierre_mensual_estado ON cierre_mensual (id_empresa, estado);
-CREATE INDEX indice_cierre_mensual_listado ON cierre_mensual (id_empresa, creado_en DESC, id DESC)
+          <pre class="sql">CREATE INDEX idx_cierre_mensual_estado ON cierre_mensual (id_empresa, estado);
+CREATE INDEX idx_star_cierre_mensual_listado ON cierre_mensual (id_empresa, creado_en DESC, id DESC)
   STORING (id_contrato, id_periodo, total_facturado, total_gastos, utilidad_bruta, utilidad_neta, utilidad_final, estado, fecha_cierre)
   WHERE eliminado_en IS NULL;</pre>
         </div>
@@ -3476,11 +3476,11 @@ CREATE INDEX indice_cierre_mensual_listado ON cierre_mensual (id_empresa, creado
         <div class="sp-body">
           <p class="h">Por qué / para qué</p>
           <ul>
-            <li><b>★ indice_penalidad_listado</b> — estrella de <span class="mono">fn_listar_penalidades</span>.</li>
+            <li><b>★ idx_star_penalidad_listado</b> — estrella de <span class="mono">fn_listar_penalidades</span>.</li>
             <li><b>_contrato_periodo</b> (id_contrato, id_periodo) — suma de penalidades del periodo que consume <span class="mono">fn_ejecutar_cierre_mensual</span>.</li>
           </ul>
-          <pre class="sql">CREATE INDEX indice_penalidad_contrato_periodo ON penalidad (id_contrato, id_periodo);
-CREATE INDEX indice_penalidad_listado ON penalidad (id_empresa, creado_en DESC, id DESC)
+          <pre class="sql">CREATE INDEX idx_penalidad_contrato_periodo ON penalidad (id_contrato, id_periodo);
+CREATE INDEX idx_star_penalidad_listado ON penalidad (id_empresa, creado_en DESC, id DESC)
   STORING (id_contrato, id_periodo, descripcion, importe)
   WHERE eliminado_en IS NULL;</pre>
         </div>
@@ -3495,11 +3495,11 @@ CREATE INDEX indice_penalidad_listado ON penalidad (id_empresa, creado_en DESC, 
         <div class="sp-body">
           <p class="h">Por qué / para qué</p>
           <ul>
-            <li><b>★ indice_provision_listado</b> — estrella de <span class="mono">fn_listar_provisiones</span> (incluye <span class="mono">aplicado</span> en el STORING).</li>
+            <li><b>★ idx_star_provision_listado</b> — estrella de <span class="mono">fn_listar_provisiones</span> (incluye <span class="mono">aplicado</span> en el STORING).</li>
             <li><b>_contrato_periodo</b> (id_contrato, id_periodo) — provisiones por contrato y periodo.</li>
           </ul>
-          <pre class="sql">CREATE INDEX indice_provision_contrato_periodo ON provision (id_contrato, id_periodo);
-CREATE INDEX indice_provision_listado ON provision (id_empresa, creado_en DESC, id DESC)
+          <pre class="sql">CREATE INDEX idx_provision_contrato_periodo ON provision (id_contrato, id_periodo);
+CREATE INDEX idx_star_provision_listado ON provision (id_empresa, creado_en DESC, id DESC)
   STORING (id_contrato, id_periodo, descripcion, importe, aplicado)
   WHERE eliminado_en IS NULL;</pre>
         </div>
@@ -4189,35 +4189,35 @@ fnRes --> res(["resultado económico del contrato"]):::raiz
     if(/^WHERE\b/.test(t)) return 'Condición de filtrado de los registros.';
     if(/COALESCE/i.test(t)) return 'Usa 0 cuando el valor viene vacío (evita nulos en las sumas).';
     if(/LEAST\s*\(/i.test(t)) return 'Toma el menor de los valores (no recupera más que el saldo pendiente).';
-    if(m=t.match(/^CREATE\s+(?:UNIQUE\s+)?INDEX\s+(indice_[a-z0-9_]+)/i)){
+    if(m=t.match(/^CREATE\s+(?:UNIQUE\s+)?INDEX\s+(idx_[a-z0-9_]+)/i)){
       var IDX={
-        'indice_activo_estado':'Acelera filtrar y contar activos de una empresa por estado (ACTIVO, PARADO, EN_TRASLADO, BAJA). Parcial: omite los dados de baja.',
-        'indice_activo_listado':'Indice estrella. Acelera fn_listar_activos: el listado paginado de activos de la empresa ordenado por fecha de alta; con STORING devuelve codigo, descripcion, estado, costo, etc. sin leer la tabla.',
-        'indice_activo_asignacion_contrato_activo':'Acelera ubicar la asignacion de un activo en un contrato (la usan la recuperacion mensual y el traslado).',
-        'indice_activo_asignacion_contrato_estado':'Acelera encontrar la asignacion VIGENTE (estado ACTIVO) de un activo en un contrato.',
-        'indice_activo_asignacion_contrato_listado':'Indice estrella. Acelera fn_listar_asignaciones_activo: el historial de asignaciones de un activo, paginado.',
-        'indice_activo_registro_trabajo_activo':'Acelera consultar los trabajos de un activo en un periodo.',
-        'indice_activo_registro_trabajo_contrato':'Acelera consultar los trabajos de un contrato en un periodo.',
-        'indice_activo_registro_trabajo_listado':'Indice estrella. Acelera fn_listar_trabajos_activo: la bitacora de trabajos de un activo, paginada.',
-        'indice_activo_traslado_activo':'Acelera consultar los traslados de un activo.',
-        'indice_activo_traslado_listado':'Indice estrella. Acelera fn_listar_traslados_activo: traslados de un activo, paginados (tabla-evento, por eso sin parcial).',
-        'indice_clasificacion_activo_codigo':'Indice UNICO. Impide repetir el codigo de clasificacion dentro de la empresa y acelera buscar una clasificacion por su codigo.',
-        'indice_herramienta_listado':'Indice estrella. Acelera fn_listar_herramientas: listado paginado de herramientas de la empresa con sus datos de resumen.',
-        'indice_herramienta_movimiento_periodo':'Acelera consultar los movimientos de herramientas de un periodo.',
-        'indice_herramienta_movimiento_origen':'Acelera consultar los movimientos que SALIERON de un contrato (origen).',
-        'indice_herramienta_movimiento_destino':'Acelera consultar los movimientos que ENTRARON a un contrato (destino).',
-        'indice_herramienta_movimiento_listado':'Indice estrella. Acelera fn_listar_movimientos_herramienta: los movimientos de UNA herramienta, paginados.',
-        'indice_recuperacion_inversion_mensual_contrato':'Acelera la SUMA de recuperacion del periodo que calcula fn_ejecutar_cierre_mensual (por contrato y periodo).',
-        'indice_recuperacion_inversion_mensual_activo':'Acelera consultar las recuperaciones de un activo.',
-        'indice_recuperacion_inversion_mensual_listado':'Indice estrella. Acelera fn_listar_recuperaciones_inversion: paginado por empresa.',
-        'indice_tipo_adquisicion_activo_codigo':'Indice UNICO. Impide repetir el codigo de tipo de adquisicion dentro de la empresa.',
-        'indice_tipo_herramienta_codigo':'Indice UNICO. Impide repetir el codigo de tipo de herramienta dentro de la empresa.',
-        'indice_cierre_mensual_estado':'Acelera filtrar cierres por estado y alimenta el resumen por periodo (fn_obtener_resumen_cierre_por_periodo).',
-        'indice_cierre_mensual_listado':'Indice estrella. Acelera fn_listar_cierres_mensuales: paginado, con STORING de facturado, total_gastos, utilidades y estado.',
-        'indice_penalidad_contrato_periodo':'Acelera la SUMA de penalidades del periodo que usa fn_ejecutar_cierre_mensual (por contrato y periodo).',
-        'indice_penalidad_listado':'Indice estrella. Acelera fn_listar_penalidades: paginado por empresa.',
-        'indice_provision_contrato_periodo':'Acelera consultar las provisiones por contrato y periodo.',
-        'indice_provision_listado':'Indice estrella. Acelera fn_listar_provisiones: paginado por empresa, incluye el flag aplicado.'
+        'idx_activo_estado':'Acelera filtrar y contar activos de una empresa por estado (ACTIVO, PARADO, EN_TRASLADO, BAJA). Parcial: omite los dados de baja.',
+        'idx_star_activo_listado':'Indice estrella. Acelera fn_listar_activos: el listado paginado de activos de la empresa ordenado por fecha de alta; con STORING devuelve codigo, descripcion, estado, costo, etc. sin leer la tabla.',
+        'idx_activo_asignacion_contrato_activo':'Acelera ubicar la asignacion de un activo en un contrato (la usan la recuperacion mensual y el traslado).',
+        'idx_activo_asignacion_contrato_estado':'Acelera encontrar la asignacion VIGENTE (estado ACTIVO) de un activo en un contrato.',
+        'idx_star_activo_asignacion_contrato_listado':'Indice estrella. Acelera fn_listar_asignaciones_activo: el historial de asignaciones de un activo, paginado.',
+        'idx_activo_registro_trabajo_activo':'Acelera consultar los trabajos de un activo en un periodo.',
+        'idx_activo_registro_trabajo_contrato':'Acelera consultar los trabajos de un contrato en un periodo.',
+        'idx_star_activo_registro_trabajo_listado':'Indice estrella. Acelera fn_listar_trabajos_activo: la bitacora de trabajos de un activo, paginada.',
+        'idx_activo_traslado_activo':'Acelera consultar los traslados de un activo.',
+        'idx_star_activo_traslado_listado':'Indice estrella. Acelera fn_listar_traslados_activo: traslados de un activo, paginados (tabla-evento, por eso sin parcial).',
+        'idx_unico_clasificacion_activo_codigo':'Indice UNICO. Impide repetir el codigo de clasificacion dentro de la empresa y acelera buscar una clasificacion por su codigo.',
+        'idx_star_herramienta_listado':'Indice estrella. Acelera fn_listar_herramientas: listado paginado de herramientas de la empresa con sus datos de resumen.',
+        'idx_herramienta_movimiento_periodo':'Acelera consultar los movimientos de herramientas de un periodo.',
+        'idx_herramienta_movimiento_origen':'Acelera consultar los movimientos que SALIERON de un contrato (origen).',
+        'idx_herramienta_movimiento_destino':'Acelera consultar los movimientos que ENTRARON a un contrato (destino).',
+        'idx_star_herramienta_movimiento_listado':'Indice estrella. Acelera fn_listar_movimientos_herramienta: los movimientos de UNA herramienta, paginados.',
+        'idx_recuperacion_inversion_mensual_contrato':'Acelera la SUMA de recuperacion del periodo que calcula fn_ejecutar_cierre_mensual (por contrato y periodo).',
+        'idx_recuperacion_inversion_mensual_activo':'Acelera consultar las recuperaciones de un activo.',
+        'idx_star_recuperacion_inversion_mensual_listado':'Indice estrella. Acelera fn_listar_recuperaciones_inversion: paginado por empresa.',
+        'idx_unico_tipo_adquisicion_activo_codigo':'Indice UNICO. Impide repetir el codigo de tipo de adquisicion dentro de la empresa.',
+        'idx_unico_tipo_herramienta_codigo':'Indice UNICO. Impide repetir el codigo de tipo de herramienta dentro de la empresa.',
+        'idx_cierre_mensual_estado':'Acelera filtrar cierres por estado y alimenta el resumen por periodo (fn_obtener_resumen_cierre_por_periodo).',
+        'idx_star_cierre_mensual_listado':'Indice estrella. Acelera fn_listar_cierres_mensuales: paginado, con STORING de facturado, total_gastos, utilidades y estado.',
+        'idx_penalidad_contrato_periodo':'Acelera la SUMA de penalidades del periodo que usa fn_ejecutar_cierre_mensual (por contrato y periodo).',
+        'idx_star_penalidad_listado':'Indice estrella. Acelera fn_listar_penalidades: paginado por empresa.',
+        'idx_provision_contrato_periodo':'Acelera consultar las provisiones por contrato y periodo.',
+        'idx_star_provision_listado':'Indice estrella. Acelera fn_listar_provisiones: paginado por empresa, incluye el flag aplicado.'
       };
       if(IDX[m[1]]) return IDX[m[1]];
       var u=/UNIQUE/i.test(t); return (u?'Índice ÚNICO':'Índice')+(u?' — no permite duplicados.':' — acelera las búsquedas.');
