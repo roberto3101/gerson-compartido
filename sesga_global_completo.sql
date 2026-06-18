@@ -2987,8 +2987,9 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
-    SELECT 1 FROM contrato
-    WHERE id = p_id_contrato AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+    SELECT 1 FROM contrato c
+    JOIN estado_contrato ec ON ec.id = c.id_estado_contrato AND ec.eliminado_en IS NULL
+    WHERE c.id = p_id_contrato AND c.id_empresa = p_id_empresa AND c.eliminado_en IS NULL AND ec.es_vigente = true
   ) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_NO_VALIDO', 'mensaje', 'El contrato no existe, no pertenece a la empresa o no esta vigente');
   END IF;
@@ -3069,8 +3070,9 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
-    SELECT 1 FROM contrato
-    WHERE id = p_id_contrato AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+    SELECT 1 FROM contrato c
+    JOIN estado_contrato ec ON ec.id = c.id_estado_contrato AND ec.eliminado_en IS NULL
+    WHERE c.id = p_id_contrato AND c.id_empresa = p_id_empresa AND c.eliminado_en IS NULL AND ec.es_vigente = true
   ) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_NO_VALIDO', 'mensaje', 'El contrato no existe, no pertenece a la empresa o no esta vigente');
   END IF;
@@ -3137,8 +3139,9 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
-    SELECT 1 FROM contrato
-    WHERE id = p_id_contrato AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+    SELECT 1 FROM contrato c
+    JOIN estado_contrato ec ON ec.id = c.id_estado_contrato AND ec.eliminado_en IS NULL
+    WHERE c.id = p_id_contrato AND c.id_empresa = p_id_empresa AND c.eliminado_en IS NULL AND ec.es_vigente = true
   ) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_NO_VALIDO', 'mensaje', 'El contrato no existe, no pertenece a la empresa o no esta vigente');
   END IF;
@@ -3263,8 +3266,9 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
-    SELECT 1 FROM contrato
-    WHERE id = p_id_contrato_destino AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+    SELECT 1 FROM contrato c
+    JOIN estado_contrato ec ON ec.id = c.id_estado_contrato AND ec.eliminado_en IS NULL
+    WHERE c.id = p_id_contrato_destino AND c.id_empresa = p_id_empresa AND c.eliminado_en IS NULL AND ec.es_vigente = true
   ) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_DESTINO_NO_VALIDO', 'mensaje', 'El contrato destino no existe, no pertenece a la empresa o no esta vigente');
   END IF;
@@ -3425,8 +3429,9 @@ BEGIN
   END IF;
 
   IF p_id_contrato_destino IS NOT NULL AND NOT EXISTS (
-    SELECT 1 FROM contrato
-    WHERE id = p_id_contrato_destino AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+    SELECT 1 FROM contrato c
+    JOIN estado_contrato ec ON ec.id = c.id_estado_contrato AND ec.eliminado_en IS NULL
+    WHERE c.id = p_id_contrato_destino AND c.id_empresa = p_id_empresa AND c.eliminado_en IS NULL AND ec.es_vigente = true
   ) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_DESTINO_NO_VALIDO', 'mensaje', 'El contrato destino no existe, no pertenece a la empresa o no esta vigente');
   END IF;
@@ -3479,8 +3484,9 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
-    SELECT 1 FROM contrato
-    WHERE id = p_id_contrato AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+    SELECT 1 FROM contrato c
+    JOIN estado_contrato ec ON ec.id = c.id_estado_contrato AND ec.eliminado_en IS NULL
+    WHERE c.id = p_id_contrato AND c.id_empresa = p_id_empresa AND c.eliminado_en IS NULL AND ec.es_vigente = true
   ) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_NO_VALIDO', 'mensaje', 'El contrato no existe, no pertenece a la empresa o no esta vigente');
   END IF;
@@ -3533,8 +3539,9 @@ BEGIN
   END IF;
 
   IF p_id_contrato IS NOT NULL AND NOT EXISTS (
-    SELECT 1 FROM contrato
-    WHERE id = p_id_contrato AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+    SELECT 1 FROM contrato c
+    JOIN estado_contrato ec ON ec.id = c.id_estado_contrato AND ec.eliminado_en IS NULL
+    WHERE c.id = p_id_contrato AND c.id_empresa = p_id_empresa AND c.eliminado_en IS NULL AND ec.es_vigente = true
   ) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_NO_VALIDO', 'mensaje', 'El contrato no existe, no pertenece a la empresa o no esta vigente');
   END IF;
@@ -3604,8 +3611,9 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
-    SELECT 1 FROM contrato
-    WHERE id = p_id_contrato AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+    SELECT 1 FROM contrato c
+    JOIN estado_contrato ec ON ec.id = c.id_estado_contrato AND ec.eliminado_en IS NULL
+    WHERE c.id = p_id_contrato AND c.id_empresa = p_id_empresa AND c.eliminado_en IS NULL AND ec.es_vigente = true
   ) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_NO_VALIDO', 'mensaje', 'El contrato no existe, no pertenece a la empresa o no esta vigente');
   END IF;
@@ -3745,8 +3753,9 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
-    SELECT 1 FROM contrato
-    WHERE id = p_id_contrato AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+    SELECT 1 FROM contrato c
+    JOIN estado_contrato ec ON ec.id = c.id_estado_contrato AND ec.eliminado_en IS NULL
+    WHERE c.id = p_id_contrato AND c.id_empresa = p_id_empresa AND c.eliminado_en IS NULL AND ec.es_vigente = true
   ) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_NO_VALIDO', 'mensaje', 'El contrato no existe, no pertenece a la empresa o no esta vigente');
   END IF;
