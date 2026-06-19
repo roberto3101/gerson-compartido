@@ -260,6 +260,7 @@ go run ./cmd/api          <span class="c"># api sesga reyser escuchando en puert
           <input id="ep-emp" value="11111111-1111-1111-1111-111111111111" style="margin-top:6px;min-width:300px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;font-family:'SFMono-Regular',Consolas,monospace;font-size:12.5px">
         </label>
       </div>
+      <div id="ep-desc" style="background:#eef1fb;border-left:4px solid var(--accent);border-radius:8px;padding:11px 14px;margin-bottom:14px;font-size:13px;color:var(--ink);line-height:1.5"></div>
       <div id="ep-params" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-bottom:14px"></div>
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
         <button id="ep-copy" style="border:none;background:var(--accent);color:#fff;font-weight:800;border-radius:9px;padding:11px 20px;cursor:pointer;font-size:13px">Copiar comando</button>
@@ -349,12 +350,44 @@ go run ./cmd/api          <span class="c"># api sesga reyser escuchando en puert
     listar_cierres_mensuales:['BORRADOR','CERRADO','REABIERTO']
   };
   var ENUMF={ tipo_movimiento:['ENTRADA','SALIDA','TRASLADO','BAJA'], parado:['false','true'] };
+  var DESC={
+    listar_clasificaciones_activo:"Lista las clasificaciones de activo de la empresa (definen si el activo es capitalizable). Pobla el selector al registrar o filtrar activos.",
+    listar_tipos_adquisicion_activo:"Lista los tipos de adquisición (compra directa, leasing, etc.) para indicar cómo se obtuvo cada activo.",
+    listar_tipos_herramienta:"Lista los tipos de herramienta para tipificar las herramientas menores al registrarlas.",
+    listar_activos:"Lista el inventario de activos (capital inmovilizado) de la empresa, con filtros por estado y clasificación. Paginación por cursor.",
+    obtener_detalle_activo:"Devuelve la ficha completa de un activo: costo, vida útil, depreciación y estado operativo (ACTIVO / PARADO / EN_TRASLADO / BAJA).",
+    listar_herramientas:"Lista las herramientas menores de la empresa (gasto operativo, no capitalizable), con filtros por tipo y estado.",
+    obtener_detalle_herramienta:"Devuelve la ficha de una herramienta menor.",
+    listar_movimientos_herramienta:"Historial de movimientos de una herramienta (entrada, salida, traslado, baja) por periodo.",
+    listar_asignaciones_activo:"Lista los contratos a los que un activo está o estuvo asignado, con su inversión y cuota de recuperación.",
+    listar_traslados_activo:"Historial inmutable de traslados de un activo entre contratos y zonas.",
+    listar_trabajos_activo:"Lista los trabajos registrados de un activo en los contratos (horas, valorización, depreciación del periodo).",
+    listar_recuperaciones_inversion:"Lista las recuperaciones mensuales de inversión de un activo por contrato y periodo.",
+    registrar_activo:"Da de alta un activo en el inventario con su costo, vida útil y parámetros de depreciación.",
+    registrar_herramienta:"Da de alta una herramienta menor (gasto operativo; tratamiento económico distinto al del activo capitalizable).",
+    asignar_activo_a_contrato:"Asigna un activo a un contrato y zona, fijando la inversión asignada y la cuota de recuperación mensual.",
+    mover_herramienta:"Registra un movimiento de herramienta (entrada / salida / traslado / baja) entre contratos y zonas.",
+    registrar_trabajo_activo:"Registra un trabajo del activo en un contrato: horas, valorización y depreciación imputada al periodo.",
+    registrar_traslado_activo:"Registra el traslado de un activo de un contrato/zona a otro; deja al activo en estado EN_TRASLADO.",
+    ejecutar_recuperacion_mensual:"Ejecuta la recuperación de inversión del mes para un activo en un contrato. Regla clave: si el activo está PARADO, no recupera (importe 0).",
+    listar_cierres_mensuales:"Lista los cierres mensuales por contrato y periodo, con su estado (BORRADOR / CERRADO / REABIERTO).",
+    listar_penalidades:"Lista las penalidades aplicadas a un contrato en un periodo (restan a la rentabilidad del cierre).",
+    listar_provisiones:"Lista las provisiones de gasto registradas para un contrato en un periodo (entran al cierre).",
+    obtener_resumen_cierre_por_periodo:"Devuelve el resumen consolidado del cierre de un periodo: totales y rentabilidad.",
+    ejecutar_cierre_mensual:"Calcula el cierre mensual de un contrato: consolida facturación, producción, gastos, recuperación y penalidades en la rentabilidad del periodo.",
+    recalcular_cierre_mensual:"Recalcula un cierre mensual existente con nuevos importes, mientras siga en BORRADOR.",
+    cerrar_cierre_mensual:"Sella el cierre de un contrato/periodo (de BORRADOR a CERRADO) y bloquea cambios posteriores.",
+    consultar_resultado_contrato:"Consulta el resultado económico de un contrato en un periodo determinado.",
+    registrar_penalidad:"Registra una penalidad sobre un contrato en un periodo; impacta la rentabilidad del cierre.",
+    registrar_provision:"Registra una provisión de gasto para un contrato en un periodo; se incorpora al cierre."
+  };
   function defVal(name, req){
     if(name==='busqueda'||name==='texto_busqueda') return req?'a':'';
     return DEF.hasOwnProperty(name)?DEF[name]:'';
   }
   function render(){
     var e=E[sel.value]; box.innerHTML='';
+    document.getElementById('ep-desc').innerHTML='<b>Intención de negocio:</b> '+(DESC[e.op]||e.op);
     if(!e.p.length){ box.innerHTML='<span style="font-size:12px;color:var(--muted)">Sin parámetros: solo necesita la empresa (cabecera).</span>'; }
     e.p.forEach(function(p){
       var name=p[0];
