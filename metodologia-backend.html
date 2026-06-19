@@ -250,7 +250,7 @@ go run ./cmd/api          <span class="c"># api sesga reyser escuchando en puert
   <div class="wrap">
     <p class="eyebrow">Probador</p>
     <h2>Genera el comando para probar cualquier endpoint</h2>
-    <p class="lead">Elige un endpoint y copia el <span class="mono">curl.exe</span> listo para pegar en PowerShell (con el API corriendo en <span class="mono">:8080</span>). La página no llama al API por ti — te entrega el comando exacto.</p>
+    <p class="lead">Elige un endpoint, <b>llena sus parámetros</b> (los requeridos van con <b style="color:var(--rojo)">*</b>) y copia el <span class="mono">curl.exe</span> listo para PowerShell (con el API en <span class="mono">:8080</span>). La página no llama al API por ti — te entrega el comando exacto.</p>
     <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)">
       <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-bottom:14px">
         <label style="font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)">Endpoint<br>
@@ -259,65 +259,91 @@ go run ./cmd/api          <span class="c"># api sesga reyser escuchando en puert
         <label style="font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)">X-Empresa-Id<br>
           <input id="ep-emp" value="11111111-1111-1111-1111-111111111111" style="margin-top:6px;min-width:300px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;font-family:'SFMono-Regular',Consolas,monospace;font-size:12.5px">
         </label>
-        <button id="ep-copy" style="border:none;background:var(--accent);color:#fff;font-weight:800;border-radius:9px;padding:11px 20px;cursor:pointer;font-size:13px">Copiar</button>
+      </div>
+      <div id="ep-params" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-bottom:14px"></div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+        <button id="ep-copy" style="border:none;background:var(--accent);color:#fff;font-weight:800;border-radius:9px;padding:11px 20px;cursor:pointer;font-size:13px">Copiar comando</button>
+        <span id="ep-meta" style="font-size:12px;color:var(--muted)"></span>
       </div>
       <pre class="sql" id="ep-cmd" style="margin:0;white-space:pre-wrap;word-break:break-all">…</pre>
     </div>
-    <div class="nota"><b>POST con datos reales:</b> el comando sale con cuerpo <span class="mono">{}</span> (smoke, confirma que vive). Para crear de verdad (p. ej. <span class="mono">registrar_herramienta</span>) reemplaza el <span class="mono">-d "{}"</span> por tu JSON con los campos requeridos.</div>
+    <div class="nota"><b>GET:</b> lo que llenes se agrega como <span class="mono">?clave=valor</span>. <b>POST:</b> se arma en el cuerpo JSON. Deja vacíos los que no necesites; los requeridos sin llenar harán que el API responda <span class="mono">PARAMETRO_OBLIGATORIO</span>. <span class="mono">id_empresa</span> e <span class="mono">id_usuario</span> no aparecen porque van por cabecera.</div>
   </div>
 </section>
 
 <script>
 (function(){
   var E=[
-    ['GET','activos_e_inversion','listar_clasificaciones_activo'],
-    ['GET','activos_e_inversion','listar_tipos_adquisicion_activo'],
-    ['GET','activos_e_inversion','listar_tipos_herramienta'],
-    ['GET','activos_e_inversion','listar_activos'],
-    ['GET','activos_e_inversion','obtener_detalle_activo'],
-    ['GET','activos_e_inversion','listar_herramientas'],
-    ['GET','activos_e_inversion','obtener_detalle_herramienta'],
-    ['GET','activos_e_inversion','listar_movimientos_herramienta'],
-    ['GET','activos_e_inversion','listar_asignaciones_activo'],
-    ['GET','activos_e_inversion','listar_traslados_activo'],
-    ['GET','activos_e_inversion','listar_trabajos_activo'],
-    ['GET','activos_e_inversion','listar_recuperaciones_inversion'],
-    ['POST','activos_e_inversion','registrar_activo'],
-    ['POST','activos_e_inversion','registrar_herramienta'],
-    ['POST','activos_e_inversion','asignar_activo_a_contrato'],
-    ['POST','activos_e_inversion','mover_herramienta'],
-    ['POST','activos_e_inversion','registrar_trabajo_activo'],
-    ['POST','activos_e_inversion','registrar_traslado_activo'],
-    ['POST','activos_e_inversion','ejecutar_recuperacion_mensual'],
-    ['GET','cierre_mensual','listar_cierres_mensuales'],
-    ['GET','cierre_mensual','listar_penalidades'],
-    ['GET','cierre_mensual','listar_provisiones'],
-    ['GET','cierre_mensual','obtener_resumen_cierre_por_periodo'],
-    ['POST','cierre_mensual','ejecutar_cierre_mensual'],
-    ['POST','cierre_mensual','recalcular_cierre_mensual'],
-    ['POST','cierre_mensual','cerrar_cierre_mensual'],
-    ['POST','cierre_mensual','consultar_resultado_contrato'],
-    ['POST','cierre_mensual','registrar_penalidad'],
-    ['POST','cierre_mensual','registrar_provision']
+    {cap:"activos_e_inversion",op:"listar_clasificaciones_activo",m:"GET",p:[["estado",false],["texto_busqueda",false],["limite_pagina",false],["cursor_creado_en",false],["cursor_id",false]]},
+    {cap:"activos_e_inversion",op:"listar_tipos_adquisicion_activo",m:"GET",p:[["estado",false],["texto_busqueda",false],["limite_pagina",false],["cursor_creado_en",false],["cursor_id",false]]},
+    {cap:"activos_e_inversion",op:"listar_tipos_herramienta",m:"GET",p:[["estado",false],["texto_busqueda",false],["limite_pagina",false],["cursor_creado_en",false],["cursor_id",false]]},
+    {cap:"activos_e_inversion",op:"listar_activos",m:"GET",p:[["estado",true],["id_clasificacion_activo",true],["busqueda",true],["limite",true],["cursor_creado_en",true],["cursor_id",true]]},
+    {cap:"activos_e_inversion",op:"obtener_detalle_activo",m:"GET",p:[["id_activo",true]]},
+    {cap:"activos_e_inversion",op:"listar_herramientas",m:"GET",p:[["estado",true],["id_tipo_herramienta",true],["texto_busqueda",true],["limite_pagina",true],["cursor_creado_en",true],["cursor_id",true]]},
+    {cap:"activos_e_inversion",op:"obtener_detalle_herramienta",m:"GET",p:[["id_herramienta",true]]},
+    {cap:"activos_e_inversion",op:"listar_movimientos_herramienta",m:"GET",p:[["id_herramienta",true],["id_periodo",true],["tipo_movimiento",true],["limite",true],["cursor_creado_en",true],["cursor_id",true]]},
+    {cap:"activos_e_inversion",op:"listar_asignaciones_activo",m:"GET",p:[["id_activo",true],["estado",true],["limite",true],["cursor_creado_en",true],["cursor_id",true]]},
+    {cap:"activos_e_inversion",op:"listar_traslados_activo",m:"GET",p:[["id_activo",true],["limite",true],["cursor_creado_en",true],["cursor_id",true]]},
+    {cap:"activos_e_inversion",op:"listar_trabajos_activo",m:"GET",p:[["id_activo",true],["id_contrato",true],["id_periodo",true],["limite",true],["cursor_creado_en",true],["cursor_id",true]]},
+    {cap:"activos_e_inversion",op:"listar_recuperaciones_inversion",m:"GET",p:[["id_activo",true],["id_contrato",true],["id_periodo",true],["limite",true],["cursor_creado_en",true],["cursor_id",true]]},
+    {cap:"activos_e_inversion",op:"registrar_activo",m:"POST",p:[["id_usuario_accion",true],["id_clasificacion_activo",true],["id_tipo_adquisicion_activo",true],["codigo",true],["descripcion",true],["placa",true],["marca",true],["modelo",true],["numero_serie",true],["anio_fabricacion",true],["costo_adquisicion",true],["tiempo_vida_meses",true],["depreciacion_mensual",true],["importe_base_recuperable",true],["fecha_inicio_depreciacion",true],["fecha_fin_depreciacion",true]]},
+    {cap:"activos_e_inversion",op:"registrar_herramienta",m:"POST",p:[["id_usuario_accion",true],["id_tipo_herramienta",true],["codigo",true],["descripcion",true],["marca",true],["modelo",true],["numero_serie",true],["costo_adquisicion",true],["tiempo_vida_meses",true],["fecha_inicio_depreciacion",true],["fecha_fin_depreciacion",true]]},
+    {cap:"activos_e_inversion",op:"asignar_activo_a_contrato",m:"POST",p:[["id_usuario_accion",true],["id_activo",true],["id_contrato",true],["id_zona",true],["inversion_asignada",true],["cuota_recuperacion_mensual",true],["fecha_inicio",true]]},
+    {cap:"activos_e_inversion",op:"mover_herramienta",m:"POST",p:[["id_usuario_accion",true],["id_herramienta",true],["id_periodo",true],["tipo_movimiento",true],["fecha",true],["id_contrato_origen",true],["id_zona_origen",true],["id_contrato_destino",true],["id_zona_destino",true],["cantidad",true],["costo",true],["valorizacion",true],["motivo",true]]},
+    {cap:"activos_e_inversion",op:"registrar_trabajo_activo",m:"POST",p:[["id_usuario_accion",true],["id_activo",true],["id_contrato",true],["id_zona",true],["id_operario",true],["id_periodo",true],["fecha",true],["fecha_hora_inicio",true],["fecha_hora_fin",true],["horas_trabajadas",true],["descripcion_trabajo",true],["valorizacion_trabajo",true],["dias_depreciados",true],["kilometraje_inicio",true],["kilometraje_fin",true]]},
+    {cap:"activos_e_inversion",op:"registrar_traslado_activo",m:"POST",p:[["id_usuario_accion",true],["id_activo",true],["id_contrato_origen",true],["id_zona_origen",true],["id_contrato_destino",true],["id_zona_destino",true],["fecha_traslado",true],["motivo",true]]},
+    {cap:"activos_e_inversion",op:"ejecutar_recuperacion_mensual",m:"POST",p:[["id_usuario_accion",true],["id_activo",true],["id_contrato",true],["id_periodo",true],["parado",true]]},
+    {cap:"cierre_mensual",op:"listar_cierres_mensuales",m:"GET",p:[["id_contrato",true],["id_periodo",true],["estado",true],["limite",true],["cursor_creado_en",true],["cursor_id",true]]},
+    {cap:"cierre_mensual",op:"listar_penalidades",m:"GET",p:[["id_contrato",true],["id_periodo",true],["limite",true],["cursor_creado_en",true],["cursor_id",true]]},
+    {cap:"cierre_mensual",op:"listar_provisiones",m:"GET",p:[["id_contrato",true],["id_periodo",true],["limite",true],["cursor_creado_en",true],["cursor_id",true]]},
+    {cap:"cierre_mensual",op:"obtener_resumen_cierre_por_periodo",m:"GET",p:[["id_periodo",true]]},
+    {cap:"cierre_mensual",op:"ejecutar_cierre_mensual",m:"POST",p:[["id_usuario_accion",true],["id_contrato",true],["id_periodo",true],["total_facturado",true],["total_produccion",true],["gastos_directos",true],["gastos_varios_fijos",true],["gastos_iniciales_periodo",true],["gastos_administrativos",true],["gastos_indirectos",true],["gastos_financieros",true],["gastos_sig",true],["impuesto_renta",true],["renta_adicional",true],["reparto_utilidades",true]]},
+    {cap:"cierre_mensual",op:"recalcular_cierre_mensual",m:"POST",p:[["id_usuario_accion",true],["id_contrato",true],["id_periodo",true],["total_facturado",true],["total_produccion",true],["gastos_directos",true],["gastos_varios_fijos",true],["gastos_iniciales_periodo",true],["gastos_administrativos",true],["gastos_indirectos",true],["gastos_financieros",true],["gastos_sig",true],["impuesto_renta",true],["renta_adicional",true],["reparto_utilidades",true]]},
+    {cap:"cierre_mensual",op:"cerrar_cierre_mensual",m:"POST",p:[["id_usuario_accion",true],["id_contrato",true],["id_periodo",true]]},
+    {cap:"cierre_mensual",op:"consultar_resultado_contrato",m:"POST",p:[["id_contrato",true],["id_periodo",true]]},
+    {cap:"cierre_mensual",op:"registrar_penalidad",m:"POST",p:[["id_usuario_accion",true],["id_contrato",true],["id_periodo",true],["descripcion",true],["importe",true]]},
+    {cap:"cierre_mensual",op:"registrar_provision",m:"POST",p:[["id_usuario_accion",true],["id_contrato",true],["id_periodo",true],["descripcion",true],["importe",true]]}
   ];
   var sel=document.getElementById('ep-select');
-  for(var i=0;i<E.length;i++){var o=document.createElement('option');o.value=i;o.textContent=E[i][0]+'   '+E[i][1]+'/'+E[i][2];sel.appendChild(o);}
-  function build(){
-    var e=E[sel.value]||E[0];
-    var emp=(document.getElementById('ep-emp').value||'11111111-1111-1111-1111-111111111111').trim();
-    var url='http://localhost:8080/api/v1/'+e[1]+'/'+e[2];
-    var cmd;
-    if(e[0]==='GET'){ cmd='curl.exe -s -H "X-Empresa-Id: '+emp+'" "'+url+'"'; }
-    else { cmd='curl.exe -s -X POST -H "X-Empresa-Id: '+emp+'" -H "Content-Type: application/json" -d "{}" "'+url+'"'; }
-    document.getElementById('ep-cmd').textContent=cmd;
+  E.forEach(function(e,i){var o=document.createElement('option');o.value=i;o.textContent=e.m+'   '+e.cap+'/'+e.op;sel.appendChild(o);});
+  var box=document.getElementById('ep-params');
+  function render(){
+    var e=E[sel.value]; box.innerHTML='';
+    if(!e.p.length){ box.innerHTML='<span style="font-size:12px;color:var(--muted)">Sin parámetros: solo necesita la empresa (cabecera).</span>'; }
+    e.p.forEach(function(p){
+      var lab=document.createElement('label');
+      lab.style.cssText='display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:700;color:var(--muted)';
+      lab.innerHTML='<span>'+p[0]+(p[1]?' <b style="color:var(--rojo)">*</b>':' <small style="font-weight:400">(opc)</small>')+'</span>';
+      var inp=document.createElement('input');
+      inp.setAttribute('data-k',p[0]); inp.placeholder=p[0];
+      inp.style.cssText='padding:8px 9px;border:1px solid var(--line);border-radius:8px;font-family:"SFMono-Regular",Consolas,monospace;font-size:12px';
+      inp.addEventListener('input',build);
+      lab.appendChild(inp); box.appendChild(lab);
+    });
+    build();
   }
-  sel.addEventListener('change',build);
+  function build(){
+    var e=E[sel.value];
+    var emp=(document.getElementById('ep-emp').value||'11111111-1111-1111-1111-111111111111').trim();
+    var url='http://localhost:8080/api/v1/'+e.cap+'/'+e.op, cmd, ins=box.querySelectorAll('input'), i, v;
+    if(e.m==='GET'){
+      var qs=[];
+      for(i=0;i<ins.length;i++){ v=ins[i].value.trim(); if(v!==''){ qs.push(encodeURIComponent(ins[i].getAttribute('data-k'))+'='+encodeURIComponent(v)); } }
+      if(qs.length) url+='?'+qs.join('&');
+      cmd='curl.exe -s -H "X-Empresa-Id: '+emp+'" "'+url+'"';
+    } else {
+      var obj={};
+      for(i=0;i<ins.length;i++){ v=ins[i].value.trim(); if(v!==''){ obj[ins[i].getAttribute('data-k')]=v; } }
+      cmd='curl.exe -s -X POST -H "X-Empresa-Id: '+emp+'" -H "Content-Type: application/json" -d \''+JSON.stringify(obj)+'\' "'+url+'"';
+    }
+    document.getElementById('ep-cmd').textContent=cmd;
+    var rq=0; e.p.forEach(function(p){if(p[1])rq++;});
+    document.getElementById('ep-meta').textContent=e.m+' · '+e.p.length+' parámetros ('+rq+' requeridos)';
+  }
+  sel.addEventListener('change',render);
   document.getElementById('ep-emp').addEventListener('input',build);
-  document.getElementById('ep-copy').addEventListener('click',function(){
-    var b=document.getElementById('ep-copy'),x=b.textContent;
-    navigator.clipboard.writeText(document.getElementById('ep-cmd').textContent).then(function(){b.textContent='¡Copiado!';setTimeout(function(){b.textContent=x;},1200);});
-  });
-  build();
+  document.getElementById('ep-copy').addEventListener('click',function(){var b=document.getElementById('ep-copy'),x=b.textContent;navigator.clipboard.writeText(document.getElementById('ep-cmd').textContent).then(function(){b.textContent='¡Copiado!';setTimeout(function(){b.textContent=x;},1200);});});
+  render();
 })();
 </script>
 
