@@ -263,6 +263,49 @@
     </details>
 
     <details class="fc">
+      <summary><span class="fc-cap">Go · generado</span><span class="fc-path">aplicaciones/api/interno/servidor/operaciones_generadas_activos_e_inversion.go</span><span class="fc-1l">La tabla de los 19 endpoints de activos (generada desde el SQL).</span></summary>
+      <div class="fc-body">
+        <p class="fc-prop"><b>Propósito:</b> archivo <b>generado</b> por <span class="mono">generar_esqueletos_api.ps1</span> (1083 líneas). Devuelve la lista de las <b>19 operaciones</b> de activos — una entrada por cada <span class="mono">fn_*</span>. NO se edita a mano: se regenera cuando cambia el SQL. El agregador lo llama; el ejecutor lo recorre.</p>
+        <pre><span class="kw">func</span> <span class="t" data-tip="Función que el agregador (operaciones_generadas.go) llama para traer los 19 endpoints de activos.">operacionesGeneradasActivosEInversion</span>() []definicionOperacionGenerada {
+  <span class="kw">return</span> []definicionOperacionGenerada{
+    {
+      CodigoCapacidad: <span class="t" data-tip="A qué capacidad pertenece. El runtime la usa para el gate de habilitación (envolverConCapacidad).">componibilidad.CodigoCapacidadActivosEInversion</span>,
+      TipoInvocacion:  <span class="t" data-tip="'function' → se llama con EjecutarJSON y devuelve el JSONB. 'procedimiento' → EjecutarProcedimiento (acuse de éxito).">"function"</span>,
+      MetodoHTTP:      <span class="t" data-tip="El verbo HTTP, derivado del prefijo del nombre del SP: registrar_/asignar_/ejecutar_ → POST; listar_/obtener_ → GET.">http.MethodPost</span>,
+      Patron:          <span class="t" data-tip="La URL del endpoint: /api/v1/activos_e_inversion/asignar_activo_a_contrato, compuesta con RutaAPI.">componibilidad.RutaAPI(..., "asignar_activo_a_contrato")</span>,
+      Funcion:         <span class="t" data-tip="El nombre del SP de base de datos que esta operación ejecuta.">"fn_asignar_activo_a_contrato"</span>,
+      Parametros: []definicionParametroOperacion{
+        {Nombre: "p_id_empresa", NombreEntrada: "id_empresa", Requerido: <span class="t" data-tip="Cada parámetro del SP con su nombre de entrada y si es obligatorio. El ejecutor los resuelve de cabecera/query/cuerpo.">true</span>},
+        <span class="t" data-tip="...y un parámetro por cada argumento del SP (id_activo, id_contrato, etc.).">/* ... un parametro por argumento ... */</span>
+      },
+    },
+    <span class="t" data-tip="...y un bloque {} idéntico por cada uno de los 19 endpoints de activos: listar_activos, registrar_activo, listar_clasificaciones_activo, mover_herramienta, etc.">/* ... 18 endpoints mas ... */</span>
+  }
+}</pre>
+        <p class="fc-prop">Aquí vive el <b>cableado real</b> de tus endpoints de activos. Cada <span class="mono">{}</span> es lo que el generador dedujo de un <span class="mono">.sql</span>; el ejecutor genérico (siguiente tarjeta) hace que respondan.</p>
+      </div>
+    </details>
+
+    <details class="fc">
+      <summary><span class="fc-cap">Go · generado</span><span class="fc-path">aplicaciones/api/interno/servidor/operaciones_generadas_cierre_mensual.go</span><span class="fc-1l">La tabla de los 10 endpoints de cierre (generada desde el SQL).</span></summary>
+      <div class="fc-body">
+        <p class="fc-prop"><b>Propósito:</b> igual que el de activos, pero para <b>cierre-mensual</b> (534 líneas). Devuelve las <b>10 operaciones</b> de cierre. Mismo molde: una entrada <span class="mono">definicionOperacionGenerada</span> por cada <span class="mono">fn_*</span>.</p>
+        <pre><span class="kw">func</span> <span class="t" data-tip="Función que el agregador llama para traer los 10 endpoints de cierre.">operacionesGeneradasCierreMensual</span>() []definicionOperacionGenerada {
+  <span class="kw">return</span> []definicionOperacionGenerada{
+    {
+      CodigoCapacidad: componibilidad.CodigoCapacidadCierreMensual,
+      MetodoHTTP:      <span class="t" data-tip="ejecutar_cierre_mensual empieza con 'ejecutar_' → POST.">http.MethodPost</span>,
+      Patron:          componibilidad.RutaAPI(..., "ejecutar_cierre_mensual"),
+      Funcion:         <span class="t" data-tip="El SP que consolida facturación, producción, gastos, recuperación y penalidades en la rentabilidad del periodo.">"fn_ejecutar_cierre_mensual"</span>,
+      Parametros: []definicionParametroOperacion{ <span class="t" data-tip="id_contrato, id_periodo, total_facturado, gastos_*, impuesto_renta, etc. — los argumentos del cálculo del cierre.">/* ... */</span> },
+    },
+    <span class="t" data-tip="...y un bloque por cada uno de los 10 endpoints de cierre: listar_cierres_mensuales, registrar_penalidad, registrar_provision, recalcular_cierre_mensual, cerrar_cierre_mensual, etc.">/* ... 9 endpoints mas ... */</span>
+  }
+}</pre>
+      </div>
+    </details>
+
+    <details class="fc">
       <summary><span class="fc-cap heart">Go · ❤ ejecutor</span><span class="fc-path">aplicaciones/api/interno/servidor/operaciones_generadas_base.go</span><span class="fc-1l">El corazón: UN solo ejecutor genérico atiende TODOS los endpoints generados.</span></summary>
       <div class="fc-body">
         <p class="fc-prop"><b>Propósito:</b> el motor escrito a mano <b>una sola vez</b>. Define la forma de una operación, registra cada ruta envuelta en su gate, y al llegar una petición resuelve los parámetros (cabecera/query/cuerpo), valida y llama al SP. Nadie escribe un handler por endpoint.</p>

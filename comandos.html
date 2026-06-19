@@ -178,6 +178,16 @@ curl.exe -s -H "X-Empresa-Id: $emp" "http://localhost:8080/api/v1/activos_e_inve
     <pre>'{"id_usuario_accion":"22222222-2222-2222-2222-222222222222","id_contrato":"cccccccc-cccc-cccc-cccc-cccccccccccc","id_periodo":"33333333-3333-3333-3333-333333333333","descripcion":"Penalidad demo","importe":"250.00"}' | Out-File -Encoding ascii body.json
 curl.exe -s -X POST -H "X-Empresa-Id: $emp" -H "Content-Type: application/json" -d "@body.json" "http://localhost:8080/api/v1/cierre_mensual/registrar_penalidad"</pre>
     <div class="ok"><b>Más fácil:</b> usa el <b>Probador de endpoints</b> de la metodología — eliges el endpoint, llena los campos y te copia el <span class="mono">curl.exe</span> exacto.</div>
+
+    <h3>Colección de Postman (importar directo)</h3>
+    <p class="lead" style="margin-bottom:8px">Los 29 endpoints ya configurados (URLs, headers y bodies demo). Descarga e importa:</p>
+    <p style="margin:0 0 10px"><a href="coleccion-postman-grupo5.json" download style="display:inline-flex;align-items:center;gap:8px;background:#ff6c37;color:#fff;font-weight:800;text-decoration:none;border-radius:10px;padding:11px 18px;box-shadow:var(--shadow)">⬇&nbsp; Descargar colección Postman (.json)</a></p>
+    <pre><span class="c"># En Postman:</span>
+1. Import  →  arrastra <span class="v">coleccion-postman-grupo5.json</span>
+2. (opcional) Variables de la coleccion: <span class="v">baseUrl</span>, <span class="v">empresaId</span>, <span class="v">usuarioId</span> ya vienen puestas
+3. Carpetas: "Activos e Inversion" (19)  y  "Cierre Mensual" (10)
+4. Con el API en :8080 y el seed cargado  →  Send</pre>
+    <div class="nota">Variables ya incluidas: <span class="mono">baseUrl=http://localhost:8080/api/v1</span>, <span class="mono">empresaId=1111...</span>, <span class="mono">usuarioId=2222...</span>. Los GET traen valores demo (los filtros opcionales van deshabilitados, listos para activar); los POST traen un body demo completo. Para data real, carga el seed demo (paso 2) en <span class="mono">sesga_test</span>.</div>
   </div>
 </section>
 
