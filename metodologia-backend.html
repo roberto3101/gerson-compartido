@@ -154,9 +154,46 @@
       <span class="chip">3 generadores</span>
       <span class="chip">35 operaciones generadas</span>
       <a href="#camino" class="chip link">El camino dorado →</a>
+      <a href="#avance" class="chip link" style="background:#22c55e;color:#06281a;border-color:#22c55e">★ Avance del Grupo 5 →</a>
     </div>
   </div>
 </header>
+
+<section id="avance">
+  <div class="wrap">
+    <p class="eyebrow">Avance · Grupo 5 · activos-e-inversion</p>
+    <h2>Lo que ya construimos (archivo por archivo)</h2>
+    <p class="lead">Sobre la arquitectura componible, esto es lo que el Grupo 5 lleva en la capacidad <b>activos-e-inversion</b>: el <b>backend</b> (generado desde el SQL) y la primera <b>pantalla del frontend</b> (a mano, sobre el molde de <span class="mono">contratos</span>). Cada tarjeta dice qué hace su archivo.</p>
+
+    <div class="ok"><b>Backend — listo:</b> los <b>26 endpoints</b> de nuestras 2 capacidades (16 de activos + 10 de cierre) ya están <b>generados</b> desde el catálogo + SQL; <span class="mono">go build</span> y <span class="mono">go vet</span> limpios. Se realineó <span class="mono">operaciones_generadas.go</span> (corrección de <span class="mono">fn_listar_herramientas</span>, que estaba desactualizado). <b>En progreso:</b> 3 SP de catálogo (<span class="mono">fn_listar_clasificaciones_activo</span>, <span class="mono">fn_listar_tipos_adquisicion_activo</span>, <span class="mono">fn_listar_tipos_herramienta</span>) para poblar los selectores.</div>
+
+    <h3>Backend · endpoints de activos-e-inversion (generados)</h3>
+    <table class="tabla">
+      <thead><tr><th style="width:90px">Método</th><th>Ruta · <span class="mono">/api/v1/activos_e_inversion/…</span></th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill get">GET</span></td><td><span class="mono">listar_activos · obtener_detalle_activo · listar_herramientas · obtener_detalle_herramienta · listar_movimientos_herramienta</span></td></tr>
+        <tr><td><span class="pill get">GET</span></td><td><span class="mono">listar_asignaciones_activo · listar_traslados_activo · listar_trabajos_activo · listar_recuperaciones_inversion</span></td></tr>
+        <tr><td><span class="pill post">POST</span></td><td><span class="mono">registrar_activo · registrar_herramienta · asignar_activo_a_contrato · mover_herramienta</span></td></tr>
+        <tr><td><span class="pill post">POST</span></td><td><span class="mono">registrar_trabajo_activo · registrar_traslado_activo · ejecutar_recuperacion_mensual</span></td></tr>
+      </tbody>
+    </table>
+    <p class="lead" style="margin-top:12px;font-size:13px">No se escribió Go a mano: cada SP del dominio se convierte en endpoint vía <span class="mono">generar_esqueletos_api.ps1</span>. Ese es el método de Fidel.</p>
+
+    <h3>Frontend · primera pantalla (listado de activos), archivo por archivo</h3>
+    <div class="gen-grid">
+      <div class="gcard"><div class="hd"><div class="nro">Tipos</div><div class="fn">tipos/activo.ts</div></div><div class="bd"><p>Define el tipo <span class="mono">Activo</span> y la forma de la respuesta del listado (<span class="mono">exito</span>, <span class="mono">datos.items</span>, <span class="mono">paginacion</span>), espejo de lo que devuelve <span class="mono">fn_listar_activos</span>.</p></div></div>
+      <div class="gcard"><div class="hd"><div class="nro">API</div><div class="fn">api/listar_activos.ts</div></div><div class="bd"><p>Llama al endpoint real generado <span class="mono">GET /api/v1/activos_e_inversion/listar_activos</span> con <span class="mono">invocarAPI</span> y devuelve los activos ya tipados.</p></div></div>
+      <div class="gcard"><div class="hd"><div class="nro">Gancho</div><div class="fn">ganchos/usar_activos.ts</div></div><div class="bd"><p>Hook de React: pide los activos al montar la vista y los entrega al componente. Aísla la carga de datos de la pantalla.</p></div></div>
+      <div class="gcard"><div class="hd"><div class="nro">Componente</div><div class="fn">componentes/tarjeta_resumen_activo.tsx</div></div><div class="bd"><p>Tarjeta de resumen de un activo: código, descripción, estado y marca/modelo.</p></div></div>
+      <div class="gcard"><div class="hd"><div class="nro">Tabla</div><div class="fn">tablas/tabla_activos.tsx</div></div><div class="bd"><p>Tabla del listado: código, descripción, estado, marca, modelo y costo de adquisición con formato de moneda (S/).</p></div></div>
+      <div class="gcard"><div class="hd"><div class="nro">Página</div><div class="fn">paginas/pagina_lista_activos.tsx</div></div><div class="bd"><p>La pantalla del listado: une el gancho con las tarjetas y la tabla. Es lo que se ve en <span class="mono">/app/activos_e_inversion</span>.</p></div></div>
+      <div class="gcard"><div class="hd"><div class="nro">Ruta</div><div class="fn">rutas.tsx</div></div><div class="bd"><p>Declara la ruta <span class="mono">activos_e_inversion</span> (relativa, montada bajo <span class="mono">/app</span>) que carga la página de forma diferida (lazy).</p></div></div>
+      <div class="gcard"><div class="hd"><div class="nro">Manifiesto</div><div class="fn">manifiesto.ts</div></div><div class="bd"><p>Registro de montaje de la capacidad (molde de <span class="mono">contratos</span>): expone sus rutas privadas al <i>shell</i> de la plataforma.</p></div></div>
+      <div class="gcard" style="border-top-color:var(--evento)"><div class="hd"><div class="nro" style="color:var(--evento)">Registro · compartido</div><div class="fn">plataforma/componibilidad/registro_capacidades.tsx</div></div><div class="bd"><p>Cambio <b>aditivo</b>: registra nuestro manifiesto y <b>filtra</b> la versión generada, para que nuestra UI a mano reemplace la página genérica. Único archivo compartido tocado, igual que hizo <span class="mono">contratos</span>.</p></div></div>
+    </div>
+    <p class="lead" style="margin-top:14px;font-size:13px">Patrón: <span class="mono">tipos → api → gancho → componente → tabla → página → ruta → manifiesto</span>. El mismo molde se repetirá para los demás listados y para <b>cierre-mensual</b>.</p>
+  </div>
+</section>
 
 <section>
   <div class="wrap">
