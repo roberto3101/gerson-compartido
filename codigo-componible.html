@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Código componible explicado · Grupo 5 · SESGA REYSER</title>
+<style>
+  :root{
+    --bg:#f5f6fb; --surface:#ffffff; --ink:#181b27; --muted:#697086; --line:#e6e8f0;
+    --accent:#4f46e5; --catalogo:#047857; --evento:#b45309; --raiz:#6d28d9;
+    --shadow:0 1px 2px rgba(20,23,40,.06),0 8px 24px rgba(20,23,40,.06);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",-apple-system,Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+  code,.mono{font-family:"SFMono-Regular",Consolas,Menlo,monospace}
+  header.top{background:linear-gradient(120deg,#0f172a 0%,#312e81 55%,#4338ca 100%);color:#fff;padding:42px 0 36px}
+  header.top .eyebrow{letter-spacing:.18em;text-transform:uppercase;font-size:12px;color:#c7d2fe;font-weight:700;margin:0 0 10px}
+  header.top h1{margin:0;font-size:28px;font-weight:800;letter-spacing:-.02em}
+  header.top p.sub{margin:10px 0 0;color:#dfe3f7;max-width:780px}
+  .volver{display:inline-flex;align-items:center;gap:7px;color:#c7d2fe;text-decoration:none;font-weight:700;font-size:13px;margin-bottom:18px;border:1px solid rgba(255,255,255,.22);padding:7px 14px;border-radius:999px;background:rgba(255,255,255,.08)}
+  .volver:hover{background:rgba(255,255,255,.16);color:#fff}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+  .chip{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#eef0ff;padding:5px 12px;border-radius:999px;font-size:12.5px;font-weight:600}
+  section{padding:40px 0}
+  .eyebrow{letter-spacing:.16em;text-transform:uppercase;font-size:11.5px;color:var(--accent);font-weight:800;margin:0 0 6px}
+  h2{font-size:21px;font-weight:800;margin:0 0 4px}
+  .lead{color:var(--muted);margin:0 0 22px;max-width:820px}
+  .nota{background:#fff8ec;border:1px solid #f5d9a8;border-radius:12px;padding:13px 16px;font-size:13px;color:#92651a;line-height:1.55;margin:6px 0 22px}
+  .nota b{color:#7a5310}
+  .tip-banner{background:#eef1fb;border-left:4px solid var(--accent);border-radius:8px;padding:11px 14px;font-size:13px;color:var(--ink);margin:0 0 22px}
+
+  .fc{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);margin-bottom:14px;overflow:visible}
+  .fc>summary{cursor:pointer;list-style:none;padding:14px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .fc>summary::-webkit-details-marker{display:none}
+  .fc>summary::before{content:"\25B8";color:var(--accent);font-weight:800;font-size:13px}
+  .fc[open]>summary::before{content:"\25BE"}
+  .fc-cap{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:var(--accent);padding:3px 9px;border-radius:999px}
+  .fc-cap.heart{background:var(--raiz)}
+  .fc-path{font-family:"SFMono-Regular",Consolas,monospace;font-size:13px;font-weight:700;color:var(--ink);word-break:break-all}
+  .fc-1l{font-size:12px;color:var(--muted);margin-left:auto}
+  .fc[open] .fc-1l{display:none}
+  .fc-body{padding:4px 16px 18px;border-top:1px solid var(--line)}
+  .fc-prop{font-size:13.5px;color:var(--muted);margin:14px 0 6px;line-height:1.55}
+  .fc-prop b{color:var(--ink)}
+  .fc pre{background:#0f1424;color:#cdd3e6;border-radius:10px;padding:16px 18px;overflow:visible;white-space:pre-wrap;word-break:break-word;font:12.5px/1.75 "SFMono-Regular",Consolas,monospace;margin:10px 0 0;box-shadow:var(--shadow)}
+  .kw{color:#c4b5fd;font-weight:600}
+  .t{border-bottom:1px dotted #6b7394;cursor:help;position:relative}
+  .t:hover{background:rgba(124,58,237,.25);border-radius:3px}
+  .t:hover::after{content:attr(data-tip);position:absolute;left:0;top:100%;margin-top:6px;z-index:60;background:#1b2236;color:#eef0fb;border:1px solid #39406a;padding:10px 13px;border-radius:9px;font:12.5px/1.55 "Segoe UI",-apple-system,sans-serif;font-weight:400;width:max-content;max-width:400px;white-space:normal;box-shadow:0 12px 34px rgba(0,0,0,.45)}
+  footer{border-top:1px solid var(--line);padding:24px 0 48px;color:var(--muted);font-size:12.5px}
+  footer a{color:var(--accent);font-weight:700;text-decoration:none}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="volver" href="metodologia-backend.html">←&nbsp; Volver a la metodología</a>
+    <p class="eyebrow">Plataforma SESGA REYSER · CODEPLEX · Infraestructura componible</p>
+    <h1>Código componible explicado, archivo por archivo</h1>
+    <p class="sub">Los archivos que dio Fidel — el "motor" que hace que cada capacidad se registre, se proteja por habilitación y exponga sus endpoints. Cada tarjeta dice qué hace el archivo y, al <b>pasar el cursor sobre el código subrayado</b>, explica esa línea. Todo basado en el código real, sin inventar.</p>
+    <div class="chips">
+      <span class="chip">Lote 1 · Backend (Go)</span>
+      <span class="chip">11 archivos del motor</span>
+      <span class="chip">hover = explicación</span>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Backend · Go</p>
+    <h2>El motor del backend componible</h2>
+    <p class="lead">En orden de arranque: el servidor monta las rutas, el catálogo declara las capacidades, los helpers de ruta componen las URLs, el proveedor decide qué está habilitado, y el ejecutor genérico atiende todos los endpoints generados.</p>
+    <div class="tip-banner">💡 <b>Cómo usar:</b> abre una tarjeta y pasa el cursor sobre el <span class="t" data-tip="¡Así! Cada fragmento subrayado tiene su explicación al pasar el mouse.">texto subrayado</span> del código para ver la explicación de esa parte.</div>
+
+    <details class="fc">
+      <summary><span class="fc-cap">Go · entrada</span><span class="fc-path">aplicaciones/api/interno/servidor/rutas.go</span><span class="fc-1l">Punto de entrada: arma el servidor HTTP y registra todas las rutas.</span></summary>
+      <div class="fc-body">
+        <p class="fc-prop"><b>Propósito:</b> es el ensamblador del servidor. Crea el enrutador, registra la ruta de salud, las rutas hechas a mano, las rutas generadas, y envuelve todo con el middleware de registro.</p>
+        <pre><span class="kw">func</span> <span class="t" data-tip="Función pública que el main llama al arrancar. Recibe la configuración y los servicios (BD, proveedor de capacidades) y devuelve el handler HTTP completo.">RegistrarRutas</span>(configuracion bootstrap.Configuracion, servicios bootstrap.Servicios) http.Handler {
+  mux := <span class="t" data-tip="Crea el multiplexor de rutas estándar de Go: el objeto que mapea cada patrón de URL a su handler.">http.NewServeMux()</span>
+  manejador := <span class="t" data-tip="Crea el manejadorAPI: la estructura que guarda configuración y servicios, y sobre la que cuelgan todos los handlers.">nuevoManejadorAPI(configuracion, servicios)</span>
+
+  mux.HandleFunc(<span class="t" data-tip="Ruta de health-check: responde si el servicio está vivo. No depende de ninguna capacidad.">"/salud"</span>, manejador.salud)
+  manejador.<span class="t" data-tip="Registra las rutas escritas A MANO (capacidades personalizadas: contratos, gobierno_central, produccion). Definidas en registro_rutas.go.">registrarRutasAPI(mux)</span>
+  manejador.<span class="t" data-tip="Registra las rutas GENERADAS automáticamente desde los SQL (el resto de capacidades, incluidas activos y cierre). Definidas en operaciones_generadas_base.go.">registrarRutasGeneradas(mux)</span>
+
+  <span class="kw">return</span> <span class="t" data-tip="Envuelve el enrutador con el middleware que loguea método, ruta y duración de cada petición.">middlewareRegistro(mux)</span>
+}</pre>
+        <p class="fc-prop">Aquí se ve la convivencia de los dos mundos: <b>rutas a mano</b> (capacidades personalizadas) y <b>rutas generadas</b> (capacidades estándar). Ambas se montan en el mismo <span class="mono">mux</span>.</p>
+      </div>
+    </details>
+
+    <details class="fc">
+      <summary><span class="fc-cap">Go · catálogo</span><span class="fc-path">aplicaciones/api/interno/plataforma/componibilidad/codigos.go</span><span class="fc-1l">Las constantes con el código canónico de cada capacidad.</span></summary>
+      <div class="fc-body">
+        <p class="fc-prop"><b>Propósito:</b> define una constante por capacidad con su <b>código canónico</b> en <span class="mono">snake_case</span>. Evita strings sueltos repartidos por el código; todos referencian estas constantes. <b>Archivo generado</b> por <span class="mono">generar_catalogos.ps1</span>.</p>
+        <pre><span class="kw">package</span> componibilidad
+
+<span class="kw">const</span> (
+	<span class="t" data-tip="Código canónico de nuestra capacidad de activos. Se usa en rutas, gate de habilitación y registro. Siempre snake_case con guion bajo.">CodigoCapacidadActivosEInversion</span> = "activos_e_inversion"
+	<span class="t" data-tip="Código canónico de nuestra otra capacidad: cierre mensual.">CodigoCapacidadCierreMensual</span>     = "cierre_mensual"
+	CodigoCapacidadContratos         = "contratos"
+	CodigoCapacidadCosteoDirecto     = "costeo_directo"
+	<span class="t" data-tip="...y así una constante por cada una de las 9 capacidades del sistema (gobierno_central, produccion, reportes, valorizacion, gastos_compartidos).">CodigoCapacidadGobiernoCentral</span>   = "gobierno_central"
+)</pre>
+      </div>
+    </details>
+
+    <details class="fc">
+      <summary><span class="fc-cap">Go · catálogo</span><span class="fc-path">aplicaciones/api/interno/plataforma/componibilidad/registro_capacidades.go</span><span class="fc-1l">El descriptor de cada capacidad: nombre, directorios y segmentos.</span></summary>
+      <div class="fc-body">
+        <p class="fc-prop"><b>Propósito:</b> define la estructura <span class="mono">DescriptorCapacidad</span> (la "ficha" de cada capacidad) y la lista maestra de todas. Es la fuente de verdad en Go de qué capacidades existen y cómo se nombran sus rutas. <b>Archivo generado</b> desde <span class="mono">catalogo_capacidades.json</span>.</p>
+        <pre><span class="kw">type</span> <span class="t" data-tip="La ficha de una capacidad: su código, nombre, las carpetas de dominio/datos/frontend y los segmentos de API y navegación.">DescriptorCapacidad</span> <span class="kw">struct</span> {
+	Codigo             <span class="kw">string</span>
+	Nombre             <span class="kw">string</span>
+	<span class="t" data-tip="Carpeta donde viven sus archivos SQL de datos (procedimientos/<este valor>). De aquí leen los generadores.">DirectorioDatos</span>    <span class="kw">string</span>
+	<span class="t" data-tip="Segmento que arma su prefijo de API: /api/v1/<SegmentoAPI>/...">SegmentoAPI</span>        <span class="kw">string</span>
+	SegmentoNavegacion <span class="kw">string</span>
+}
+
+<span class="kw">func</span> (d DescriptorCapacidad) <span class="t" data-tip="Método de conveniencia: devuelve el prefijo de API de esta capacidad, p.ej. /api/v1/activos_e_inversion, usando RutaAPI.">PrefijoAPI</span>() <span class="kw">string</span> {
+	<span class="kw">return</span> RutaAPI(d.SegmentoAPI)
+}
+
+<span class="kw">func</span> <span class="t" data-tip="Devuelve la lista de TODAS las capacidades con sus descriptores. Es el catálogo maestro en Go (las 9 capacidades).">CatalogoCapacidadesBase</span>() []DescriptorCapacidad {
+	<span class="kw">return</span> []DescriptorCapacidad{
+		{
+			Codigo:             <span class="t" data-tip="Cada entrada usa la constante de codigos.go, no un string suelto. Aquí, nuestra capacidad de activos.">CodigoCapacidadActivosEInversion</span>,
+			Nombre:             "Activos e inversion",
+			DirectorioDatos:    "activos_e_inversion",
+			SegmentoAPI:        "activos_e_inversion",
+		},
+		<span class="t" data-tip="...y un bloque idéntico por cada una de las 9 capacidades. Reportes tiene DirectorioDatos vacío porque no tiene SQL propio.">{ /* cierre_mensual, contratos, ... las 9 */ }</span>,
+	}
+}</pre>
+      </div>
+    </details>
+
+    <details class="fc">
+      <summary><span class="fc-cap">Go · catálogo</span><span class="fc-path">aplicaciones/api/interno/plataforma/componibilidad/rutas.go</span><span class="fc-1l">Helpers que componen las URLs (no se escriben "/api/v1/..." a mano).</span></summary>
+      <div class="fc-body">
+        <p class="fc-prop"><b>Propósito:</b> centraliza los prefijos globales (<span class="mono">/api</span>, versión <span class="mono">v1</span>, <span class="mono">/app</span>) y arma rutas uniendo segmentos. Nadie escribe <span class="mono">/api/v1/...</span> a mano: lo compone <span class="mono">RutaAPI</span>.</p>
+        <pre><span class="kw">const</span> (
+	PrefijoAPIBase        = <span class="t" data-tip="Prefijo global de toda la API.">"/api"</span>
+	VersionAPIBase        = <span class="t" data-tip="Versión de la API. Cambiarla aquí versiona todas las rutas a la vez.">"v1"</span>
+	PrefijoNavegacionBase = "/app"
+)
+
+<span class="kw">func</span> <span class="t" data-tip="Arma una ruta de API: une /api + v1 + los segmentos que le pases. Ej: RutaAPI('activos_e_inversion','listar_activos') → /api/v1/activos_e_inversion/listar_activos.">RutaAPI</span>(segmentos ...<span class="kw">string</span>) <span class="kw">string</span> {
+	<span class="kw">return</span> unirRuta(append([]<span class="kw">string</span>{PrefijoAPIBase, VersionAPIBase}, segmentos...)...)
+}
+
+<span class="kw">func</span> <span class="t" data-tip="Función interna: limpia cada segmento (quita barras sobrantes), descarta vacíos y los une con una sola barra. Garantiza rutas bien formadas.">unirRuta</span>(segmentos ...<span class="kw">string</span>) <span class="kw">string</span> {
+	partes := make([]<span class="kw">string</span>, 0, len(segmentos))
+	<span class="kw">for</span> _, segmento := <span class="kw">range</span> segmentos {
+		limpio := strings.Trim(segmento, "/")
+		<span class="kw">if</span> limpio != "" { partes = append(partes, limpio) }
+	}
+	<span class="kw">return</span> "/" + strings.Join(partes, "/")
+}</pre>
+      </div>
+    </details>
+
+    <details class="fc">
+      <summary><span class="fc-cap">Go · habilitación</span><span class="fc-path">aplicaciones/api/interno/plataforma/componibilidad/proveedor_capacidades.go</span><span class="fc-1l">Lee qué capacidades están habilitadas y se auto-refresca al cambiar el JSON.</span></summary>
+      <div class="fc-body">
+        <p class="fc-prop"><b>Propósito:</b> es el "guardián" de la activación. Lee <span class="mono">capacidades.json</span> y responde si una capacidad está habilitada. Se refresca solo cuando el archivo cambia (sin reiniciar el servidor) y es seguro entre hilos (mutex).</p>
+        <pre><span class="kw">type</span> ProveedorCapacidades <span class="kw">struct</span> {
+	rutaArchivo            <span class="kw">string</span>
+	mutex                  <span class="t" data-tip="Candado lectura/escritura: muchas peticiones pueden consultar a la vez (RLock), pero el refresco del archivo bloquea (Lock). Evita condiciones de carrera.">sync.RWMutex</span>
+	capacidadesHabilitadas <span class="t" data-tip="Mapa código→habilitada en memoria. Es la copia cacheada del JSON para responder rápido sin leer disco en cada petición.">map[string]bool</span>
+}
+
+<span class="kw">func</span> (p *ProveedorCapacidades) <span class="t" data-tip="La pregunta clave que hace el gate: ¿esta capacidad está habilitada? Primero refresca si el archivo cambió, luego consulta el mapa.">EstaHabilitada</span>(codigo <span class="kw">string</span>) <span class="kw">bool</span> {
+	p.refrescarSiCambio()
+	p.mutex.RLock(); <span class="kw">defer</span> p.mutex.RUnlock()
+	habilitada, existe := p.capacidadesHabilitadas[codigo]
+	<span class="kw">if</span> !existe { <span class="t" data-tip="Si la capacidad ni siquiera está en el JSON, se considera NO habilitada (cierre seguro por defecto).">return false</span> }
+	<span class="kw">return</span> habilitada
+}
+
+<span class="kw">func</span> (p *ProveedorCapacidades) <span class="t" data-tip="Relee el JSON SOLO si su fecha de modificación cambió (os.Stat). Así no lee disco en cada request, pero si editas capacidades.json toma el cambio en caliente.">refrescarSiCambio</span>() {
+	informacion, err := os.Stat(p.rutaArchivo)
+	<span class="kw">if</span> !informacion.ModTime().After(p.ultimaModificacion) <span class="kw">&amp;&amp;</span> !p.ultimoRefresco.IsZero() { <span class="kw">return</span> }
+	contenido, _ := os.ReadFile(p.rutaArchivo)
+	<span class="t" data-tip="Parsea el JSON y reconstruye el mapa código→habilitada. Si algo falla, deja el cache anterior (no rompe el servicio).">json.Unmarshal(contenido, &amp;archivo)</span>
+	<span class="kw">/* reconstruye capacidadesHabilitadas */</span>
+}</pre>
+      </div>
+    </details>
+
+    <details class="fc">
+      <summary><span class="fc-cap">Go · rutas a mano</span><span class="fc-path">aplicaciones/api/interno/servidor/registro_rutas.go</span><span class="fc-1l">Las rutas de las capacidades personalizadas, y la protección por habilitación.</span></summary>
+      <div class="fc-body">
+        <p class="fc-prop"><b>Propósito:</b> declara las rutas escritas a mano (capacidades personalizadas como contratos, gobierno_central, produccion) y las envuelve con el gate de capacidad. Es el equivalente "manual" de las operaciones generadas.</p>
+        <pre><span class="kw">type</span> registroRuta <span class="kw">struct</span> {
+	patron    <span class="kw">string</span>   <span class="t" data-tip="La URL de la ruta, compuesta con RutaAPI.">// /api/v1/...</span>
+	codigo    <span class="kw">string</span>   <span class="t" data-tip="El código de capacidad que protege esta ruta. Si está vacío, la ruta es pública (no se valida habilitación).">// capacidad</span>
+	manejador http.HandlerFunc
+}
+
+<span class="kw">func</span> (m *manejadorAPI) registrosRutasAPI() []registroRuta {
+	<span class="kw">return</span> []registroRuta{
+		{
+			patron:    <span class="t" data-tip="Ruta para listar periodos de gobierno_central. RutaAPI compone /api/v1/gobierno_central/periodos.">componibilidad.RutaAPI(componibilidad.CodigoCapacidadGobiernoCentral, "periodos")</span>,
+			codigo:    componibilidad.CodigoCapacidadGobiernoCentral,
+			manejador: m.listarPeriodos,
+		},
+		<span class="t" data-tip="...y así cada ruta a mano: roles, permisos, catálogos de contrato, detalle de contrato, producción mensual. Cada una con su código de capacidad para el gate.">{ /* roles, permisos, contratos, produccion... */ }</span>,
+	}
+}
+
+<span class="kw">func</span> (m *manejadorAPI) <span class="t" data-tip="Recorre todas las rutas a mano y las monta en el mux, cada una pasada por protegerRuta.">registrarRutasAPI</span>(mux *http.ServeMux) {
+	<span class="kw">for</span> _, ruta := <span class="kw">range</span> m.registrosRutasAPI() {
+		mux.HandleFunc(ruta.patron, m.protegerRuta(ruta))
+	}
+}
+
+<span class="kw">func</span> (m *manejadorAPI) <span class="t" data-tip="Si la ruta tiene código de capacidad, la envuelve con el gate (envolverConCapacidad). Si no tiene código, la deja pública.">protegerRuta</span>(ruta registroRuta) http.HandlerFunc {
+	<span class="kw">if</span> ruta.codigo == "" { <span class="kw">return</span> ruta.manejador }
+	<span class="kw">return</span> m.envolverConCapacidad(ruta.codigo, ruta.manejador)
+}</pre>
+      </div>
+    </details>
+
+    <details class="fc">
+      <summary><span class="fc-cap">Go · gate</span><span class="fc-path">aplicaciones/api/interno/servidor/plataforma.go</span><span class="fc-1l">El "portero": bloquea una ruta si su capacidad no está habilitada.</span></summary>
+      <div class="fc-body">
+        <p class="fc-prop"><b>Propósito:</b> dos cosas — expone el endpoint que lista el estado de todas las capacidades, y define <span class="mono">envolverConCapacidad</span>, el envoltorio que protege cada ruta según la activación por empresa/despliegue.</p>
+        <pre><span class="kw">func</span> (m *manejadorAPI) <span class="t" data-tip="Endpoint GET /api/v1/plataforma/capacidades: devuelve el estado (habilitada o no) de todas las capacidades. Lo usa el frontend para saber qué mostrar.">listarCapacidades</span>(respuesta http.ResponseWriter, solicitud *http.Request) {
+	estados := m.servicios.ProveedorCapacidades.ListarEstados(componibilidad.RegistroCapacidadesBase())
+	responderJSON(respuesta, http.StatusOK, map[string]any{"exito": true, "datos": estados})
+}
+
+<span class="kw">func</span> (m *manejadorAPI) <span class="t" data-tip="EL GATE. Recibe un handler y lo devuelve envuelto: antes de ejecutarlo, verifica que la capacidad esté habilitada. Es el corazón de la 'activación por capacidad'.">envolverConCapacidad</span>(codigo <span class="kw">string</span>, siguiente http.HandlerFunc) http.HandlerFunc {
+	<span class="kw">return</span> <span class="kw">func</span>(respuesta http.ResponseWriter, solicitud *http.Request) {
+		<span class="kw">if</span> !m.servicios.ProveedorCapacidades.<span class="t" data-tip="Consulta al proveedor. Si la capacidad NO está habilitada en capacidades.json, corta aquí.">EstaHabilitada(codigo)</span> {
+			responderError(respuesta, <span class="t" data-tip="Devuelve 404 con código CAPACIDAD_DESHABILITADA. Para el cliente, la ruta simplemente no existe en este despliegue.">http.StatusNotFound, "CAPACIDAD_DESHABILITADA"</span>, "...")
+			<span class="kw">return</span>
+		}
+		siguiente(respuesta, solicitud) <span class="t" data-tip="Si está habilitada, ejecuta el handler real (el listado, el registro, etc.).">// pasa</span>
+	}
+}</pre>
+      </div>
+    </details>
+
+    <details class="fc">
+      <summary><span class="fc-cap">Go · generado</span><span class="fc-path">aplicaciones/api/interno/servidor/operaciones_generadas.go</span><span class="fc-1l">El agregador: junta los endpoints generados de todas las capacidades.</span></summary>
+      <div class="fc-body">
+        <p class="fc-prop"><b>Propósito:</b> archivo generado que no contiene operaciones, solo las <b>agrega</b>. Llama a la función de cada capacidad (que vive en su propio archivo <span class="mono">operaciones_generadas_&lt;cap&gt;.go</span>) y junta todo en una sola lista.</p>
+        <pre><span class="kw">func</span> <span class="t" data-tip="Devuelve la lista completa de operaciones generadas. El runtime (registrarRutasGeneradas) la recorre para montar las rutas.">operacionesGeneradas</span>() []definicionOperacionGenerada {
+	operaciones := []definicionOperacionGenerada{}
+	operaciones = append(operaciones, <span class="t" data-tip="Trae los 19 endpoints de activos, definidos en operaciones_generadas_activos_e_inversion.go.">operacionesGeneradasActivosEInversion()</span>...)
+	operaciones = append(operaciones, <span class="t" data-tip="Trae los 10 endpoints de cierre. Cada capacidad generada aporta su función aquí.">operacionesGeneradasCierreMensual()</span>...)
+	<span class="kw">return</span> operaciones
+}</pre>
+        <p class="fc-prop">Por eso este archivo se ve "vacío": el contenido real está en los archivos por capacidad. Aquí solo se ensamblan.</p>
+      </div>
+    </details>
+
+    <details class="fc">
+      <summary><span class="fc-cap heart">Go · ❤ ejecutor</span><span class="fc-path">aplicaciones/api/interno/servidor/operaciones_generadas_base.go</span><span class="fc-1l">El corazón: UN solo ejecutor genérico atiende TODOS los endpoints generados.</span></summary>
+      <div class="fc-body">
+        <p class="fc-prop"><b>Propósito:</b> el motor escrito a mano <b>una sola vez</b>. Define la forma de una operación, registra cada ruta envuelta en su gate, y al llegar una petición resuelve los parámetros (cabecera/query/cuerpo), valida y llama al SP. Nadie escribe un handler por endpoint.</p>
+        <pre><span class="kw">type</span> <span class="t" data-tip="La forma de un parámetro de operación: su nombre en SQL (p_x), el nombre de entrada (x), el tipo y si es obligatorio. Lo emite el generador.">definicionParametroOperacion</span> <span class="kw">struct</span> {
+	Nombre, NombreEntrada, Tipo <span class="kw">string</span>
+	Requerido <span class="kw">bool</span>
+}
+
+<span class="kw">func</span> (m *manejadorAPI) <span class="t" data-tip="Recorre la tabla de operaciones generadas y monta cada una como ruta, envuelta en su gate de capacidad. Esto es lo que llama rutas.go.">registrarRutasGeneradas</span>(mux *http.ServeMux) {
+	<span class="kw">for</span> _, operacion := <span class="kw">range</span> operacionesGeneradas() {
+		mux.HandleFunc(operacion.Patron, m.envolverConCapacidad(operacion.CodigoCapacidad,
+			<span class="kw">func</span>(w http.ResponseWriter, r *http.Request){ m.ejecutarOperacionGenerada(operacion, w, r) }))
+	}
+}
+
+<span class="kw">func</span> (m *manejadorAPI) <span class="t" data-tip="El handler genérico para CUALQUIER operación generada. Hace 5 pasos: valida método, resuelve params, valida obligatorios, coerciona tipos y llama al SP.">ejecutarOperacionGenerada</span>(operacion definicionOperacionGenerada, ...) {
+	<span class="kw">if</span> solicitud.Method != operacion.MetodoHTTP { <span class="t" data-tip="Paso 1: si el método HTTP no coincide (GET/POST), responde 405.">responderMetodoNoPermitido</span>(respuesta); <span class="kw">return</span> }
+	<span class="kw">if</span> ... != http.MethodGet { json.NewDecoder(solicitud.Body).Decode(&amp;cuerpo) } <span class="t" data-tip="Para POST/PUT lee el cuerpo JSON; para GET no.">// cuerpo</span>
+	<span class="kw">for</span> _, parametro := <span class="kw">range</span> operacion.Parametros {
+		valor, presente, err := <span class="t" data-tip="Paso 2: resuelve cada parámetro buscándolo en cabecera, query string o cuerpo (ver extraerValorOperacion).">extraerValorOperacion</span>(solicitud, cuerpo, parametro)
+		<span class="kw">if</span> !presente {
+			<span class="kw">if</span> parametro.Requerido { <span class="t" data-tip="Paso 3: si falta un parámetro obligatorio, responde 400 PARAMETRO_OBLIGATORIO. Por eso ves ese código cuando no llenas un campo requerido.">responderError(... "PARAMETRO_OBLIGATORIO" ...)</span>; <span class="kw">return</span> }
+			argumentos = append(argumentos, <span class="t" data-tip="Si es opcional y no vino, se pasa NULL al SP.">nil</span>)
+			<span class="kw">continue</span>
+		}
+		argumentos = append(argumentos, valor)
+	}
+	<span class="kw">if</span> operacion.TipoInvocacion == "procedimiento" {
+		m.servicios.EjecutorFunciones.<span class="t" data-tip="Paso 5a: si es procedimiento, lo ejecuta y responde un acuse de éxito.">EjecutarProcedimiento</span>(operacion.Funcion, argumentos...)
+		<span class="kw">return</span>
+	}
+	resultado, err := m.servicios.EjecutorFunciones.<span class="t" data-tip="Paso 5b: si es función, la ejecuta y devuelve el JSONB crudo que produce el SP (lo que ves en Postman).">EjecutarJSON</span>(operacion.Funcion, argumentos...)
+	responderJSONCrudo(respuesta, http.StatusOK, resultado)
+}
+
+<span class="kw">func</span> <span class="t" data-tip="De dónde sale cada parámetro: p_id_empresa de la cabecera X-Empresa-Id; p_id_usuario de X-Usuario-Id; el resto del query string (GET) o del cuerpo JSON (POST).">extraerValorOperacion</span>(...) {
+	<span class="kw">if</span> parametro.Nombre == "p_id_empresa" { <span class="kw">return</span> <span class="t" data-tip="Multi-tenant: la empresa NUNCA viaja como parámetro suelto; siempre se inyecta desde la cabecera X-Empresa-Id.">obtenerCabeceraObligatoria(solicitud, "X-Empresa-Id")</span> }
+	<span class="kw">if</span> parametro.Nombre == "p_id_usuario" { ... <span class="t" data-tip="El usuario que ejecuta la acción se toma de la cabecera X-Usuario-Id.">"X-Usuario-Id"</span> ... }
+	<span class="kw">if</span> valorQuery := ...Query().Get(parametro.NombreEntrada); valorQuery != "" { <span class="kw">return</span> convertirValorParametro(valorQuery, parametro.Tipo) }
+	<span class="kw">if</span> valorCuerpo, existe := cuerpo[parametro.NombreEntrada]; existe { <span class="kw">return</span> convertirValorParametro(valorCuerpo, parametro.Tipo) }
+}
+
+<span class="kw">func</span> <span class="t" data-tip="Coerciona el texto recibido al tipo del SP: INT→entero, BOOL→booleano, NUMERIC/DECIMAL→decimal, el resto texto. Por eso puedes mandar números como string y funciona.">convertirValorParametro</span>(valor any, tipo <span class="kw">string</span>) {
+	<span class="kw">switch</span> {
+	<span class="kw">case</span> strings.Contains(tipoNormalizado, "INT"): <span class="kw">return</span> strconv.Atoi(texto)
+	<span class="kw">case</span> strings.Contains(tipoNormalizado, "BOOL"): <span class="kw">return</span> strconv.ParseBool(texto)
+	<span class="kw">case</span> strings.Contains(tipoNormalizado, "NUMERIC"): <span class="kw">return</span> strconv.ParseFloat(texto, 64)
+	}
+}</pre>
+        <p class="fc-prop">Esta es la pieza que hace componible al backend: <b>cero handlers por SP</b>. La firma del SQL (que el generador convierte en <span class="mono">definicionOperacionGenerada</span>) es todo lo que necesita este ejecutor.</p>
+      </div>
+    </details>
+
+    <details class="fc">
+      <summary><span class="fc-cap">Go · helpers</span><span class="fc-path">aplicaciones/api/interno/servidor/manejador_api.go</span><span class="fc-1l">La estructura del manejador y los helpers de respuesta/lectura comunes.</span></summary>
+      <div class="fc-body">
+        <p class="fc-prop"><b>Propósito:</b> define <span class="mono">manejadorAPI</span> (que lleva configuración + servicios) y las utilidades compartidas por todos los handlers: responder JSON, errores uniformes, leer cabeceras y parámetros.</p>
+        <pre><span class="kw">type</span> manejadorAPI <span class="kw">struct</span> {
+	configuracion bootstrap.Configuracion
+	servicios     <span class="t" data-tip="Los servicios inyectados: el ejecutor de funciones SQL y el proveedor de capacidades. Todos los handlers los usan a través de m.servicios.">bootstrap.Servicios</span>
+}
+
+<span class="kw">func</span> <span class="t" data-tip="Escribe una respuesta JSON con el código de estado y el cuerpo dados. El formato estándar de toda respuesta de la API.">responderJSON</span>(respuesta http.ResponseWriter, estado <span class="kw">int</span>, cuerpo any) { ... }
+
+<span class="kw">func</span> <span class="t" data-tip="Escribe el JSONB CRUDO que devuelve el SP, sin re-empaquetarlo. Así el {exito, datos, ...} que arma el SQL llega tal cual al cliente.">responderJSONCrudo</span>(respuesta http.ResponseWriter, estado <span class="kw">int</span>, cuerpo json.RawMessage) { ... }
+
+<span class="kw">func</span> <span class="t" data-tip="Formato uniforme de error: {exito:false, codigo, mensaje}. Lo usan el gate, la validación de params, etc.">responderError</span>(respuesta http.ResponseWriter, estado <span class="kw">int</span>, codigo, mensaje <span class="kw">string</span>) { ... }
+
+<span class="kw">func</span> <span class="t" data-tip="Lee una cabecera obligatoria (como X-Empresa-Id). Devuelve el valor y un bool de si vino. La usa el ejecutor para inyectar la empresa.">obtenerCabeceraObligatoria</span>(solicitud *http.Request, nombre <span class="kw">string</span>) (<span class="kw">string</span>, <span class="kw">bool</span>) { ... }
+
+<span class="kw">func</span> <span class="t" data-tip="Lee un parámetro entero del query string con un valor por defecto. Helper para los handlers a mano (paginación, etc.).">obtenerEntero</span>(solicitud *http.Request, nombre <span class="kw">string</span>, valorPorDefecto <span class="kw">int</span>) (<span class="kw">int</span>, error) { ... }</pre>
+      </div>
+    </details>
+
+    <details class="fc">
+      <summary><span class="fc-cap">Go · middleware</span><span class="fc-path">aplicaciones/api/interno/servidor/middleware.go</span><span class="fc-1l">Loguea cada petición: método, ruta y cuánto tardó.</span></summary>
+      <div class="fc-body">
+        <p class="fc-prop"><b>Propósito:</b> envoltorio que registra cada request. Mide el tiempo, deja pasar la petición al enrutador, y loguea el resultado. Es lo que envuelve a todo el <span class="mono">mux</span> en <span class="mono">rutas.go</span>.</p>
+        <pre><span class="kw">func</span> <span class="t" data-tip="Recibe el handler (el mux completo) y lo devuelve envuelto para loguear cada petición que pase por él.">middlewareRegistro</span>(siguiente http.Handler) http.Handler {
+	<span class="kw">return</span> http.HandlerFunc(<span class="kw">func</span>(respuesta http.ResponseWriter, solicitud *http.Request) {
+		inicio := <span class="t" data-tip="Marca el instante de inicio para medir la duración de la petición.">time.Now()</span>
+		<span class="t" data-tip="Deja pasar la petición al enrutador real (las rutas). El middleware no decide nada del negocio, solo observa.">siguiente.ServeHTTP(respuesta, solicitud)</span>
+		log.Printf("%s %s %s", solicitud.Method, solicitud.URL.Path, <span class="t" data-tip="Loguea método, ruta y el tiempo transcurrido desde 'inicio'. Útil para ver qué endpoints se llaman y cuánto tardan.">time.Since(inicio)</span>)
+	})
+}</pre>
+      </div>
+    </details>
+
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <b>SESGA REYSER · CODEPLEX</b> — Código componible explicado, <b>Lote 1: Backend (Go)</b>. Próximos lotes: Frontend (TypeScript/React) y Generadores (PowerShell). &nbsp;·&nbsp; <a href="metodologia-backend.html">← Metodología</a> &nbsp;·&nbsp; <a href="index.html">Mapeo</a>
+  </div>
+</footer>
+
+</body>
+</html>
