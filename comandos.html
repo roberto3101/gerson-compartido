@@ -180,14 +180,17 @@ curl.exe -s -X POST -H "X-Empresa-Id: $emp" -H "Content-Type: application/json" 
     <div class="ok"><b>Más fácil:</b> usa el <b>Probador de endpoints</b> de la metodología — eliges el endpoint, llena los campos y te copia el <span class="mono">curl.exe</span> exacto.</div>
 
     <h3>Colección de Postman (importar directo)</h3>
-    <p class="lead" style="margin-bottom:8px">Los 29 endpoints ya configurados (URLs, headers y bodies demo). Descarga e importa:</p>
-    <p style="margin:0 0 10px"><a href="coleccion-postman-grupo5.json" download style="display:inline-flex;align-items:center;gap:8px;background:#ff6c37;color:#fff;font-weight:800;text-decoration:none;border-radius:10px;padding:11px 18px;box-shadow:var(--shadow)">⬇&nbsp; Descargar colección Postman (.json)</a></p>
+    <p class="lead" style="margin-bottom:10px">Dos descargables: la <b>colección</b> (29 requests con bodies armados, listos con un clic) y el <b>environment</b> (variables). Impórtalos los dos:</p>
+    <p style="margin:0 0 12px;display:flex;flex-wrap:wrap;gap:10px">
+      <a href="coleccion-postman-grupo5.json" download style="display:inline-flex;align-items:center;gap:8px;background:#ff6c37;color:#fff;font-weight:800;text-decoration:none;border-radius:10px;padding:11px 18px;box-shadow:var(--shadow)">⬇&nbsp; 1 · Colección (.json)</a>
+      <a href="entorno-postman-grupo5.json" download style="display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;font-weight:800;text-decoration:none;border-radius:10px;padding:11px 18px;box-shadow:var(--shadow)">⬇&nbsp; 2 · Environment / variables (.json)</a>
+    </p>
     <pre><span class="c"># En Postman:</span>
-1. Import  →  arrastra <span class="v">coleccion-postman-grupo5.json</span>
-2. (opcional) Variables de la coleccion: <span class="v">baseUrl</span>, <span class="v">empresaId</span>, <span class="v">usuarioId</span> ya vienen puestas
+1. Import  →  arrastra los DOS .json (coleccion + environment)
+2. Arriba a la derecha, selecciona el environment <span class="v">"SESGA REYSER - Grupo 5 (local)"</span>
 3. Carpetas: "Activos e Inversion" (19)  y  "Cierre Mensual" (10)
-4. Con el API en :8080 y el seed cargado  →  Send</pre>
-    <div class="nota">Variables ya incluidas: <span class="mono">baseUrl=http://localhost:8080/api/v1</span>, <span class="mono">empresaId=1111...</span>, <span class="mono">usuarioId=2222...</span>. Los GET traen valores demo (los filtros opcionales van deshabilitados, listos para activar); los POST traen un body demo completo. Para data real, carga el seed demo (paso 2) en <span class="mono">sesga_test</span>.</div>
+4. Con el API en :8080 y el seed cargado  →  abre cualquier request  →  Send</pre>
+    <div class="nota">El <b>environment</b> trae <span class="mono">baseUrl=http://localhost:8080/api/v1</span>, <span class="mono">empresaId=1111...</span>, <span class="mono">usuarioId=2222...</span>: al seleccionarlo, todos los <span class="mono">{{...}}</span> de la colección se resuelven. La colección además los trae como respaldo, así que funciona aunque no selecciones environment. Los GET ya tienen valores demo; los POST, body demo completo. Para data real, carga el seed (paso 2).</div>
   </div>
 </section>
 
