@@ -155,6 +155,9 @@
       <span class="chip">35 operaciones generadas</span>
       <a href="#camino" class="chip link">El camino dorado →</a>
       <a href="#avance" class="chip link" style="background:#22c55e;color:#06281a;border-color:#22c55e">★ Avance del Grupo 5 →</a>
+      <a href="#comandos" class="chip link">Comandos de ejecución →</a>
+      <a href="#endpoints" class="chip link">Endpoints (29) →</a>
+      <a href="#probador" class="chip link" style="background:#22c55e;color:#06281a;border-color:#22c55e">▶ Probador de endpoints →</a>
     </div>
   </div>
 </header>
@@ -165,7 +168,7 @@
     <h2>Lo que ya construimos (archivo por archivo)</h2>
     <p class="lead">Sobre la arquitectura componible, esto es lo que el Grupo 5 lleva en la capacidad <b>activos-e-inversion</b>: el <b>backend</b> (generado desde el SQL) y la primera <b>pantalla del frontend</b> (a mano, sobre el molde de <span class="mono">contratos</span>). Cada tarjeta dice qué hace su archivo.</p>
 
-    <div class="ok"><b>Backend — listo:</b> los <b>26 endpoints</b> de nuestras 2 capacidades (16 de activos + 10 de cierre) ya están <b>generados</b> desde el catálogo + SQL; <span class="mono">go build</span> y <span class="mono">go vet</span> limpios. Se realineó <span class="mono">operaciones_generadas.go</span> (corrección de <span class="mono">fn_listar_herramientas</span>, que estaba desactualizado). <b>En progreso:</b> 3 SP de catálogo (<span class="mono">fn_listar_clasificaciones_activo</span>, <span class="mono">fn_listar_tipos_adquisicion_activo</span>, <span class="mono">fn_listar_tipos_herramienta</span>) para poblar los selectores.</div>
+    <div class="ok"><b>Backend — listo:</b> los <b>29 endpoints</b> de nuestras 2 capacidades (19 de activos + 10 de cierre) ya están <b>generados</b> desde el catálogo + SQL; <span class="mono">go build</span> y <span class="mono">go vet</span> limpios. Se realineó <span class="mono">operaciones_generadas.go</span> (corrección de <span class="mono">fn_listar_herramientas</span>, que estaba desactualizado). <b>Ya incluidos y probados:</b> 3 SP de catálogo (<span class="mono">fn_listar_clasificaciones_activo</span>, <span class="mono">fn_listar_tipos_adquisicion_activo</span>, <span class="mono">fn_listar_tipos_herramienta</span>) que devuelven data real para los selectores.</div>
 
     <h3>Backend · endpoints de activos-e-inversion (generados)</h3>
     <table class="tabla">
@@ -194,6 +197,129 @@
     <p class="lead" style="margin-top:14px;font-size:13px">Patrón: <span class="mono">tipos → api → gancho → componente → tabla → página → ruta → manifiesto</span>. El mismo molde se repetirá para los demás listados y para <b>cierre-mensual</b>.</p>
   </div>
 </section>
+
+<section class="alt" id="comandos">
+  <div class="wrap">
+    <p class="eyebrow">Operación · paso a paso</p>
+    <h2>Comandos de ejecución</h2>
+    <p class="lead">Flujo real del Grupo 5 en PowerShell: generar por capacidad, levantar la base, compilar y servir el API.</p>
+
+    <h3>1 · Generar los endpoints (por capacidad)</h3>
+    <p class="lead" style="margin-bottom:10px">El generador nuevo escribe <b>por capacidad</b> (parámetro <span class="mono">-codigos_capacidad</span>). Genera <b>tus dos juntas</b>: si corres una sola, el agregador deja la otra fuera (404).</p>
+    <pre class="sql">powershell -ExecutionPolicy Bypass -Command "&amp; './herramientas/componibilidad/generar_esqueletos_api.ps1' -codigos_capacidad activos_e_inversion,cierre_mensual"
+powershell -ExecutionPolicy Bypass -Command "&amp; './herramientas/componibilidad/generar_frontend_capacidades.ps1' -codigos_capacidad activos_e_inversion,cierre_mensual"</pre>
+
+    <h3>2 · Levantar CockroachDB v26 (puerto 26260)</h3>
+    <pre class="sql">&amp; "C:\cockroachdb26\cockroach-v26.2.1.windows-6.2-amd64\cockroach.exe" start-single-node --insecure --listen-addr=localhost:26260 --http-addr=localhost:8086 --store=C:\cockroachdb26\data</pre>
+
+    <h3>3 · Compilar y levantar el API (puerto 8080)</h3>
+    <pre class="sql">cd aplicaciones\api
+$env:CADENA_CONEXION_BD = "postgresql://root@localhost:26260/sesga_test?sslmode=disable"
+go build ./...
+go run ./cmd/api          <span class="c"># api sesga reyser escuchando en puerto 8080</span></pre>
+
+    <div class="nota"><b>Orden:</b> Cockroach arriba → generar → <span class="mono">go run</span>. La BD <span class="mono">sesga_test</span> se construye una sola vez con <span class="mono">cockroach sql --file NO_SUBIR_esquema_local.sql</span> (hace DROP/CREATE, así que recargas SP y siembras datos después). Si sale "address in use" o "could not lock", quedó un proceso viejo: ciérralo con <span class="mono">Get-Process cockroach,go | Stop-Process -Force</span>.</div>
+  </div>
+</section>
+
+<section id="endpoints">
+  <div class="wrap">
+    <p class="eyebrow">Superficie del API</p>
+    <h2>Endpoints — 29 vivos</h2>
+    <p class="lead">19 de <b>activos-e-inversion</b> + 10 de <b>cierre-mensual</b>, todos generados desde el SQL. Base: <span class="mono">http://localhost:8080/api/v1/&lt;capacidad&gt;/&lt;operacion&gt;</span> · cabecera obligatoria <span class="mono">X-Empresa-Id</span>.</p>
+    <table class="tabla">
+      <thead><tr><th style="width:78px">Método</th><th>activos_e_inversion (19)</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill get">GET</span></td><td><span class="mono">listar_activos · obtener_detalle_activo · listar_herramientas · obtener_detalle_herramienta · listar_movimientos_herramienta · listar_asignaciones_activo · listar_traslados_activo · listar_trabajos_activo · listar_recuperaciones_inversion</span></td></tr>
+        <tr><td><span class="pill get">GET</span></td><td><span class="mono" style="color:var(--catalogo)">listar_clasificaciones_activo · listar_tipos_adquisicion_activo · listar_tipos_herramienta</span> &nbsp;<small>← catálogos nuevos (devuelven data con solo el header)</small></td></tr>
+        <tr><td><span class="pill post">POST</span></td><td><span class="mono">registrar_activo · registrar_herramienta · asignar_activo_a_contrato · mover_herramienta · registrar_trabajo_activo · registrar_traslado_activo · ejecutar_recuperacion_mensual</span></td></tr>
+      </tbody>
+    </table>
+    <table class="tabla" style="margin-top:14px">
+      <thead><tr><th style="width:78px">Método</th><th>cierre_mensual (10)</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill get">GET</span></td><td><span class="mono">listar_cierres_mensuales · listar_penalidades · listar_provisiones · obtener_resumen_cierre_por_periodo</span></td></tr>
+        <tr><td><span class="pill post">POST</span></td><td><span class="mono">ejecutar_cierre_mensual · recalcular_cierre_mensual · cerrar_cierre_mensual · consultar_resultado_contrato · registrar_penalidad · registrar_provision</span></td></tr>
+      </tbody>
+    </table>
+    <div class="ok"><b>Probado:</b> los 3 catálogos devuelven data real; el resto responde validando sus parámetros/ids (vivos, ninguno en 404).</div>
+  </div>
+</section>
+
+<section class="alt" id="probador">
+  <div class="wrap">
+    <p class="eyebrow">Probador</p>
+    <h2>Genera el comando para probar cualquier endpoint</h2>
+    <p class="lead">Elige un endpoint y copia el <span class="mono">curl.exe</span> listo para pegar en PowerShell (con el API corriendo en <span class="mono">:8080</span>). La página no llama al API por ti — te entrega el comando exacto.</p>
+    <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)">
+      <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-bottom:14px">
+        <label style="font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)">Endpoint<br>
+          <select id="ep-select" style="margin-top:6px;min-width:360px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;font-family:'SFMono-Regular',Consolas,monospace;font-size:12.5px;background:#fff"></select>
+        </label>
+        <label style="font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)">X-Empresa-Id<br>
+          <input id="ep-emp" value="11111111-1111-1111-1111-111111111111" style="margin-top:6px;min-width:300px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;font-family:'SFMono-Regular',Consolas,monospace;font-size:12.5px">
+        </label>
+        <button id="ep-copy" style="border:none;background:var(--accent);color:#fff;font-weight:800;border-radius:9px;padding:11px 20px;cursor:pointer;font-size:13px">Copiar</button>
+      </div>
+      <pre class="sql" id="ep-cmd" style="margin:0;white-space:pre-wrap;word-break:break-all">…</pre>
+    </div>
+    <div class="nota"><b>POST con datos reales:</b> el comando sale con cuerpo <span class="mono">{}</span> (smoke, confirma que vive). Para crear de verdad (p. ej. <span class="mono">registrar_herramienta</span>) reemplaza el <span class="mono">-d "{}"</span> por tu JSON con los campos requeridos.</div>
+  </div>
+</section>
+
+<script>
+(function(){
+  var E=[
+    ['GET','activos_e_inversion','listar_clasificaciones_activo'],
+    ['GET','activos_e_inversion','listar_tipos_adquisicion_activo'],
+    ['GET','activos_e_inversion','listar_tipos_herramienta'],
+    ['GET','activos_e_inversion','listar_activos'],
+    ['GET','activos_e_inversion','obtener_detalle_activo'],
+    ['GET','activos_e_inversion','listar_herramientas'],
+    ['GET','activos_e_inversion','obtener_detalle_herramienta'],
+    ['GET','activos_e_inversion','listar_movimientos_herramienta'],
+    ['GET','activos_e_inversion','listar_asignaciones_activo'],
+    ['GET','activos_e_inversion','listar_traslados_activo'],
+    ['GET','activos_e_inversion','listar_trabajos_activo'],
+    ['GET','activos_e_inversion','listar_recuperaciones_inversion'],
+    ['POST','activos_e_inversion','registrar_activo'],
+    ['POST','activos_e_inversion','registrar_herramienta'],
+    ['POST','activos_e_inversion','asignar_activo_a_contrato'],
+    ['POST','activos_e_inversion','mover_herramienta'],
+    ['POST','activos_e_inversion','registrar_trabajo_activo'],
+    ['POST','activos_e_inversion','registrar_traslado_activo'],
+    ['POST','activos_e_inversion','ejecutar_recuperacion_mensual'],
+    ['GET','cierre_mensual','listar_cierres_mensuales'],
+    ['GET','cierre_mensual','listar_penalidades'],
+    ['GET','cierre_mensual','listar_provisiones'],
+    ['GET','cierre_mensual','obtener_resumen_cierre_por_periodo'],
+    ['POST','cierre_mensual','ejecutar_cierre_mensual'],
+    ['POST','cierre_mensual','recalcular_cierre_mensual'],
+    ['POST','cierre_mensual','cerrar_cierre_mensual'],
+    ['POST','cierre_mensual','consultar_resultado_contrato'],
+    ['POST','cierre_mensual','registrar_penalidad'],
+    ['POST','cierre_mensual','registrar_provision']
+  ];
+  var sel=document.getElementById('ep-select');
+  for(var i=0;i<E.length;i++){var o=document.createElement('option');o.value=i;o.textContent=E[i][0]+'   '+E[i][1]+'/'+E[i][2];sel.appendChild(o);}
+  function build(){
+    var e=E[sel.value]||E[0];
+    var emp=(document.getElementById('ep-emp').value||'11111111-1111-1111-1111-111111111111').trim();
+    var url='http://localhost:8080/api/v1/'+e[1]+'/'+e[2];
+    var cmd;
+    if(e[0]==='GET'){ cmd='curl.exe -s -H "X-Empresa-Id: '+emp+'" "'+url+'"'; }
+    else { cmd='curl.exe -s -X POST -H "X-Empresa-Id: '+emp+'" -H "Content-Type: application/json" -d "{}" "'+url+'"'; }
+    document.getElementById('ep-cmd').textContent=cmd;
+  }
+  sel.addEventListener('change',build);
+  document.getElementById('ep-emp').addEventListener('input',build);
+  document.getElementById('ep-copy').addEventListener('click',function(){
+    var b=document.getElementById('ep-copy'),x=b.textContent;
+    navigator.clipboard.writeText(document.getElementById('ep-cmd').textContent).then(function(){b.textContent='¡Copiado!';setTimeout(function(){b.textContent=x;},1200);});
+  });
+  build();
+})();
+</script>
 
 <section>
   <div class="wrap">
@@ -299,7 +425,7 @@
           <p><b>Construye el API Go.</b> Recorre los <span class="mono">.sql</span>, parsea cada <span class="mono">fn_*</span> y su firma, y emite una tabla de operaciones (capacidad, función, método HTTP, patrón de ruta, parámetros).</p>
           <div class="io">
             <div class="row"><span class="lbl in">Lee</span><span class="val">catálogo + <span class="mono">procedimientos/&lt;cap&gt;/*.sql</span></span></div>
-            <div class="row"><span class="lbl out">Emite</span><span class="val"><span class="mono">servidor/operaciones_generadas.go</span></span></div>
+            <div class="row"><span class="lbl out">Emite</span><span class="val"><span class="mono">servidor/operaciones_generadas_&lt;cap&gt;.go</span> &nbsp;<small>(por capacidad, con <span class="mono">-codigos_capacidad</span>)</small></span></div>
           </div>
         </div>
       </div>
