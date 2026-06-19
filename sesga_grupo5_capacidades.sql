@@ -1,7 +1,7 @@
 -- ====================================================================
 -- sesga_grupo5_capacidades.sql  -  Grupo 5 (activos-e-inversion + cierre-mensual)
 -- Esquema local funcional para CockroachDB v26.
--- Stubs de otras capacidades + 13 tablas + indices + 26 procedimientos.
+-- Stubs de otras capacidades + 13 tablas + indices + 29 procedimientos.
 -- Generado desde codeplexMaster (fuente de verdad). Solo para pruebas locales.
 -- ====================================================================
 DROP DATABASE IF EXISTS sesga_test CASCADE;
@@ -2373,3 +2373,219 @@ EXCEPTION
 END;
 $$;
 
+
+
+-- >>> fn_listar_clasificaciones_activo.sql (Grupo 5 - catalogo)
+CREATE OR REPLACE FUNCTION fn_listar_clasificaciones_activo(
+  p_id_empresa UUID,
+  p_estado STRING DEFAULT NULL,
+  p_texto_busqueda STRING DEFAULT NULL,
+  p_limite_pagina INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_limite_pagina INT;
+  v_clasificaciones_pagina JSONB;
+  v_existen_mas_clasificaciones BOOL;
+  v_cantidad_clasificaciones_pagina INT;
+  v_cursor_siguiente JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite_pagina, 20), 1), 100);
+
+  WITH clasificaciones_ordenadas_para_listado AS (
+    SELECT c.id, c.codigo, c.descripcion, c.es_capitalizable, c.estado, c.creado_en,
+           row_number() OVER (ORDER BY c.creado_en DESC, c.id DESC) AS orden_en_pagina
+    FROM clasificacion_activo c
+    WHERE c.id_empresa = p_id_empresa
+      AND c.eliminado_en IS NULL
+      AND (p_estado IS NULL OR c.estado = p_estado)
+      AND (p_texto_busqueda IS NULL OR c.codigo ILIKE '%' || p_texto_busqueda || '%' OR c.descripcion ILIKE '%' || p_texto_busqueda || '%')
+      AND (p_cursor_creado_en IS NULL OR (c.creado_en, c.id) < (p_cursor_creado_en, p_cursor_id))
+    ORDER BY c.creado_en DESC, c.id DESC
+    LIMIT v_limite_pagina + 1
+  )
+  SELECT
+    COALESCE(
+      jsonb_agg(to_jsonb(clasificaciones_ordenadas_para_listado) - 'orden_en_pagina' ORDER BY clasificaciones_ordenadas_para_listado.orden_en_pagina)
+      FILTER (WHERE clasificaciones_ordenadas_para_listado.orden_en_pagina <= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) > v_limite_pagina
+  INTO v_clasificaciones_pagina, v_existen_mas_clasificaciones
+  FROM clasificaciones_ordenadas_para_listado;
+
+  v_cantidad_clasificaciones_pagina := jsonb_array_length(v_clasificaciones_pagina);
+  IF v_existen_mas_clasificaciones AND v_cantidad_clasificaciones_pagina > 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_clasificaciones_pagina -> (v_cantidad_clasificaciones_pagina - 1) -> 'creado_en',
+      'id', v_clasificaciones_pagina -> (v_cantidad_clasificaciones_pagina - 1) -> 'id'
+    );
+  ELSE
+    v_cursor_siguiente := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'CLASIFICACIONES_ACTIVO_LISTADAS',
+    'mensaje', 'Listado de clasificaciones de activo obtenido',
+    'datos', jsonb_build_object(
+      'items', v_clasificaciones_pagina,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas_clasificaciones, 'cursor_siguiente', v_cursor_siguiente)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CLASIFICACIONES_ACTIVO_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar las clasificaciones de activo');
+END;
+$$;
+
+
+-- >>> fn_listar_tipos_adquisicion_activo.sql (Grupo 5 - catalogo)
+CREATE OR REPLACE FUNCTION fn_listar_tipos_adquisicion_activo(
+  p_id_empresa UUID,
+  p_estado STRING DEFAULT NULL,
+  p_texto_busqueda STRING DEFAULT NULL,
+  p_limite_pagina INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_limite_pagina INT;
+  v_tipos_pagina JSONB;
+  v_existen_mas_tipos BOOL;
+  v_cantidad_tipos_pagina INT;
+  v_cursor_siguiente JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite_pagina, 20), 1), 100);
+
+  WITH tipos_ordenados_para_listado AS (
+    SELECT t.id, t.codigo, t.descripcion, t.estado, t.creado_en,
+           row_number() OVER (ORDER BY t.creado_en DESC, t.id DESC) AS orden_en_pagina
+    FROM tipo_adquisicion_activo t
+    WHERE t.id_empresa = p_id_empresa
+      AND t.eliminado_en IS NULL
+      AND (p_estado IS NULL OR t.estado = p_estado)
+      AND (p_texto_busqueda IS NULL OR t.codigo ILIKE '%' || p_texto_busqueda || '%' OR t.descripcion ILIKE '%' || p_texto_busqueda || '%')
+      AND (p_cursor_creado_en IS NULL OR (t.creado_en, t.id) < (p_cursor_creado_en, p_cursor_id))
+    ORDER BY t.creado_en DESC, t.id DESC
+    LIMIT v_limite_pagina + 1
+  )
+  SELECT
+    COALESCE(
+      jsonb_agg(to_jsonb(tipos_ordenados_para_listado) - 'orden_en_pagina' ORDER BY tipos_ordenados_para_listado.orden_en_pagina)
+      FILTER (WHERE tipos_ordenados_para_listado.orden_en_pagina <= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) > v_limite_pagina
+  INTO v_tipos_pagina, v_existen_mas_tipos
+  FROM tipos_ordenados_para_listado;
+
+  v_cantidad_tipos_pagina := jsonb_array_length(v_tipos_pagina);
+  IF v_existen_mas_tipos AND v_cantidad_tipos_pagina > 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_tipos_pagina -> (v_cantidad_tipos_pagina - 1) -> 'creado_en',
+      'id', v_tipos_pagina -> (v_cantidad_tipos_pagina - 1) -> 'id'
+    );
+  ELSE
+    v_cursor_siguiente := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'TIPOS_ADQUISICION_ACTIVO_LISTADOS',
+    'mensaje', 'Listado de tipos de adquisicion de activo obtenido',
+    'datos', jsonb_build_object(
+      'items', v_tipos_pagina,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas_tipos, 'cursor_siguiente', v_cursor_siguiente)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPOS_ADQUISICION_ACTIVO_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar los tipos de adquisicion de activo');
+END;
+$$;
+
+
+-- >>> fn_listar_tipos_herramienta.sql (Grupo 5 - catalogo)
+CREATE OR REPLACE FUNCTION fn_listar_tipos_herramienta(
+  p_id_empresa UUID,
+  p_estado STRING DEFAULT NULL,
+  p_texto_busqueda STRING DEFAULT NULL,
+  p_limite_pagina INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_limite_pagina INT;
+  v_tipos_pagina JSONB;
+  v_existen_mas_tipos BOOL;
+  v_cantidad_tipos_pagina INT;
+  v_cursor_siguiente JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite_pagina, 20), 1), 100);
+
+  WITH tipos_ordenados_para_listado AS (
+    SELECT t.id, t.codigo, t.descripcion, t.estado, t.creado_en,
+           row_number() OVER (ORDER BY t.creado_en DESC, t.id DESC) AS orden_en_pagina
+    FROM tipo_herramienta t
+    WHERE t.id_empresa = p_id_empresa
+      AND t.eliminado_en IS NULL
+      AND (p_estado IS NULL OR t.estado = p_estado)
+      AND (p_texto_busqueda IS NULL OR t.codigo ILIKE '%' || p_texto_busqueda || '%' OR t.descripcion ILIKE '%' || p_texto_busqueda || '%')
+      AND (p_cursor_creado_en IS NULL OR (t.creado_en, t.id) < (p_cursor_creado_en, p_cursor_id))
+    ORDER BY t.creado_en DESC, t.id DESC
+    LIMIT v_limite_pagina + 1
+  )
+  SELECT
+    COALESCE(
+      jsonb_agg(to_jsonb(tipos_ordenados_para_listado) - 'orden_en_pagina' ORDER BY tipos_ordenados_para_listado.orden_en_pagina)
+      FILTER (WHERE tipos_ordenados_para_listado.orden_en_pagina <= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) > v_limite_pagina
+  INTO v_tipos_pagina, v_existen_mas_tipos
+  FROM tipos_ordenados_para_listado;
+
+  v_cantidad_tipos_pagina := jsonb_array_length(v_tipos_pagina);
+  IF v_existen_mas_tipos AND v_cantidad_tipos_pagina > 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_tipos_pagina -> (v_cantidad_tipos_pagina - 1) -> 'creado_en',
+      'id', v_tipos_pagina -> (v_cantidad_tipos_pagina - 1) -> 'id'
+    );
+  ELSE
+    v_cursor_siguiente := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'TIPOS_HERRAMIENTA_LISTADOS',
+    'mensaje', 'Listado de tipos de herramienta obtenido',
+    'datos', jsonb_build_object(
+      'items', v_tipos_pagina,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas_tipos, 'cursor_siguiente', v_cursor_siguiente)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPOS_HERRAMIENTA_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar los tipos de herramienta');
+END;
+$$;
