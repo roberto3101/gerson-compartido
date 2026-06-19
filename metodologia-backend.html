@@ -268,7 +268,7 @@ go run ./cmd/api          <span class="c"># api sesga reyser escuchando en puert
       </div>
       <pre class="sql" id="ep-cmd" style="margin:0;white-space:pre-wrap;word-break:break-all">…</pre>
     </div>
-    <div class="nota"><b>Campos precargados</b> con datos demo de UUIDs fijos (empresa, contrato, periodo, activo, herramienta, catálogos) — funcionan tal cual <b>si cargaste el seed</b> <span class="mono">NO_SUBIR_seed_demo.sql</span> en <span class="mono">sesga_test</span>. <b>estado</b>, <b>tipo_movimiento</b> y <b>parado</b> son dropdowns. <b>GET:</b> lo lleno se agrega como <span class="mono">?clave=valor</span>; <b>POST:</b> se arma en el cuerpo JSON. <span class="mono">id_empresa</span>/<span class="mono">id_usuario</span> van por cabecera, no como campo.</div>
+    <div class="nota"><b>Campos precargados</b> con datos demo de UUIDs fijos (empresa, contrato, periodo, activo, herramienta, catálogos) — funcionan tal cual <b>si cargaste el seed</b> <span class="mono">NO_SUBIR_seed_demo.sql</span> en <span class="mono">sesga_test</span>. <b>estado</b>, <b>tipo_movimiento</b> y <b>parado</b> son dropdowns. <b>GET:</b> lo lleno se agrega como <span class="mono">?clave=valor</span>. <b>POST:</b> el comando guarda el JSON en <span class="mono">body.json</span> y lo envía con <span class="mono">-d "@body.json"</span> — necesario porque PowerShell rompe el JSON inline de <span class="mono">curl</span>. <span class="mono">id_empresa</span>/<span class="mono">id_usuario</span> van por cabecera, no como campo.</div>
   </div>
 </section>
 
@@ -422,7 +422,8 @@ go run ./cmd/api          <span class="c"># api sesga reyser escuchando en puert
     } else {
       var obj={};
       for(i=0;i<ins.length;i++){ v=ins[i].value.trim(); if(v!==''){ obj[ins[i].getAttribute('data-k')]=v; } }
-      cmd='curl.exe -s -X POST -H "X-Empresa-Id: '+emp+'" -H "Content-Type: application/json" -d \''+JSON.stringify(obj)+'\' "'+url+'"';
+      var jb=JSON.stringify(obj).replace(/'/g,"''");
+      cmd="'"+jb+"' | Out-File -Encoding ascii body.json ; curl.exe -s -X POST -H \"X-Empresa-Id: "+emp+"\" -H \"Content-Type: application/json\" -d \"@body.json\" \""+url+"\"";
     }
     document.getElementById('ep-cmd').textContent=cmd;
     var rq=0; e.p.forEach(function(p){if(p[1])rq++;});
