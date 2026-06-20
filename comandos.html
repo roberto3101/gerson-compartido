@@ -7,7 +7,7 @@
 <style>
   :root{
     --bg:#f5f6fb; --surface:#ffffff; --ink:#181b27; --muted:#697086; --line:#e6e8f0;
-    --accent:#4f46e5; --catalogo:#047857; --evento:#b45309;
+    --accent:#4f46e5; --catalogo:#047857; --evento:#b45309; --ok:#10b981;
     --shadow:0 1px 2px rgba(20,23,40,.06),0 8px 24px rgba(20,23,40,.06);
   }
   *{box-sizing:border-box}
@@ -23,23 +23,41 @@
   .volver:hover{background:rgba(255,255,255,.16);color:#fff}
   .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
   .chip{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#eef0ff;padding:5px 12px;border-radius:999px;font-size:12.5px;font-weight:600}
-  .chip.link{background:#fff;color:#312e81;font-weight:800;text-decoration:none;border-color:#fff}
   section{padding:34px 0;border-bottom:1px solid var(--line)}
   .eyebrow{letter-spacing:.16em;text-transform:uppercase;font-size:11.5px;color:var(--accent);font-weight:800;margin:0 0 6px}
   h2{font-size:20px;font-weight:800;margin:0 0 4px}
-  h3{font-size:14.5px;font-weight:800;margin:20px 0 6px}
-  .lead{color:var(--muted);margin:0 0 14px;max-width:840px}
-  pre{background:#0f1424;color:#e6e9f5;border-radius:10px;padding:15px 17px;overflow:auto;white-space:pre;font:12.7px/1.7 "SFMono-Regular",Consolas,monospace;box-shadow:var(--shadow);margin:8px 0}
+  h3{font-size:14.5px;font-weight:800;margin:22px 0 4px}
+  .lead{color:var(--muted);margin:0 0 14px;max-width:860px}
+  /* bloque de comando con copiar */
+  .cmd{position:relative;margin:8px 0}
+  .cmd pre{margin:0}
+  pre{background:#0f1424;color:#e6e9f5;border-radius:10px;padding:15px 17px;padding-right:104px;overflow:auto;white-space:pre;font:12.8px/1.75 "SFMono-Regular",Consolas,monospace;box-shadow:var(--shadow)}
   pre .c{color:#7c869c}
-  pre .v{color:#86efac}
-  .nota{background:#fff8ec;border:1px solid #f5d9a8;border-radius:10px;padding:11px 14px;font-size:12.7px;color:#92651a;line-height:1.5;margin:10px 0}
+  pre .v{color:#fde68a}
+  pre .k{color:#86efac}
+  .copiar{position:absolute;top:9px;right:9px;display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.10);color:#cdd3e8;border:1px solid rgba(255,255,255,.20);border-radius:7px;padding:5px 11px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:"Segoe UI",sans-serif;transition:.15s;z-index:2}
+  .copiar:hover{background:rgba(255,255,255,.22);color:#fff}
+  .copiar.ok{background:var(--ok);border-color:var(--ok);color:#04231a}
+  .qhace{font-size:13px;color:var(--ink);margin:14px 0 2px;font-weight:600;display:flex;align-items:baseline;gap:8px}
+  .qhace .when{font-weight:700;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:var(--accent);border-radius:6px;padding:2px 8px}
+  .qhace .when.once{background:#0891b2}
+  .qhace .when.serv{background:#b45309}
+  .nota{background:#fff8ec;border:1px solid #f5d9a8;border-radius:10px;padding:11px 14px;font-size:12.8px;color:#92651a;line-height:1.5;margin:10px 0}
   .nota b{color:#7a5310}
-  .ok{background:#d1fae5;border:1px solid #a7f3d0;border-radius:10px;padding:11px 14px;font-size:12.7px;color:#065f46;line-height:1.5;margin:10px 0}
+  .ok{background:#d1fae5;border:1px solid #a7f3d0;border-radius:10px;padding:11px 14px;font-size:12.8px;color:#065f46;line-height:1.5;margin:10px 0}
   .ok b{color:#064e3b}
+  .key{background:#eef0ff;border:1px solid #c7cdf6;border-left:4px solid var(--accent);border-radius:10px;padding:12px 15px;font-size:13px;color:#312e81;line-height:1.55;margin:12px 0}
+  .key b{color:#1e1b4b}
   .toc{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 6px}
   .toc a{font-size:12.5px;font-weight:700;color:var(--accent);text-decoration:none;background:#eef1fb;border:1px solid #dfe3f7;border-radius:999px;padding:5px 12px}
   .toc a:hover{background:var(--accent);color:#fff}
   .num{display:inline-flex;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:800;align-items:center;justify-content:center;margin-right:8px;vertical-align:middle}
+  .quick{background:linear-gradient(120deg,#0f1424,#1e1b4b);border-radius:14px;padding:20px 22px;margin:18px 0 0;box-shadow:var(--shadow)}
+  .quick h3{color:#fff;margin:0 0 4px;font-size:15px}
+  .quick p{color:#c7d2fe;font-size:12.5px;margin:0 0 12px}
+  .quick .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+  .quick .term .tlabel{color:#a5b4fc;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin:0 0 5px}
+  .dl{display:inline-flex;align-items:center;gap:8px;color:#fff;font-weight:800;text-decoration:none;border-radius:10px;padding:11px 18px;box-shadow:var(--shadow)}
   footer{padding:24px 0 48px;color:var(--muted);font-size:12.5px}
   footer a{color:var(--accent);font-weight:700;text-decoration:none}
   .resal{color:var(--accent);font-weight:700}
@@ -52,10 +70,34 @@
     <a class="volver" href="metodologia-backend.html">←&nbsp; Volver a la metodología</a>
     <p class="eyebrow">Plataforma SESGA REYSER · CODEPLEX · Runbook</p>
     <h1>Comandos para todo</h1>
-    <p class="sub">Levantar CockroachDB, construir la base, correr los generadores, levantar backend y frontend, probar endpoints, correr pruebas, y el flujo de ramas — todo en PowerShell, siguiendo la metodología componible del Grupo 5.</p>
+    <p class="sub">Solo lo que de verdad usamos: levantar CockroachDB, backend y frontend, probar endpoints, correr generadores y pruebas, y el flujo de ramas. Todo en PowerShell. <b>Cada bloque tiene botón "Copiar"</b> — copia el comando limpio, sin comentarios.</p>
     <div class="chips">
       <span class="chip">PowerShell · Windows</span>
       <span class="chip">CockroachDB v26 · Go · React/Vite</span>
+      <span class="chip">⧉ click para copiar</span>
+    </div>
+
+    <div class="quick">
+      <h3>⚡ TL;DR — levantar todo (3 terminales)</h3>
+      <p>Abre 3 ventanas de PowerShell, una por servicio. Déjalas abiertas.</p>
+      <div class="grid">
+        <div class="term">
+          <p class="tlabel">1 · Base de datos (26260)</p>
+          <pre>&amp; "C:\cockroachdb26\cockroach-v26.2.1.windows-6.2-amd64\cockroach.exe" start-single-node --insecure --listen-addr=localhost:26260 --http-addr=localhost:8086 --store=C:\cockroachdb26\data</pre>
+        </div>
+        <div class="term">
+          <p class="tlabel">2 · Backend API (8080)</p>
+          <pre>cd C:\Users\user\Desktop\CSRAYSER\plataforma-sesga-reyser\aplicaciones\api
+$env:CADENA_CONEXION_BD = "postgresql://root@localhost:26260/sesga_test?sslmode=disable"
+$env:PUERTO_API = "8080"
+go run ./cmd/api</pre>
+        </div>
+        <div class="term">
+          <p class="tlabel">3 · Frontend (5173)</p>
+          <pre>cd C:\Users\user\Desktop\CSRAYSER\plataforma-sesga-reyser\aplicaciones\web
+npm run dev</pre>
+        </div>
+      </div>
     </div>
   </div>
 </header>
@@ -69,11 +111,11 @@
       <a href="#gen">3 · Generadores</a>
       <a href="#back">4 · Backend</a>
       <a href="#front">5 · Frontend</a>
-      <a href="#probar">6 · Probar</a>
-      <a href="#pruebas">7 · Pruebas</a>
-      <a href="#git">8 · Flujo git</a>
+      <a href="#probar">6 · Probar endpoints</a>
+      <a href="#pruebas">7 · Pruebas SQL</a>
+      <a href="#git">8 · Flujo de ramas</a>
     </div>
-    <div class="nota"><b>Ojo con las rutas de tu máquina:</b> la ruta del binario de CockroachDB y la del repo pueden variar. Ajusta los <span class="mono">C:\...</span> a donde los tengas. Los puertos: CockroachDB <b>26260</b>, API <b>8080</b>, frontend <b>5173</b>.</div>
+    <div class="nota"><b>Rutas y puertos:</b> ajusta los <span class="mono">C:\...</span> a tu máquina. Puertos: CockroachDB <b>26260</b>, API <b>8080</b>, frontend <b>5173</b>. La base de tu trabajo es <span class="mono">sesga_test</span>.</div>
   </div>
 </section>
 
@@ -81,12 +123,12 @@
   <div class="wrap">
     <p class="eyebrow">Paso 0</p>
     <h2><span class="num">0</span>Requisitos</h2>
-    <p class="lead">CockroachDB <b>v26.2.1</b> (el target del proyecto; valida los cuerpos plpgsql al crear). Go, Node/npm. El repo clonado.</p>
-    <pre><span class="c"># Verificar que tienes lo necesario</span>
-go version
+    <p class="lead">CockroachDB <b>v26.2.1</b> (valida los cuerpos plpgsql al crear las funciones), Go y Node/npm. Verifica una sola vez:</p>
+    <div class="qhace"><span class="when once">una vez</span> Comprobar que tienes las herramientas</div>
+    <pre>go version
 node -v ; npm -v
-& "C:\cockroachdb26\cockroach-v26.2.1.windows-6.2-amd64\cockroach.exe" version</pre>
-    <div class="nota"><b>No uses CockroachDB v23</b> (no soporta plpgsql en funciones → los <span class="mono">CREATE FUNCTION</span> fallan). Usa el binario v26.</div>
+&amp; "C:\cockroachdb26\cockroach-v26.2.1.windows-6.2-amd64\cockroach.exe" version</pre>
+    <div class="nota"><b>No uses CockroachDB v23</b>: no soporta plpgsql en funciones → los <span class="mono">CREATE FUNCTION</span> fallan. Usa el binario v26.</div>
   </div>
 </section>
 
@@ -94,11 +136,12 @@ node -v ; npm -v
   <div class="wrap">
     <p class="eyebrow">Paso 1</p>
     <h2><span class="num">1</span>Levantar CockroachDB v26</h2>
-    <p class="lead">Una ventana dedicada (déjala abierta; ciérrala para apagar el nodo). Los datos persisten en el <span class="mono">--store</span>.</p>
-    <pre>& "C:\cockroachdb26\cockroach-v26.2.1.windows-6.2-amd64\cockroach.exe" start-single-node `
+    <div class="qhace"><span class="when serv">servidor</span> Arranca el nodo (déjalo abierto; los datos persisten en <span class="mono">--store</span>)</div>
+    <pre>&amp; "C:\cockroachdb26\cockroach-v26.2.1.windows-6.2-amd64\cockroach.exe" start-single-node `
   --insecure --listen-addr=localhost:26260 --http-addr=localhost:8086 `
   --store=C:\cockroachdb26\data</pre>
-    <div class="nota">Si sale <span class="mono">could not lock temporary directory</span> o <span class="mono">address in use</span>, ya hay un nodo corriendo. Ciérralo: <span class="mono">Get-Process cockroach | Stop-Process -Force</span>.</div>
+    <div class="qhace">Apagarlo si ya hay uno corriendo (puerto ocupado / <span class="mono">could not lock</span>)</div>
+    <pre>Get-Process cockroach | Stop-Process -Force</pre>
   </div>
 </section>
 
@@ -106,22 +149,20 @@ node -v ; npm -v
   <div class="wrap">
     <p class="eyebrow">Paso 2</p>
     <h2><span class="num">2</span>Construir la base de datos</h2>
-    <p class="lead">La forma más simple: usar el SQL de descarga del Vercel (trae todas las tablas, índices y procedimientos, y compila en v26). Hace <span class="mono">DROP/CREATE</span> de la BD.</p>
-    <h3>Nuestras 2 capacidades → base <span class="mono">sesga_test</span></h3>
-    <pre>$CR = "C:\cockroachdb26\cockroach-v26.2.1.windows-6.2-amd64\cockroach.exe"
-& $CR sql --insecure --host=localhost:26260 --file sesga_grupo5_capacidades.sql</pre>
-    <h3>Todas las capacidades (global) → base <span class="mono">sesga_global</span></h3>
-    <pre>& $CR sql --insecure --host=localhost:26260 --file sesga_global_completo.sql</pre>
-    <h3>Datos demo (opcional, para que las consultas devuelvan filas)</h3>
-    <p class="lead" style="margin-bottom:8px">UUIDs fijos que usa el probador de endpoints. Pégalo a <span class="mono">sesga_test</span>:</p>
-    <pre>& $CR sql --insecure --host=localhost:26260 --database=sesga_test -e @"
+    <p class="lead">Lo más simple: cargar el SQL de descarga del Vercel (trae tablas, índices y los 29 procedimientos; compila en v26). Define una variable con la ruta del binario para no repetirla:</p>
+    <div class="qhace"><span class="when once">una vez por sesión</span> Atajo: guardar la ruta del binario</div>
+    <pre>$CR = "C:\cockroachdb26\cockroach-v26.2.1.windows-6.2-amd64\cockroach.exe"</pre>
+    <div class="qhace">Cargar <b>nuestras 2 capacidades</b> en la base <span class="mono">sesga_test</span></div>
+    <pre>&amp; $CR sql --insecure --host=localhost:26260 --file sesga_grupo5_capacidades.sql</pre>
+    <div class="qhace">Cargar datos demo (para que los listados devuelvan filas) — UUIDs fijos que usa el probador</div>
+    <pre>&amp; $CR sql --insecure --host=localhost:26260 --database=sesga_test -e @"
 INSERT INTO empresa (id,estado) VALUES ('11111111-1111-1111-1111-111111111111','ACTIVO') ON CONFLICT (id) DO NOTHING;
 INSERT INTO usuario (id) VALUES ('22222222-2222-2222-2222-222222222222') ON CONFLICT (id) DO NOTHING;
 INSERT INTO clasificacion_activo (id,id_empresa,codigo,descripcion,es_capitalizable) VALUES ('a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1','11111111-1111-1111-1111-111111111111','CL-VEH','Vehiculos',true);
 INSERT INTO tipo_adquisicion_activo (id,id_empresa,codigo,descripcion) VALUES ('a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2','11111111-1111-1111-1111-111111111111','TA-COMP','Compra directa');
 INSERT INTO tipo_herramienta (id,id_empresa,codigo,descripcion) VALUES ('a3a3a3a3-a3a3-a3a3-a3a3-a3a3a3a3a3a3','11111111-1111-1111-1111-111111111111','TH-ELEC','Electrica');
 "@</pre>
-    <div class="ok"><b>Tip:</b> los dos <span class="mono">.sql</span> de descarga (botones del mapeo) ya están al día con los 29 procedimientos nuestros y compilan a la primera en v26.</div>
+    <div class="ok"><b>Tip:</b> el <span class="mono">.sql</span> de descarga (botón del mapeo) ya está al día con los 29 procedimientos y compila a la primera en v26. La base global (todas las capacidades) es opcional: <span class="mono">--file sesga_global_completo.sql</span> sobre <span class="mono">sesga_global</span>.</div>
   </div>
 </section>
 
@@ -129,14 +170,14 @@ INSERT INTO tipo_herramienta (id,id_empresa,codigo,descripcion) VALUES ('a3a3a3a
   <div class="wrap">
     <p class="eyebrow">Paso 3</p>
     <h2><span class="num">3</span>Generadores (.ps1) — por capacidad</h2>
-    <p class="lead">El flujo de Fidel: defines/corriges el SQL → lo declaras en el catálogo → <b>generas</b>. Corre tus 2 capacidades <b>juntas</b> (si pasas una sola, el agregador deja la otra fuera).</p>
-    <h3>Catálogos (constantes y descriptores Go/TS)</h3>
+    <p class="lead">El flujo de Fidel: defines/corriges el SQL → lo declaras en el catálogo → <b>generas</b>. Corre tus 2 capacidades <b>juntas</b> en cada generador.</p>
+    <div class="qhace">Catálogos (constantes y descriptores Go/TS)</div>
     <pre>powershell -ExecutionPolicy Bypass -File .\herramientas\componibilidad\generar_catalogos.ps1</pre>
-    <h3>Backend (esqueletos API) — rutas + tabla de operaciones</h3>
+    <div class="qhace">Backend — rutas + tabla de operaciones (los endpoints)</div>
     <pre>powershell -ExecutionPolicy Bypass -Command "&amp; './herramientas/componibilidad/generar_esqueletos_api.ps1' -codigos_capacidad activos_e_inversion,cierre_mensual"</pre>
-    <h3>Frontend (clientes + rutas generadas)</h3>
+    <div class="qhace">Frontend — clientes + rutas generadas</div>
     <pre>powershell -ExecutionPolicy Bypass -Command "&amp; './herramientas/componibilidad/generar_frontend_capacidades.ps1' -codigos_capacidad activos_e_inversion,cierre_mensual"</pre>
-    <div class="nota">Lee los <b>archivos</b> <span class="mono">.sql</span> de cada capacidad (no el catálogo), así que genera endpoints para <b>todos</b> los <span class="mono">fn_*</span>, estén o no listados en el array <span class="mono">procedimientos</span>. Salida: <span class="mono">operaciones_generadas_&lt;capacidad&gt;.go</span> y los <span class="mono">.ts</span>/<span class="mono">.tsx</span> generados.</div>
+    <div class="nota">Leen los <b>archivos</b> <span class="mono">.sql</span> de cada capacidad (no el array <span class="mono">procedimientos</span> del catálogo), así que generan endpoint para <b>todos</b> los <span class="mono">fn_*</span>. Salida: <span class="mono">operaciones_generadas_&lt;capacidad&gt;.go</span> + los <span class="mono">.ts</span>/<span class="mono">.tsx</span>. <b>No se editan a mano.</b></div>
   </div>
 </section>
 
@@ -144,12 +185,14 @@ INSERT INTO tipo_herramienta (id,id_empresa,codigo,descripcion) VALUES ('a3a3a3a
   <div class="wrap">
     <p class="eyebrow">Paso 4</p>
     <h2><span class="num">4</span>Backend (Go) — puerto 8080</h2>
-    <p class="lead">Desde la carpeta del API, con la cadena de conexión a CockroachDB. Deja la ventana abierta (es el servidor).</p>
+    <div class="qhace"><span class="when serv">servidor</span> Levantar el API (deja la ventana abierta; <span class="mono">Ctrl+C</span> para apagar)</div>
     <pre>cd aplicaciones\api
 $env:CADENA_CONEXION_BD = "postgresql://root@localhost:26260/sesga_test?sslmode=disable"
-go build ./...
+$env:PUERTO_API = "8080"
 go run ./cmd/api          <span class="c"># "api sesga reyser escuchando en puerto 8080"</span></pre>
-    <div class="nota">Para apagar: <span class="mono">Ctrl+C</span>. Variables opcionales: <span class="mono">$env:PUERTO_API="8080"</span>, <span class="mono">$env:AMBIENTE="desarrollo"</span>.</div>
+    <div class="key"><b>La cadena de conexión NO se commitea.</b> La API la lee de la variable de entorno <span class="mono">CADENA_CONEXION_BD</span> (es obligatoria). No hay ninguna cadena en el repo y no debe haberla (lleva credenciales). Solo la <b>seteas aquí</b>, apuntando a tu CockroachDB local y tu base (<span class="mono">sesga_test</span>). El código que la lee es base compartida — tampoco se toca.</div>
+    <div class="qhace">Solo compilar (sin levantar) — para verificar que todo arma</div>
+    <pre>go build ./...</pre>
   </div>
 </section>
 
@@ -157,77 +200,88 @@ go run ./cmd/api          <span class="c"># "api sesga reyser escuchando en puer
   <div class="wrap">
     <p class="eyebrow">Paso 5</p>
     <h2><span class="num">5</span>Frontend (React + Vite) — puerto 5173</h2>
+    <div class="qhace"><span class="when once">primera vez</span> Instalar dependencias</div>
     <pre>cd aplicaciones\web
-npm install              <span class="c"># solo la primera vez</span>
-npm run dev              <span class="c"># servidor de desarrollo en http://localhost:5173</span></pre>
-    <h3>Build de producción</h3>
-    <pre>npm run build            <span class="c"># compila a dist/</span></pre>
-    <div class="nota">El frontend de las capacidades estándar (activos, cierre) se muestra con su <b>página genérica generada</b>. Solo se personaliza a mano si la capacidad necesita una UI especial (como <span class="mono">contratos</span>).</div>
+npm install</pre>
+    <div class="qhace"><span class="when serv">servidor</span> Levantar el front en http://localhost:5173</div>
+    <pre>npm run dev</pre>
+    <div class="nota">Las capacidades estándar (activos, cierre) se muestran con su <b>página genérica generada</b>, que lista sus endpoints. Para <b>invocarlos desde el navegador</b> en dev hace falta un proxy <span class="mono">/api → :8080</span> en <span class="mono">vite.config.ts</span> (archivo base compartido). Sin proxy, el navegador llama a <span class="mono">:5173</span> y recibe HTML (<span class="mono">Unexpected token &lt;</span>). Para probar de verdad, usa el Paso 6 contra <span class="mono">:8080</span>.</div>
   </div>
 </section>
 
 <section id="probar">
   <div class="wrap">
     <p class="eyebrow">Paso 6</p>
-    <h2><span class="num">6</span>Probar endpoints (curl)</h2>
-    <p class="lead">Con el API en <span class="mono">:8080</span>. En PowerShell usa <span class="resal">curl.exe</span> (no <span class="mono">curl</span> a secas). Cabecera obligatoria <span class="mono">X-Empresa-Id</span>.</p>
-    <h3>GET (lectura)</h3>
-    <pre>$emp = "11111111-1111-1111-1111-111111111111"
-curl.exe -s -H "X-Empresa-Id: $emp" "http://localhost:8080/api/v1/activos_e_inversion/listar_clasificaciones_activo"</pre>
-    <h3>POST (con cuerpo) — vía archivo, porque PowerShell rompe el JSON inline</h3>
-    <pre>'{"id_usuario_accion":"22222222-2222-2222-2222-222222222222","id_contrato":"cccccccc-cccc-cccc-cccc-cccccccccccc","id_periodo":"33333333-3333-3333-3333-333333333333","descripcion":"Penalidad demo","importe":"250.00"}' | Out-File -Encoding ascii body.json
-curl.exe -s -X POST -H "X-Empresa-Id: $emp" -H "Content-Type: application/json" -d "@body.json" "http://localhost:8080/api/v1/cierre_mensual/registrar_penalidad"</pre>
-    <div class="ok"><b>Más fácil:</b> usa el <b>Probador de endpoints</b> de la metodología — eliges el endpoint, llena los campos y te copia el <span class="mono">curl.exe</span> exacto.</div>
+    <h2><span class="num">6</span>Probar endpoints</h2>
+    <p class="lead">Con el API en <span class="mono">:8080</span>. La cabecera <span class="mono">X-Empresa-Id</span> es obligatoria (resuelve <span class="mono">p_id_empresa</span>); las acciones piden también <span class="mono">X-Usuario-Id</span>.</p>
 
-    <h3>Colección de Postman (importar directo)</h3>
-    <p class="lead" style="margin-bottom:10px">Dos descargables: la <b>colección</b> (29 requests con bodies armados, listos con un clic) y el <b>environment</b> (variables). Impórtalos los dos:</p>
-    <p style="margin:0 0 12px;display:flex;flex-wrap:wrap;gap:10px">
-      <a href="coleccion-postman-grupo5.json" download style="display:inline-flex;align-items:center;gap:8px;background:#ff6c37;color:#fff;font-weight:800;text-decoration:none;border-radius:10px;padding:11px 18px;box-shadow:var(--shadow)">⬇&nbsp; 1 · Colección (.json)</a>
-      <a href="entorno-postman-grupo5.json" download style="display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;font-weight:800;text-decoration:none;border-radius:10px;padding:11px 18px;box-shadow:var(--shadow)">⬇&nbsp; 2 · Environment / variables (.json)</a>
-    </p>
+    <h3>Opción rápida — PowerShell nativo (Invoke-RestMethod)</h3>
+    <div class="qhace">Definir las cabeceras una vez</div>
+    <pre>$h = @{ "X-Empresa-Id"="11111111-1111-1111-1111-111111111111"; "X-Usuario-Id"="22222222-2222-2222-2222-222222222222" }</pre>
+    <div class="qhace">GET (lectura) — devuelve 200 con data</div>
+    <pre>Invoke-RestMethod "http://localhost:8080/api/v1/activos_e_inversion/listar_clasificaciones_activo" -Headers $h</pre>
+    <div class="qhace">POST (comando) — body como objeto, sin archivos ni curl (funciona con el seed mínimo)</div>
+    <pre>$body = @{ id_usuario_accion="22222222-2222-2222-2222-222222222222"; id_tipo_herramienta="a3a3a3a3-a3a3-a3a3-a3a3-a3a3a3a3a3a3"; codigo="HER-DEMO-001"; descripcion="Amoladora demo"; marca="Makita"; modelo="M-100"; numero_serie="SN-DEMO-001"; costo_adquisicion=350; tiempo_vida_meses=24; fecha_inicio_depreciacion="2026-01-01"; fecha_fin_depreciacion="2028-01-01" } | ConvertTo-Json
+Invoke-RestMethod "http://localhost:8080/api/v1/activos_e_inversion/registrar_herramienta" -Method Post -Headers $h -ContentType "application/json" -Body $body</pre>
+
+    <h3>Alternativa — curl.exe (no <span class="mono">curl</span> a secas en PowerShell)</h3>
+    <pre>curl.exe -s -H "X-Empresa-Id: 11111111-1111-1111-1111-111111111111" "http://localhost:8080/api/v1/activos_e_inversion/listar_tipos_herramienta"</pre>
+
+    <h3>Postman — colecciones armadas (un clic = Send)</h3>
+    <p class="lead" style="margin-bottom:8px"><b>Opción A (recomendada): la colección por capacidad del repo</b> — auto-contenida (variables y bodies embebidos, no necesita environment):</p>
+    <pre>aplicaciones/api/postman/colecciones/activos_e_inversion.postman_collection.json
+aplicaciones/api/postman/colecciones/cierre_mensual.postman_collection.json</pre>
     <pre><span class="c"># En Postman:</span>
-1. Import  →  arrastra los DOS .json (coleccion + environment)
-2. Arriba a la derecha, selecciona el environment <span class="v">"SESGA REYSER - Grupo 5 (local)"</span>
-3. Carpetas: "Activos e Inversion" (19)  y  "Cierre Mensual" (10)
-4. Con el API en :8080 y el seed cargado  →  abre cualquier request  →  Send</pre>
-    <div class="nota">El <b>environment</b> trae <span class="mono">baseUrl=http://localhost:8080/api/v1</span>, <span class="mono">empresaId=1111...</span>, <span class="mono">usuarioId=2222...</span>: al seleccionarlo, todos los <span class="mono">{{...}}</span> de la colección se resuelven. La colección además los trae como respaldo, así que funciona aunque no selecciones environment. Los GET ya tienen valores demo; los POST, body demo completo. Para data real, carga el seed (paso 2).</div>
+Import  →  elige el .json de la capacidad  →  abre cualquier request  →  Send</pre>
+    <p class="lead" style="margin:14px 0 8px"><b>Opción B: descargas del Vercel</b> — colección combinada (29 requests) + environment:</p>
+    <p style="margin:0 0 12px;display:flex;flex-wrap:wrap;gap:10px">
+      <a class="dl" href="coleccion-postman-grupo5.json" download style="background:#ff6c37">⬇&nbsp; Colección (.json)</a>
+      <a class="dl" href="entorno-postman-grupo5.json" download style="background:var(--accent)">⬇&nbsp; Environment (.json)</a>
+    </p>
+    <div class="nota"><b>⚠️ Postman WEB no alcanza <span class="mono">localhost</span> con el "Cloud Agent".</b> En la ventana del request, abajo, cambia el <b>Agent → "Desktop Agent"</b> (instala el mini-agente si lo pide). En la app de escritorio no hace falta. Los GET ya traen valores demo; los POST, body demo completo. Para data real, carga el seed (Paso 2).</div>
   </div>
 </section>
 
 <section id="pruebas">
   <div class="wrap">
     <p class="eyebrow">Paso 7</p>
-    <h2><span class="num">7</span>Pruebas (tests SQL)</h2>
-    <p class="lead">Las pruebas por capacidad están en el repo. Cada archivo imprime una tabla con PASS/FAIL por caso y un conteo final.</p>
+    <h2><span class="num">7</span>Pruebas (SQL)</h2>
+    <p class="lead">Cada archivo imprime PASS/FAIL por caso y un conteo final. Corre la BD limpia (Paso 2) antes. Si <span class="mono">fail = 0</span>, todo bien.</p>
+    <div class="qhace">activos-e-inversion (lectura + negocio)</div>
     <pre>$CR = "C:\cockroachdb26\cockroach-v26.2.1.windows-6.2-amd64\cockroach.exe"
-<span class="c"># activos-e-inversion</span>
-& $CR sql --insecure --host=localhost:26260 --database=sesga_test --file infraestructura\base-de-datos\pruebas\activos_e_inversion\003_test_integracion.sql
-<span class="c"># cierre-mensual (incluye la regla "activo parado no recupera")</span>
-& $CR sql --insecure --host=localhost:26260 --database=sesga_test --file infraestructura\base-de-datos\pruebas\cierre_mensual\003_test_integracion.sql</pre>
-    <div class="nota">Si <span class="mono">fail = 0</span>, todo bien. Corre la BD limpia (paso 2) antes de las pruebas.</div>
+&amp; $CR sql --insecure --host=localhost:26260 --database=sesga_test --file infraestructura\base-de-datos\pruebas\activos_e_inversion\002_test_negocio.sql</pre>
+    <div class="qhace">cierre-mensual (incluye integración + regla "activo parado no recupera")</div>
+    <pre>&amp; $CR sql --insecure --host=localhost:26260 --database=sesga_test --file infraestructura\base-de-datos\pruebas\cierre_mensual\003_test_integracion.sql</pre>
+    <div class="nota">En cada carpeta <span class="mono">pruebas\&lt;capacidad&gt;\</span> hay varios archivos numerados (<span class="mono">001_test_lectura</span>, <span class="mono">002_test_negocio</span>…). Córrelos igual cambiando el nombre del archivo.</div>
   </div>
 </section>
 
 <section id="git">
   <div class="wrap">
     <p class="eyebrow">Paso 8</p>
-    <h2><span class="num">8</span>Flujo de ramas (metodología)</h2>
-    <p class="lead">Nunca se trabaja directo en la rama de capacidad. <b>Tarea</b> (individual) → merge → <b>capacidad</b> (consolidación) → PR → <b>master</b>.</p>
-    <h3>1) Crear tu rama de tarea desde la capacidad (al día con master)</h3>
+    <h2><span class="num">8</span>Flujo de ramas</h2>
+    <p class="lead">Nunca trabajas directo en capacidad ni en master. <b>Tarea</b> (individual) → <b>capacidad</b> (consolidación) → PR → <b>master</b>. Autor siempre el tuyo.</p>
+    <div class="qhace">1 · Crear tu rama de tarea desde la capacidad al día</div>
     <pre>git switch capacidad/activos-e-inversion
 git pull
 git switch -c tarea/activos-e-inversion-<span class="v">&lt;tu-nombre&gt;</span>-<span class="v">&lt;entidad&gt;</span></pre>
-    <h3>2) Trabajas, generas y commiteas (con tu autor)</h3>
+    <div class="qhace">2 · Commitear con tu autor y subir la tarea</div>
     <pre>git add .
 git -c user.name="<span class="v">&lt;tu-usuario&gt;</span>" -c user.email="<span class="v">&lt;tu-correo&gt;</span>" commit -m "Se ... (mensaje declarativo)"
 git push -u origin tarea/activos-e-inversion-<span class="v">&lt;tu-nombre&gt;</span>-<span class="v">&lt;entidad&gt;</span></pre>
-    <h3>3) Merge de tu tarea a la capacidad (NO a master)</h3>
-    <pre>git switch capacidad/activos-e-inversion
-git merge tarea/activos-e-inversion-<span class="v">&lt;tu-nombre&gt;</span>-<span class="v">&lt;entidad&gt;</span>
-git push origin capacidad/activos-e-inversion</pre>
-    <h3>4) Capacidad → master: mediante PR en GitHub</h3>
-    <div class="nota"><b>Antes de mergear a master:</b> asegúrate de que tu rama de capacidad esté basada en el <span class="mono">codeplexMaster</span> <b>actual</b>. Si está vieja, primero ponla al día — si no, el merge podría revertir el trabajo nuevo de otros grupos.</div>
-    <div class="ok"><b>Regla:</b> solo tus archivos, en <span class="mono">snake_case</span> para códigos/rutas (<span class="mono">gobierno_central</span>, <span class="mono">fn_*</span>) y <span class="mono">kebab</span> para ramas (<span class="mono">capacidad/gobierno-central</span>). Commits declarativos. Nada que mezclar con otras sub-áreas.</div>
+    <div class="qhace">3 · Llevar la tarea a la capacidad (fast-forward, NO a master)</div>
+    <pre>git push origin tarea/activos-e-inversion-<span class="v">&lt;tu-nombre&gt;</span>-<span class="v">&lt;entidad&gt;</span>:capacidad/activos-e-inversion</pre>
+    <div class="nota"><b>Antes de PR a master:</b> tu rama de capacidad debe estar basada en el <span class="mono">codeplexMaster</span> <b>actual</b>. Si está vieja, ponla al día primero — si no, el merge podría revertir el trabajo de otros grupos. Capacidad → master se hace por <b>PR en GitHub</b> (no push directo).</div>
+
+    <h3>Rama de integración local (<span class="mono">local-no-pushear</span>)</h3>
+    <p class="lead" style="margin-bottom:8px">Tu vista local de todo integrado (master + tus capacidades) <b>sin pushear</b>. Para refrescarla:</p>
+    <div class="qhace">Guardar lo sin commitear, basar en master actual y mergear tus capacidades</div>
+    <pre>git stash -u
+git switch local-no-pushear
+git reset --hard origin/codeplexMaster
+git merge origin/capacidad/activos-e-inversion --no-edit
+git merge origin/capacidad/cierre-mensual --no-edit</pre>
+    <div class="ok"><b>Regla:</b> <span class="mono">snake_case</span> para códigos/rutas (<span class="mono">activos_e_inversion</span>, <span class="mono">fn_*</span>), <span class="mono">kebab</span> para ramas (<span class="mono">capacidad/activos-e-inversion</span>). Solo tus archivos, commits declarativos, y <span class="mono">local-no-pushear</span> nunca se sube.</div>
   </div>
 </section>
 
@@ -239,6 +293,38 @@ git push origin capacidad/activos-e-inversion</pre>
     <a href="index.html">Mapeo</a>
   </div>
 </footer>
+
+<script>
+  (function(){
+    function textoLimpio(pre){
+      var clon = pre.cloneNode(true);
+      clon.querySelectorAll('.c').forEach(function(n){ n.remove(); });
+      return clon.innerText.replace(/\n{3,}/g,'\n\n').replace(/[ \t]+\n/g,'\n').trim();
+    }
+    document.querySelectorAll('pre').forEach(function(pre){
+      var wrap = document.createElement('div');
+      wrap.className = 'cmd';
+      pre.parentNode.insertBefore(wrap, pre);
+      wrap.appendChild(pre);
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'copiar';
+      btn.innerHTML = '⧉ Copiar';
+      btn.addEventListener('click', function(){
+        var txt = textoLimpio(pre);
+        navigator.clipboard.writeText(txt).then(function(){
+          btn.classList.add('ok');
+          btn.innerHTML = '✓ Copiado';
+          setTimeout(function(){ btn.classList.remove('ok'); btn.innerHTML = '⧉ Copiar'; }, 1400);
+        }).catch(function(){
+          var r = document.createRange(); r.selectNodeContents(pre);
+          var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+        });
+      });
+      wrap.appendChild(btn);
+    });
+  })();
+</script>
 
 </body>
 </html>
