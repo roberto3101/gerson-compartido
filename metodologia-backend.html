@@ -170,7 +170,7 @@
     <h2>Lo que ya construimos (archivo por archivo)</h2>
     <p class="lead">Sobre la arquitectura componible, esto es lo que el Grupo 5 lleva en la capacidad <b>activos-e-inversion</b>: el <b>backend</b> (generado desde el SQL) y la primera <b>pantalla del frontend</b> (a mano, sobre el molde de <span class="mono">contratos</span>). Cada tarjeta dice qué hace su archivo.</p>
 
-    <div class="ok"><b>Backend — listo:</b> los <b>29 endpoints</b> de nuestras 2 capacidades (19 de activos + 10 de cierre) ya están <b>generados</b> desde el catálogo + SQL; <span class="mono">go build</span> y <span class="mono">go vet</span> limpios. Se realineó <span class="mono">operaciones_generadas.go</span> (corrección de <span class="mono">fn_listar_herramientas</span>, que estaba desactualizado). <b>Ya incluidos y probados:</b> 3 SP de catálogo (<span class="mono">fn_listar_clasificaciones_activo</span>, <span class="mono">fn_listar_tipos_adquisicion_activo</span>, <span class="mono">fn_listar_tipos_herramienta</span>) que devuelven data real para los selectores.</div>
+    <div class="ok"><b>Backend — listo:</b> los <b>33 endpoints</b> de nuestras 2 capacidades (23 de activos + 10 de cierre) ya están <b>generados</b> desde el catálogo + SQL; <span class="mono">go build</span> y <span class="mono">go vet</span> limpios. Se realineó <span class="mono">operaciones_generadas.go</span> (corrección de <span class="mono">fn_listar_herramientas</span>, que estaba desactualizado). <b>Ya incluidos y probados:</b> 3 SP de catálogo (<span class="mono">fn_listar_clasificaciones_activo</span>, <span class="mono">fn_listar_tipos_adquisicion_activo</span>, <span class="mono">fn_listar_tipos_herramienta</span>) que devuelven data real para los selectores.</div>
 
     <h3>Backend · endpoints de activos-e-inversion (generados)</h3>
     <table class="tabla">
@@ -180,6 +180,9 @@
         <tr><td><span class="pill get">GET</span></td><td><span class="mono">listar_asignaciones_activo · listar_traslados_activo · listar_trabajos_activo · listar_recuperaciones_inversion</span></td></tr>
         <tr><td><span class="pill post">POST</span></td><td><span class="mono">registrar_activo · registrar_herramienta · asignar_activo_a_contrato · mover_herramienta</span></td></tr>
         <tr><td><span class="pill post">POST</span></td><td><span class="mono">registrar_trabajo_activo · registrar_traslado_activo · ejecutar_recuperacion_mensual</span></td></tr>
+        <tr><td><span class="pill get">GET</span></td><td><span class="mono">listar_clasificaciones_activo · listar_tipos_adquisicion_activo · listar_tipos_herramienta</span></td></tr>
+        <tr><td><span class="pill post">POST</span></td><td><span class="mono">registrar_clasificacion_activo · registrar_tipo_adquisicion_activo · registrar_tipo_herramienta</span></td></tr>
+        <tr><td><span class="pill del">DELETE</span></td><td><span class="mono">dar_de_baja_activo</span></td></tr>
       </tbody>
     </table>
     <p class="lead" style="margin-top:12px;font-size:13px">No se escribió Go a mano: cada SP del dominio se convierte en endpoint vía <span class="mono">generar_esqueletos_api.ps1</span>. Ese es el método de Fidel.</p>
@@ -296,6 +299,10 @@ go run ./cmd/api          <span class="c"># api sesga reyser escuchando en puert
     {cap:"activos_e_inversion",op:"registrar_trabajo_activo",m:"POST",p:[["id_usuario_accion",true],["id_activo",true],["id_contrato",true],["id_zona",true],["id_operario",true],["id_periodo",true],["fecha",true],["fecha_hora_inicio",true],["fecha_hora_fin",true],["horas_trabajadas",true],["descripcion_trabajo",true],["valorizacion_trabajo",true],["dias_depreciados",true],["kilometraje_inicio",true],["kilometraje_fin",true]]},
     {cap:"activos_e_inversion",op:"registrar_traslado_activo",m:"POST",p:[["id_usuario_accion",true],["id_activo",true],["id_contrato_origen",true],["id_zona_origen",true],["id_contrato_destino",true],["id_zona_destino",true],["fecha_traslado",true],["motivo",true]]},
     {cap:"activos_e_inversion",op:"ejecutar_recuperacion_mensual",m:"POST",p:[["id_usuario_accion",true],["id_activo",true],["id_contrato",true],["id_periodo",true],["parado",true]]},
+    {cap:"activos_e_inversion",op:"registrar_clasificacion_activo",m:"POST",p:[["id_usuario_accion",true],["codigo",true],["descripcion",true],["es_capitalizable",false]]},
+    {cap:"activos_e_inversion",op:"registrar_tipo_adquisicion_activo",m:"POST",p:[["id_usuario_accion",true],["codigo",true],["descripcion",true]]},
+    {cap:"activos_e_inversion",op:"registrar_tipo_herramienta",m:"POST",p:[["id_usuario_accion",true],["codigo",true],["descripcion",true]]},
+    {cap:"activos_e_inversion",op:"dar_de_baja_activo",m:"DELETE",p:[["id_usuario_accion",true],["id_activo",true]]},
     {cap:"cierre_mensual",op:"listar_cierres_mensuales",m:"GET",p:[["id_contrato",true],["id_periodo",true],["estado",true],["limite",true],["cursor_creado_en",true],["cursor_id",true]]},
     {cap:"cierre_mensual",op:"listar_penalidades",m:"GET",p:[["id_contrato",true],["id_periodo",true],["limite",true],["cursor_creado_en",true],["cursor_id",true]]},
     {cap:"cierre_mensual",op:"listar_provisiones",m:"GET",p:[["id_contrato",true],["id_periodo",true],["limite",true],["cursor_creado_en",true],["cursor_id",true]]},
@@ -365,6 +372,10 @@ go run ./cmd/api          <span class="c"># api sesga reyser escuchando en puert
     listar_traslados_activo:"Historial inmutable de traslados de un activo entre contratos y zonas.",
     listar_trabajos_activo:"Lista los trabajos registrados de un activo en los contratos (horas, valorización, depreciación del periodo).",
     listar_recuperaciones_inversion:"Lista las recuperaciones mensuales de inversión de un activo por contrato y periodo.",
+    registrar_clasificacion_activo:"Da de alta una clasificación de activo (catálogo). Requisito para poder registrar activos.",
+    registrar_tipo_adquisicion_activo:"Da de alta un tipo de adquisición de activo (catálogo). Requisito para registrar activos.",
+    registrar_tipo_herramienta:"Da de alta un tipo de herramienta (catálogo). Requisito para registrar herramientas.",
+    dar_de_baja_activo:"Da de baja un activo (estado BAJA). Se bloquea si tiene una asignación activa con inversión pendiente de recuperar.",
     registrar_activo:"Da de alta un activo en el inventario con su costo, vida útil y parámetros de depreciación.",
     registrar_herramienta:"Da de alta una herramienta menor (gasto operativo; tratamiento económico distinto al del activo capitalizable).",
     asignar_activo_a_contrato:"Asigna un activo a un contrato y zona, fijando la inversión asignada y la cuota de recuperación mensual.",

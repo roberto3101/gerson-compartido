@@ -1,1237 +1,1376 @@
 {
-  "info": {
-    "name": "SESGA REYSER - Grupo 5 (activos-e-inversion + cierre-mensual)",
-    "description": "29 endpoints generados del Grupo 5. Variables de coleccion: baseUrl, empresaId, usuarioId. Para datos reales, carga el seed demo en sesga_test. GET con valores demo precargados; los opcionales van deshabilitados.",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+ "info": {
+  "name": "SESGA REYSER - Grupo 5 (activos-e-inversion + cierre-mensual)",
+  "description": "29 endpoints generados del Grupo 5. Variables de coleccion: baseUrl, empresaId, usuarioId. Para datos reales, carga el seed demo en sesga_test. GET con valores demo precargados; los opcionales van deshabilitados.",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+ },
+ "variable": [
+  {
+   "key": "baseUrl",
+   "value": "http://localhost:8080/api/v1"
   },
-  "variable": [
+  {
+   "key": "empresaId",
+   "value": "11111111-1111-1111-1111-111111111111"
+  },
+  {
+   "key": "usuarioId",
+   "value": "22222222-2222-2222-2222-222222222222"
+  }
+ ],
+ "item": [
+  {
+   "name": "Activos e Inversion",
+   "item": [
     {
-      "key": "baseUrl",
-      "value": "http://localhost:8080/api/v1"
-    },
-    {
-      "key": "empresaId",
-      "value": "11111111-1111-1111-1111-111111111111"
-    },
-    {
-      "key": "usuarioId",
-      "value": "22222222-2222-2222-2222-222222222222"
-    }
-  ],
-  "item": [
-    {
-      "name": "Activos e Inversion",
-      "item": [
+     "name": "GET  listar_clasificaciones_activo",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/listar_clasificaciones_activo",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "listar_clasificaciones_activo"
+       ],
+       "query": [
         {
-          "name": "GET  listar_clasificaciones_activo",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/listar_clasificaciones_activo",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "listar_clasificaciones_activo"
-              ],
-              "query": [
-                {
-                  "key": "estado",
-                  "value": "",
-                  "disabled": true
-                },
-                {
-                  "key": "texto_busqueda",
-                  "value": "",
-                  "disabled": true
-                },
-                {
-                  "key": "limite_pagina",
-                  "value": "20",
-                  "disabled": true
-                },
-                {
-                  "key": "cursor_creado_en",
-                  "value": "2999-01-01T00:00:00Z",
-                  "disabled": true
-                },
-                {
-                  "key": "cursor_id",
-                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                  "disabled": true
-                }
-              ]
-            }
-          }
+         "key": "estado",
+         "value": "",
+         "disabled": true
         },
         {
-          "name": "GET  listar_tipos_adquisicion_activo",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/listar_tipos_adquisicion_activo",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "listar_tipos_adquisicion_activo"
-              ],
-              "query": [
-                {
-                  "key": "estado",
-                  "value": "",
-                  "disabled": true
-                },
-                {
-                  "key": "texto_busqueda",
-                  "value": "",
-                  "disabled": true
-                },
-                {
-                  "key": "limite_pagina",
-                  "value": "20",
-                  "disabled": true
-                },
-                {
-                  "key": "cursor_creado_en",
-                  "value": "2999-01-01T00:00:00Z",
-                  "disabled": true
-                },
-                {
-                  "key": "cursor_id",
-                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                  "disabled": true
-                }
-              ]
-            }
-          }
+         "key": "texto_busqueda",
+         "value": "",
+         "disabled": true
         },
         {
-          "name": "GET  listar_tipos_herramienta",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/listar_tipos_herramienta",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "listar_tipos_herramienta"
-              ],
-              "query": [
-                {
-                  "key": "estado",
-                  "value": "",
-                  "disabled": true
-                },
-                {
-                  "key": "texto_busqueda",
-                  "value": "",
-                  "disabled": true
-                },
-                {
-                  "key": "limite_pagina",
-                  "value": "20",
-                  "disabled": true
-                },
-                {
-                  "key": "cursor_creado_en",
-                  "value": "2999-01-01T00:00:00Z",
-                  "disabled": true
-                },
-                {
-                  "key": "cursor_id",
-                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                  "disabled": true
-                }
-              ]
-            }
-          }
+         "key": "limite_pagina",
+         "value": "20",
+         "disabled": true
         },
         {
-          "name": "GET  listar_activos",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/listar_activos",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "listar_activos"
-              ],
-              "query": [
-                {
-                  "key": "estado",
-                  "value": "ACTIVO",
-                  "disabled": false
-                },
-                {
-                  "key": "id_clasificacion_activo",
-                  "value": "a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1",
-                  "disabled": false
-                },
-                {
-                  "key": "busqueda",
-                  "value": "a",
-                  "disabled": false
-                },
-                {
-                  "key": "limite",
-                  "value": "20",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_creado_en",
-                  "value": "2999-01-01T00:00:00Z",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_id",
-                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                  "disabled": false
-                }
-              ]
-            }
-          }
+         "key": "cursor_creado_en",
+         "value": "2999-01-01T00:00:00Z",
+         "disabled": true
         },
         {
-          "name": "GET  obtener_detalle_activo",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/obtener_detalle_activo",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "obtener_detalle_activo"
-              ],
-              "query": [
-                {
-                  "key": "id_activo",
-                  "value": "b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1",
-                  "disabled": false
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "GET  listar_herramientas",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/listar_herramientas",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "listar_herramientas"
-              ],
-              "query": [
-                {
-                  "key": "estado",
-                  "value": "ACTIVO",
-                  "disabled": false
-                },
-                {
-                  "key": "id_tipo_herramienta",
-                  "value": "a3a3a3a3-a3a3-a3a3-a3a3-a3a3a3a3a3a3",
-                  "disabled": false
-                },
-                {
-                  "key": "texto_busqueda",
-                  "value": "a",
-                  "disabled": false
-                },
-                {
-                  "key": "limite_pagina",
-                  "value": "20",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_creado_en",
-                  "value": "2999-01-01T00:00:00Z",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_id",
-                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                  "disabled": false
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "GET  obtener_detalle_herramienta",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/obtener_detalle_herramienta",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "obtener_detalle_herramienta"
-              ],
-              "query": [
-                {
-                  "key": "id_herramienta",
-                  "value": "b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
-                  "disabled": false
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "GET  listar_movimientos_herramienta",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/listar_movimientos_herramienta",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "listar_movimientos_herramienta"
-              ],
-              "query": [
-                {
-                  "key": "id_herramienta",
-                  "value": "b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
-                  "disabled": false
-                },
-                {
-                  "key": "id_periodo",
-                  "value": "33333333-3333-3333-3333-333333333333",
-                  "disabled": false
-                },
-                {
-                  "key": "tipo_movimiento",
-                  "value": "ENTRADA",
-                  "disabled": false
-                },
-                {
-                  "key": "limite",
-                  "value": "20",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_creado_en",
-                  "value": "2999-01-01T00:00:00Z",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_id",
-                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                  "disabled": false
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "GET  listar_asignaciones_activo",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/listar_asignaciones_activo",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "listar_asignaciones_activo"
-              ],
-              "query": [
-                {
-                  "key": "id_activo",
-                  "value": "b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1",
-                  "disabled": false
-                },
-                {
-                  "key": "estado",
-                  "value": "ACTIVO",
-                  "disabled": false
-                },
-                {
-                  "key": "limite",
-                  "value": "20",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_creado_en",
-                  "value": "2999-01-01T00:00:00Z",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_id",
-                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                  "disabled": false
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "GET  listar_traslados_activo",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/listar_traslados_activo",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "listar_traslados_activo"
-              ],
-              "query": [
-                {
-                  "key": "id_activo",
-                  "value": "b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1",
-                  "disabled": false
-                },
-                {
-                  "key": "limite",
-                  "value": "20",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_creado_en",
-                  "value": "2999-01-01T00:00:00Z",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_id",
-                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                  "disabled": false
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "GET  listar_trabajos_activo",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/listar_trabajos_activo",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "listar_trabajos_activo"
-              ],
-              "query": [
-                {
-                  "key": "id_activo",
-                  "value": "b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1",
-                  "disabled": false
-                },
-                {
-                  "key": "id_contrato",
-                  "value": "cccccccc-cccc-cccc-cccc-cccccccccccc",
-                  "disabled": false
-                },
-                {
-                  "key": "id_periodo",
-                  "value": "33333333-3333-3333-3333-333333333333",
-                  "disabled": false
-                },
-                {
-                  "key": "limite",
-                  "value": "20",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_creado_en",
-                  "value": "2999-01-01T00:00:00Z",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_id",
-                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                  "disabled": false
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "GET  listar_recuperaciones_inversion",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/listar_recuperaciones_inversion",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "listar_recuperaciones_inversion"
-              ],
-              "query": [
-                {
-                  "key": "id_activo",
-                  "value": "b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1",
-                  "disabled": false
-                },
-                {
-                  "key": "id_contrato",
-                  "value": "cccccccc-cccc-cccc-cccc-cccccccccccc",
-                  "disabled": false
-                },
-                {
-                  "key": "id_periodo",
-                  "value": "33333333-3333-3333-3333-333333333333",
-                  "disabled": false
-                },
-                {
-                  "key": "limite",
-                  "value": "20",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_creado_en",
-                  "value": "2999-01-01T00:00:00Z",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_id",
-                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                  "disabled": false
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "POST  registrar_activo",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/registrar_activo",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "registrar_activo"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_clasificacion_activo\": \"a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1\",\n  \"id_tipo_adquisicion_activo\": \"a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2\",\n  \"codigo\": \"DEMO-001\",\n  \"descripcion\": \"Registro de prueba\",\n  \"placa\": \"ABC-123\",\n  \"marca\": \"Toyota\",\n  \"modelo\": \"Hilux\",\n  \"numero_serie\": \"SN-DEMO-001\",\n  \"anio_fabricacion\": \"2022\",\n  \"costo_adquisicion\": \"120000.00\",\n  \"tiempo_vida_meses\": \"60\",\n  \"depreciacion_mensual\": \"2000.00\",\n  \"importe_base_recuperable\": \"120000.00\",\n  \"fecha_inicio_depreciacion\": \"2024-01-01\",\n  \"fecha_fin_depreciacion\": \"2029-01-01\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "POST  registrar_herramienta",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/registrar_herramienta",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "registrar_herramienta"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_tipo_herramienta\": \"a3a3a3a3-a3a3-a3a3-a3a3-a3a3a3a3a3a3\",\n  \"codigo\": \"DEMO-001\",\n  \"descripcion\": \"Registro de prueba\",\n  \"marca\": \"Toyota\",\n  \"modelo\": \"Hilux\",\n  \"numero_serie\": \"SN-DEMO-001\",\n  \"costo_adquisicion\": \"120000.00\",\n  \"tiempo_vida_meses\": \"60\",\n  \"fecha_inicio_depreciacion\": \"2024-01-01\",\n  \"fecha_fin_depreciacion\": \"2029-01-01\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "POST  asignar_activo_a_contrato",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/asignar_activo_a_contrato",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "asignar_activo_a_contrato"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_activo\": \"b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_zona\": \"44444444-4444-4444-4444-444444444444\",\n  \"inversion_asignada\": \"50000.00\",\n  \"cuota_recuperacion_mensual\": \"1000.00\",\n  \"fecha_inicio\": \"2024-01-01\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "POST  mover_herramienta",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/mover_herramienta",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "mover_herramienta"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_herramienta\": \"b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"tipo_movimiento\": \"ENTRADA\",\n  \"fecha\": \"2024-01-15\",\n  \"id_contrato_origen\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_zona_origen\": \"44444444-4444-4444-4444-444444444444\",\n  \"id_contrato_destino\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_zona_destino\": \"44444444-4444-4444-4444-444444444444\",\n  \"cantidad\": \"1\",\n  \"costo\": \"100.00\",\n  \"valorizacion\": \"120.00\",\n  \"motivo\": \"Demo\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "POST  registrar_trabajo_activo",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/registrar_trabajo_activo",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "registrar_trabajo_activo"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_activo\": \"b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_zona\": \"44444444-4444-4444-4444-444444444444\",\n  \"id_operario\": \"55555555-5555-5555-5555-555555555555\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"fecha\": \"2024-01-15\",\n  \"fecha_hora_inicio\": \"2024-01-15T08:00:00Z\",\n  \"fecha_hora_fin\": \"2024-01-15T16:00:00Z\",\n  \"horas_trabajadas\": \"8\",\n  \"descripcion_trabajo\": \"Mantenimiento\",\n  \"valorizacion_trabajo\": \"500.00\",\n  \"dias_depreciados\": \"1\",\n  \"kilometraje_inicio\": \"1000\",\n  \"kilometraje_fin\": \"1080\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "POST  registrar_traslado_activo",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/registrar_traslado_activo",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "registrar_traslado_activo"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_activo\": \"b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1\",\n  \"id_contrato_origen\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_zona_origen\": \"44444444-4444-4444-4444-444444444444\",\n  \"id_contrato_destino\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_zona_destino\": \"44444444-4444-4444-4444-444444444444\",\n  \"fecha_traslado\": \"2024-01-20\",\n  \"motivo\": \"Demo\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "POST  ejecutar_recuperacion_mensual",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/activos_e_inversion/ejecutar_recuperacion_mensual",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "activos_e_inversion",
-                "ejecutar_recuperacion_mensual"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_activo\": \"b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"parado\": \"false\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
+         "key": "cursor_id",
+         "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+         "disabled": true
         }
-      ]
+       ]
+      }
+     }
     },
     {
-      "name": "Cierre Mensual",
-      "item": [
+     "name": "GET  listar_tipos_adquisicion_activo",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/listar_tipos_adquisicion_activo",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "listar_tipos_adquisicion_activo"
+       ],
+       "query": [
         {
-          "name": "GET  listar_cierres_mensuales",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/cierre_mensual/listar_cierres_mensuales",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "cierre_mensual",
-                "listar_cierres_mensuales"
-              ],
-              "query": [
-                {
-                  "key": "id_contrato",
-                  "value": "cccccccc-cccc-cccc-cccc-cccccccccccc",
-                  "disabled": false
-                },
-                {
-                  "key": "id_periodo",
-                  "value": "33333333-3333-3333-3333-333333333333",
-                  "disabled": false
-                },
-                {
-                  "key": "estado",
-                  "value": "BORRADOR",
-                  "disabled": false
-                },
-                {
-                  "key": "limite",
-                  "value": "20",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_creado_en",
-                  "value": "2999-01-01T00:00:00Z",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_id",
-                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                  "disabled": false
-                }
-              ]
-            }
-          }
+         "key": "estado",
+         "value": "",
+         "disabled": true
         },
         {
-          "name": "GET  listar_penalidades",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/cierre_mensual/listar_penalidades",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "cierre_mensual",
-                "listar_penalidades"
-              ],
-              "query": [
-                {
-                  "key": "id_contrato",
-                  "value": "cccccccc-cccc-cccc-cccc-cccccccccccc",
-                  "disabled": false
-                },
-                {
-                  "key": "id_periodo",
-                  "value": "33333333-3333-3333-3333-333333333333",
-                  "disabled": false
-                },
-                {
-                  "key": "limite",
-                  "value": "20",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_creado_en",
-                  "value": "2999-01-01T00:00:00Z",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_id",
-                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                  "disabled": false
-                }
-              ]
-            }
-          }
+         "key": "texto_busqueda",
+         "value": "",
+         "disabled": true
         },
         {
-          "name": "GET  listar_provisiones",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/cierre_mensual/listar_provisiones",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "cierre_mensual",
-                "listar_provisiones"
-              ],
-              "query": [
-                {
-                  "key": "id_contrato",
-                  "value": "cccccccc-cccc-cccc-cccc-cccccccccccc",
-                  "disabled": false
-                },
-                {
-                  "key": "id_periodo",
-                  "value": "33333333-3333-3333-3333-333333333333",
-                  "disabled": false
-                },
-                {
-                  "key": "limite",
-                  "value": "20",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_creado_en",
-                  "value": "2999-01-01T00:00:00Z",
-                  "disabled": false
-                },
-                {
-                  "key": "cursor_id",
-                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                  "disabled": false
-                }
-              ]
-            }
-          }
+         "key": "limite_pagina",
+         "value": "20",
+         "disabled": true
         },
         {
-          "name": "GET  obtener_resumen_cierre_por_periodo",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/cierre_mensual/obtener_resumen_cierre_por_periodo",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "cierre_mensual",
-                "obtener_resumen_cierre_por_periodo"
-              ],
-              "query": [
-                {
-                  "key": "id_periodo",
-                  "value": "33333333-3333-3333-3333-333333333333",
-                  "disabled": false
-                }
-              ]
-            }
-          }
+         "key": "cursor_creado_en",
+         "value": "2999-01-01T00:00:00Z",
+         "disabled": true
         },
         {
-          "name": "POST  ejecutar_cierre_mensual",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/cierre_mensual/ejecutar_cierre_mensual",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "cierre_mensual",
-                "ejecutar_cierre_mensual"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"total_facturado\": \"100000.00\",\n  \"total_produccion\": \"95000.00\",\n  \"gastos_directos\": \"40000.00\",\n  \"gastos_varios_fijos\": \"1000.00\",\n  \"gastos_iniciales_periodo\": \"500.00\",\n  \"gastos_administrativos\": \"2000.00\",\n  \"gastos_indirectos\": \"1500.00\",\n  \"gastos_financieros\": \"300.00\",\n  \"gastos_sig\": \"200.00\",\n  \"impuesto_renta\": \"5000.00\",\n  \"renta_adicional\": \"0.00\",\n  \"reparto_utilidades\": \"0.00\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "POST  recalcular_cierre_mensual",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/cierre_mensual/recalcular_cierre_mensual",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "cierre_mensual",
-                "recalcular_cierre_mensual"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"total_facturado\": \"100000.00\",\n  \"total_produccion\": \"95000.00\",\n  \"gastos_directos\": \"40000.00\",\n  \"gastos_varios_fijos\": \"1000.00\",\n  \"gastos_iniciales_periodo\": \"500.00\",\n  \"gastos_administrativos\": \"2000.00\",\n  \"gastos_indirectos\": \"1500.00\",\n  \"gastos_financieros\": \"300.00\",\n  \"gastos_sig\": \"200.00\",\n  \"impuesto_renta\": \"5000.00\",\n  \"renta_adicional\": \"0.00\",\n  \"reparto_utilidades\": \"0.00\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "POST  cerrar_cierre_mensual",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/cierre_mensual/cerrar_cierre_mensual",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "cierre_mensual",
-                "cerrar_cierre_mensual"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "POST  consultar_resultado_contrato",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/cierre_mensual/consultar_resultado_contrato",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "cierre_mensual",
-                "consultar_resultado_contrato"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "POST  registrar_penalidad",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/cierre_mensual/registrar_penalidad",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "cierre_mensual",
-                "registrar_penalidad"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"descripcion\": \"Registro de prueba\",\n  \"importe\": \"250.00\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "POST  registrar_provision",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "X-Empresa-Id",
-                "value": "{{empresaId}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/cierre_mensual/registrar_provision",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "cierre_mensual",
-                "registrar_provision"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"descripcion\": \"Registro de prueba\",\n  \"importe\": \"250.00\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
+         "key": "cursor_id",
+         "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+         "disabled": true
         }
-      ]
+       ]
+      }
+     }
+    },
+    {
+     "name": "GET  listar_tipos_herramienta",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/listar_tipos_herramienta",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "listar_tipos_herramienta"
+       ],
+       "query": [
+        {
+         "key": "estado",
+         "value": "",
+         "disabled": true
+        },
+        {
+         "key": "texto_busqueda",
+         "value": "",
+         "disabled": true
+        },
+        {
+         "key": "limite_pagina",
+         "value": "20",
+         "disabled": true
+        },
+        {
+         "key": "cursor_creado_en",
+         "value": "2999-01-01T00:00:00Z",
+         "disabled": true
+        },
+        {
+         "key": "cursor_id",
+         "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+         "disabled": true
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "GET  listar_activos",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/listar_activos",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "listar_activos"
+       ],
+       "query": [
+        {
+         "key": "estado",
+         "value": "ACTIVO",
+         "disabled": false
+        },
+        {
+         "key": "id_clasificacion_activo",
+         "value": "a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1",
+         "disabled": false
+        },
+        {
+         "key": "busqueda",
+         "value": "a",
+         "disabled": false
+        },
+        {
+         "key": "limite",
+         "value": "20",
+         "disabled": false
+        },
+        {
+         "key": "cursor_creado_en",
+         "value": "2999-01-01T00:00:00Z",
+         "disabled": false
+        },
+        {
+         "key": "cursor_id",
+         "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+         "disabled": false
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "GET  obtener_detalle_activo",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/obtener_detalle_activo",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "obtener_detalle_activo"
+       ],
+       "query": [
+        {
+         "key": "id_activo",
+         "value": "b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1",
+         "disabled": false
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "GET  listar_herramientas",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/listar_herramientas",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "listar_herramientas"
+       ],
+       "query": [
+        {
+         "key": "estado",
+         "value": "ACTIVO",
+         "disabled": false
+        },
+        {
+         "key": "id_tipo_herramienta",
+         "value": "a3a3a3a3-a3a3-a3a3-a3a3-a3a3a3a3a3a3",
+         "disabled": false
+        },
+        {
+         "key": "texto_busqueda",
+         "value": "a",
+         "disabled": false
+        },
+        {
+         "key": "limite_pagina",
+         "value": "20",
+         "disabled": false
+        },
+        {
+         "key": "cursor_creado_en",
+         "value": "2999-01-01T00:00:00Z",
+         "disabled": false
+        },
+        {
+         "key": "cursor_id",
+         "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+         "disabled": false
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "GET  obtener_detalle_herramienta",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/obtener_detalle_herramienta",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "obtener_detalle_herramienta"
+       ],
+       "query": [
+        {
+         "key": "id_herramienta",
+         "value": "b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+         "disabled": false
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "GET  listar_movimientos_herramienta",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/listar_movimientos_herramienta",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "listar_movimientos_herramienta"
+       ],
+       "query": [
+        {
+         "key": "id_herramienta",
+         "value": "b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+         "disabled": false
+        },
+        {
+         "key": "id_periodo",
+         "value": "33333333-3333-3333-3333-333333333333",
+         "disabled": false
+        },
+        {
+         "key": "tipo_movimiento",
+         "value": "ENTRADA",
+         "disabled": false
+        },
+        {
+         "key": "limite",
+         "value": "20",
+         "disabled": false
+        },
+        {
+         "key": "cursor_creado_en",
+         "value": "2999-01-01T00:00:00Z",
+         "disabled": false
+        },
+        {
+         "key": "cursor_id",
+         "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+         "disabled": false
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "GET  listar_asignaciones_activo",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/listar_asignaciones_activo",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "listar_asignaciones_activo"
+       ],
+       "query": [
+        {
+         "key": "id_activo",
+         "value": "b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1",
+         "disabled": false
+        },
+        {
+         "key": "estado",
+         "value": "ACTIVO",
+         "disabled": false
+        },
+        {
+         "key": "limite",
+         "value": "20",
+         "disabled": false
+        },
+        {
+         "key": "cursor_creado_en",
+         "value": "2999-01-01T00:00:00Z",
+         "disabled": false
+        },
+        {
+         "key": "cursor_id",
+         "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+         "disabled": false
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "GET  listar_traslados_activo",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/listar_traslados_activo",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "listar_traslados_activo"
+       ],
+       "query": [
+        {
+         "key": "id_activo",
+         "value": "b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1",
+         "disabled": false
+        },
+        {
+         "key": "limite",
+         "value": "20",
+         "disabled": false
+        },
+        {
+         "key": "cursor_creado_en",
+         "value": "2999-01-01T00:00:00Z",
+         "disabled": false
+        },
+        {
+         "key": "cursor_id",
+         "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+         "disabled": false
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "GET  listar_trabajos_activo",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/listar_trabajos_activo",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "listar_trabajos_activo"
+       ],
+       "query": [
+        {
+         "key": "id_activo",
+         "value": "b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1",
+         "disabled": false
+        },
+        {
+         "key": "id_contrato",
+         "value": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+         "disabled": false
+        },
+        {
+         "key": "id_periodo",
+         "value": "33333333-3333-3333-3333-333333333333",
+         "disabled": false
+        },
+        {
+         "key": "limite",
+         "value": "20",
+         "disabled": false
+        },
+        {
+         "key": "cursor_creado_en",
+         "value": "2999-01-01T00:00:00Z",
+         "disabled": false
+        },
+        {
+         "key": "cursor_id",
+         "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+         "disabled": false
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "GET  listar_recuperaciones_inversion",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/listar_recuperaciones_inversion",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "listar_recuperaciones_inversion"
+       ],
+       "query": [
+        {
+         "key": "id_activo",
+         "value": "b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1",
+         "disabled": false
+        },
+        {
+         "key": "id_contrato",
+         "value": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+         "disabled": false
+        },
+        {
+         "key": "id_periodo",
+         "value": "33333333-3333-3333-3333-333333333333",
+         "disabled": false
+        },
+        {
+         "key": "limite",
+         "value": "20",
+         "disabled": false
+        },
+        {
+         "key": "cursor_creado_en",
+         "value": "2999-01-01T00:00:00Z",
+         "disabled": false
+        },
+        {
+         "key": "cursor_id",
+         "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+         "disabled": false
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "POST  registrar_activo",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       },
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/registrar_activo",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "registrar_activo"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_clasificacion_activo\": \"a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1\",\n  \"id_tipo_adquisicion_activo\": \"a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2\",\n  \"codigo\": \"DEMO-001\",\n  \"descripcion\": \"Registro de prueba\",\n  \"placa\": \"ABC-123\",\n  \"marca\": \"Toyota\",\n  \"modelo\": \"Hilux\",\n  \"numero_serie\": \"SN-DEMO-001\",\n  \"anio_fabricacion\": \"2022\",\n  \"costo_adquisicion\": \"120000.00\",\n  \"tiempo_vida_meses\": \"60\",\n  \"depreciacion_mensual\": \"2000.00\",\n  \"importe_base_recuperable\": \"120000.00\",\n  \"fecha_inicio_depreciacion\": \"2024-01-01\",\n  \"fecha_fin_depreciacion\": \"2029-01-01\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST  registrar_herramienta",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       },
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/registrar_herramienta",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "registrar_herramienta"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_tipo_herramienta\": \"a3a3a3a3-a3a3-a3a3-a3a3-a3a3a3a3a3a3\",\n  \"codigo\": \"DEMO-001\",\n  \"descripcion\": \"Registro de prueba\",\n  \"marca\": \"Toyota\",\n  \"modelo\": \"Hilux\",\n  \"numero_serie\": \"SN-DEMO-001\",\n  \"costo_adquisicion\": \"120000.00\",\n  \"tiempo_vida_meses\": \"60\",\n  \"fecha_inicio_depreciacion\": \"2024-01-01\",\n  \"fecha_fin_depreciacion\": \"2029-01-01\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST  asignar_activo_a_contrato",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       },
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/asignar_activo_a_contrato",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "asignar_activo_a_contrato"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_activo\": \"b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_zona\": \"44444444-4444-4444-4444-444444444444\",\n  \"inversion_asignada\": \"50000.00\",\n  \"cuota_recuperacion_mensual\": \"1000.00\",\n  \"fecha_inicio\": \"2024-01-01\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST  mover_herramienta",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       },
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/mover_herramienta",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "mover_herramienta"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_herramienta\": \"b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"tipo_movimiento\": \"ENTRADA\",\n  \"fecha\": \"2024-01-15\",\n  \"id_contrato_origen\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_zona_origen\": \"44444444-4444-4444-4444-444444444444\",\n  \"id_contrato_destino\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_zona_destino\": \"44444444-4444-4444-4444-444444444444\",\n  \"cantidad\": \"1\",\n  \"costo\": \"100.00\",\n  \"valorizacion\": \"120.00\",\n  \"motivo\": \"Demo\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST  registrar_trabajo_activo",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       },
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/registrar_trabajo_activo",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "registrar_trabajo_activo"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_activo\": \"b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_zona\": \"44444444-4444-4444-4444-444444444444\",\n  \"id_operario\": \"55555555-5555-5555-5555-555555555555\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"fecha\": \"2024-01-15\",\n  \"fecha_hora_inicio\": \"2024-01-15T08:00:00Z\",\n  \"fecha_hora_fin\": \"2024-01-15T16:00:00Z\",\n  \"horas_trabajadas\": \"8\",\n  \"descripcion_trabajo\": \"Mantenimiento\",\n  \"valorizacion_trabajo\": \"500.00\",\n  \"dias_depreciados\": \"1\",\n  \"kilometraje_inicio\": \"1000\",\n  \"kilometraje_fin\": \"1080\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST  registrar_traslado_activo",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       },
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/registrar_traslado_activo",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "registrar_traslado_activo"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_activo\": \"b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1\",\n  \"id_contrato_origen\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_zona_origen\": \"44444444-4444-4444-4444-444444444444\",\n  \"id_contrato_destino\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_zona_destino\": \"44444444-4444-4444-4444-444444444444\",\n  \"fecha_traslado\": \"2024-01-20\",\n  \"motivo\": \"Demo\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST  ejecutar_recuperacion_mensual",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       },
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/ejecutar_recuperacion_mensual",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "ejecutar_recuperacion_mensual"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_activo\": \"b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"parado\": \"false\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST  registrar_clasificacion_activo",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       },
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/registrar_clasificacion_activo",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "registrar_clasificacion_activo"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"codigo\": \"CL-DEMO\",\n  \"descripcion\": \"Clasificacion de prueba\",\n  \"es_capitalizable\": true\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST  registrar_tipo_adquisicion_activo",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       },
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/registrar_tipo_adquisicion_activo",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "registrar_tipo_adquisicion_activo"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"codigo\": \"TA-DEMO\",\n  \"descripcion\": \"Tipo de adquisicion de prueba\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST  registrar_tipo_herramienta",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       },
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/registrar_tipo_herramienta",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "registrar_tipo_herramienta"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"codigo\": \"TH-DEMO\",\n  \"descripcion\": \"Tipo de herramienta de prueba\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "DELETE  dar_de_baja_activo",
+     "request": {
+      "method": "DELETE",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/activos_e_inversion/dar_de_baja_activo?id_usuario_accion={{usuarioId}}&id_activo=b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "activos_e_inversion",
+        "dar_de_baja_activo"
+       ],
+       "query": [
+        {
+         "key": "id_usuario_accion",
+         "value": "{{usuarioId}}",
+         "disabled": false
+        },
+        {
+         "key": "id_activo",
+         "value": "b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1",
+         "disabled": false
+        }
+       ]
+      }
+     }
     }
-  ]
+   ]
+  },
+  {
+   "name": "Cierre Mensual",
+   "item": [
+    {
+     "name": "GET  listar_cierres_mensuales",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/cierre_mensual/listar_cierres_mensuales",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "cierre_mensual",
+        "listar_cierres_mensuales"
+       ],
+       "query": [
+        {
+         "key": "id_contrato",
+         "value": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+         "disabled": false
+        },
+        {
+         "key": "id_periodo",
+         "value": "33333333-3333-3333-3333-333333333333",
+         "disabled": false
+        },
+        {
+         "key": "estado",
+         "value": "BORRADOR",
+         "disabled": false
+        },
+        {
+         "key": "limite",
+         "value": "20",
+         "disabled": false
+        },
+        {
+         "key": "cursor_creado_en",
+         "value": "2999-01-01T00:00:00Z",
+         "disabled": false
+        },
+        {
+         "key": "cursor_id",
+         "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+         "disabled": false
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "GET  listar_penalidades",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/cierre_mensual/listar_penalidades",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "cierre_mensual",
+        "listar_penalidades"
+       ],
+       "query": [
+        {
+         "key": "id_contrato",
+         "value": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+         "disabled": false
+        },
+        {
+         "key": "id_periodo",
+         "value": "33333333-3333-3333-3333-333333333333",
+         "disabled": false
+        },
+        {
+         "key": "limite",
+         "value": "20",
+         "disabled": false
+        },
+        {
+         "key": "cursor_creado_en",
+         "value": "2999-01-01T00:00:00Z",
+         "disabled": false
+        },
+        {
+         "key": "cursor_id",
+         "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+         "disabled": false
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "GET  listar_provisiones",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/cierre_mensual/listar_provisiones",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "cierre_mensual",
+        "listar_provisiones"
+       ],
+       "query": [
+        {
+         "key": "id_contrato",
+         "value": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+         "disabled": false
+        },
+        {
+         "key": "id_periodo",
+         "value": "33333333-3333-3333-3333-333333333333",
+         "disabled": false
+        },
+        {
+         "key": "limite",
+         "value": "20",
+         "disabled": false
+        },
+        {
+         "key": "cursor_creado_en",
+         "value": "2999-01-01T00:00:00Z",
+         "disabled": false
+        },
+        {
+         "key": "cursor_id",
+         "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+         "disabled": false
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "GET  obtener_resumen_cierre_por_periodo",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/cierre_mensual/obtener_resumen_cierre_por_periodo",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "cierre_mensual",
+        "obtener_resumen_cierre_por_periodo"
+       ],
+       "query": [
+        {
+         "key": "id_periodo",
+         "value": "33333333-3333-3333-3333-333333333333",
+         "disabled": false
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "POST  ejecutar_cierre_mensual",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       },
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/cierre_mensual/ejecutar_cierre_mensual",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "cierre_mensual",
+        "ejecutar_cierre_mensual"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"total_facturado\": \"100000.00\",\n  \"total_produccion\": \"95000.00\",\n  \"gastos_directos\": \"40000.00\",\n  \"gastos_varios_fijos\": \"1000.00\",\n  \"gastos_iniciales_periodo\": \"500.00\",\n  \"gastos_administrativos\": \"2000.00\",\n  \"gastos_indirectos\": \"1500.00\",\n  \"gastos_financieros\": \"300.00\",\n  \"gastos_sig\": \"200.00\",\n  \"impuesto_renta\": \"5000.00\",\n  \"renta_adicional\": \"0.00\",\n  \"reparto_utilidades\": \"0.00\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST  recalcular_cierre_mensual",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       },
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/cierre_mensual/recalcular_cierre_mensual",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "cierre_mensual",
+        "recalcular_cierre_mensual"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"total_facturado\": \"100000.00\",\n  \"total_produccion\": \"95000.00\",\n  \"gastos_directos\": \"40000.00\",\n  \"gastos_varios_fijos\": \"1000.00\",\n  \"gastos_iniciales_periodo\": \"500.00\",\n  \"gastos_administrativos\": \"2000.00\",\n  \"gastos_indirectos\": \"1500.00\",\n  \"gastos_financieros\": \"300.00\",\n  \"gastos_sig\": \"200.00\",\n  \"impuesto_renta\": \"5000.00\",\n  \"renta_adicional\": \"0.00\",\n  \"reparto_utilidades\": \"0.00\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST  cerrar_cierre_mensual",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       },
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/cierre_mensual/cerrar_cierre_mensual",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "cierre_mensual",
+        "cerrar_cierre_mensual"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST  consultar_resultado_contrato",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       },
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/cierre_mensual/consultar_resultado_contrato",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "cierre_mensual",
+        "consultar_resultado_contrato"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST  registrar_penalidad",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       },
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/cierre_mensual/registrar_penalidad",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "cierre_mensual",
+        "registrar_penalidad"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"descripcion\": \"Registro de prueba\",\n  \"importe\": \"250.00\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST  registrar_provision",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "X-Empresa-Id",
+        "value": "{{empresaId}}"
+       },
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/cierre_mensual/registrar_provision",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "cierre_mensual",
+        "registrar_provision"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"descripcion\": \"Registro de prueba\",\n  \"importe\": \"250.00\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  }
+ ]
 }
