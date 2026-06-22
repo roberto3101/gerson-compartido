@@ -5017,3 +5017,212 @@ EXCEPTION
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPOS_HERRAMIENTA_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar los tipos de herramienta');
 END;
 $$;
+
+-- ---- INDICES ESTRELLA DE CATALOGO (listado) ----
+CREATE INDEX idx_star_clasificacion_activo_listado ON clasificacion_activo (id_empresa, creado_en DESC, id DESC) STORING (codigo, descripcion, es_capitalizable, estado) WHERE eliminado_en IS NULL;
+CREATE INDEX idx_star_tipo_adquisicion_activo_listado ON tipo_adquisicion_activo (id_empresa, creado_en DESC, id DESC) STORING (codigo, descripcion, estado) WHERE eliminado_en IS NULL;
+CREATE INDEX idx_star_tipo_herramienta_listado ON tipo_herramienta (id_empresa, creado_en DESC, id DESC) STORING (codigo, descripcion, estado) WHERE eliminado_en IS NULL;
+
+-- ---- PROCEDIMIENTOS NUEVOS (registro de catalogos + baja de activo) ----
+
+CREATE OR REPLACE FUNCTION fn_registrar_clasificacion_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_codigo STRING,
+  p_descripcion STRING,
+  p_es_capitalizable BOOL DEFAULT true
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_clasificacion UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_codigo IS NULL OR char_length(trim(p_codigo)) = 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CODIGO_OBLIGATORIO', 'mensaje', 'El codigo de la clasificacion es obligatorio');
+  END IF;
+
+  IF p_descripcion IS NULL OR char_length(trim(p_descripcion)) = 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'DESCRIPCION_OBLIGATORIA', 'mensaje', 'La descripcion de la clasificacion es obligatoria');
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM clasificacion_activo
+    WHERE id_empresa = p_id_empresa AND codigo = trim(p_codigo) AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CLASIFICACION_ACTIVO_CODIGO_DUPLICADO', 'mensaje', 'Ya existe una clasificacion de activo con ese codigo en la empresa');
+  END IF;
+
+  INSERT INTO clasificacion_activo (
+    id_empresa, codigo, descripcion, es_capitalizable, estado, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, trim(p_codigo), trim(p_descripcion), COALESCE(p_es_capitalizable, true), 'ACTIVO', p_id_usuario_accion
+  ) RETURNING id INTO v_id_clasificacion;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'CLASIFICACION_ACTIVO_REGISTRADA',
+    'mensaje', 'La clasificacion de activo fue registrada correctamente',
+    'datos', jsonb_build_object('id_clasificacion_activo', v_id_clasificacion)
+  );
+EXCEPTION
+  WHEN unique_violation THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CLASIFICACION_ACTIVO_CODIGO_DUPLICADO', 'mensaje', 'Ya existe una clasificacion de activo con ese codigo en la empresa');
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CLASIFICACION_ACTIVO_REGISTRO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al registrar la clasificacion de activo');
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION fn_registrar_tipo_adquisicion_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_codigo STRING,
+  p_descripcion STRING
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_tipo UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_codigo IS NULL OR char_length(trim(p_codigo)) = 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CODIGO_OBLIGATORIO', 'mensaje', 'El codigo del tipo de adquisicion es obligatorio');
+  END IF;
+
+  IF p_descripcion IS NULL OR char_length(trim(p_descripcion)) = 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'DESCRIPCION_OBLIGATORIA', 'mensaje', 'La descripcion del tipo de adquisicion es obligatoria');
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM tipo_adquisicion_activo
+    WHERE id_empresa = p_id_empresa AND codigo = trim(p_codigo) AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_ADQUISICION_ACTIVO_CODIGO_DUPLICADO', 'mensaje', 'Ya existe un tipo de adquisicion con ese codigo en la empresa');
+  END IF;
+
+  INSERT INTO tipo_adquisicion_activo (
+    id_empresa, codigo, descripcion, estado, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, trim(p_codigo), trim(p_descripcion), 'ACTIVO', p_id_usuario_accion
+  ) RETURNING id INTO v_id_tipo;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'TIPO_ADQUISICION_ACTIVO_REGISTRADO',
+    'mensaje', 'El tipo de adquisicion de activo fue registrado correctamente',
+    'datos', jsonb_build_object('id_tipo_adquisicion_activo', v_id_tipo)
+  );
+EXCEPTION
+  WHEN unique_violation THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_ADQUISICION_ACTIVO_CODIGO_DUPLICADO', 'mensaje', 'Ya existe un tipo de adquisicion con ese codigo en la empresa');
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_ADQUISICION_ACTIVO_REGISTRO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al registrar el tipo de adquisicion de activo');
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION fn_registrar_tipo_herramienta(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_codigo STRING,
+  p_descripcion STRING
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_tipo UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_codigo IS NULL OR char_length(trim(p_codigo)) = 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CODIGO_OBLIGATORIO', 'mensaje', 'El codigo del tipo de herramienta es obligatorio');
+  END IF;
+
+  IF p_descripcion IS NULL OR char_length(trim(p_descripcion)) = 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'DESCRIPCION_OBLIGATORIA', 'mensaje', 'La descripcion del tipo de herramienta es obligatoria');
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM tipo_herramienta
+    WHERE id_empresa = p_id_empresa AND codigo = trim(p_codigo) AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_HERRAMIENTA_CODIGO_DUPLICADO', 'mensaje', 'Ya existe un tipo de herramienta con ese codigo en la empresa');
+  END IF;
+
+  INSERT INTO tipo_herramienta (
+    id_empresa, codigo, descripcion, estado, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, trim(p_codigo), trim(p_descripcion), 'ACTIVO', p_id_usuario_accion
+  ) RETURNING id INTO v_id_tipo;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'TIPO_HERRAMIENTA_REGISTRADO',
+    'mensaje', 'El tipo de herramienta fue registrado correctamente',
+    'datos', jsonb_build_object('id_tipo_herramienta', v_id_tipo)
+  );
+EXCEPTION
+  WHEN unique_violation THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_HERRAMIENTA_CODIGO_DUPLICADO', 'mensaje', 'Ya existe un tipo de herramienta con ese codigo en la empresa');
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_HERRAMIENTA_REGISTRO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al registrar el tipo de herramienta');
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION fn_dar_de_baja_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_activo UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM activo
+  WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_ENCONTRADO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
+  END IF;
+
+  IF v_estado = 'BAJA' THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_YA_DADO_DE_BAJA', 'mensaje', 'El activo ya se encuentra dado de baja');
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM activo_asignacion_contrato
+    WHERE id_activo = p_id_activo AND id_empresa = p_id_empresa AND estado = 'ACTIVO'
+      AND eliminado_en IS NULL AND saldo_inversion_pendiente > 0
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_CON_INVERSION_PENDIENTE', 'mensaje', 'No se puede dar de baja el activo: tiene una asignacion activa con inversion pendiente de recuperar');
+  END IF;
+
+  UPDATE activo
+  SET estado = 'BAJA', actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_activo AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'ACTIVO_DADO_DE_BAJA',
+    'mensaje', 'El activo fue dado de baja correctamente',
+    'datos', jsonb_build_object('id_activo', p_id_activo, 'estado', 'BAJA')
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_BAJA_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al dar de baja el activo');
+END;
+$$;
+
