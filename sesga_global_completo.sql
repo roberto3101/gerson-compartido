@@ -2,10 +2,18 @@
 -- sesga_global_completo.sql  -  BD GLOBAL: todas las capacidades de todos los grupos
 -- Generada desde codeplexMaster para pruebas locales (CockroachDB v26).
 -- Contenido: 47 tablas + 1 stub + todos los indices + 37 funciones que compilan
---            + SEMILLAS DEMO al final (1 empresa vigente, 1 usuario, 2 periodos,
---              catalogos de todas las capacidades y datos demo del grupo 5:
---              clasificaciones/tipos, 2 activos, 1 herramienta, 1 cliente, 1 contrato,
---              1 asignacion de activo a contrato con inversion pendiente).
+--            + SEMILLAS DEMO al final que pueblan las 48 tablas (TODAS las entidades):
+--              empresa vigente, usuario, usuario_empresa, 2 periodos, roles/permisos;
+--              catalogos completos (estado/tipo de contrato, grupo de actividad, zona,
+--              cliente, contrato, tipo/clasificacion de gasto, linea de servicio,
+--              clasificaciones/tipos de activo y herramienta); y datos transaccionales
+--              demo de cada capacidad: proveedor, gasto directo, ERP importacion y detalle,
+--              contrato_zona, porcentaje de distribucion, gasto fijo, gasto inicial,
+--              operario, rubro, produccion mensual y detalle, facturacion contractual y
+--              detalle, valorizacion mensual y complementaria con sus detalles, 2 activos,
+--              herramienta, asignacion, trabajo, traslado, movimiento de herramienta,
+--              recuperacion de inversion, penalidad, provision, cierre mensual y usuario_rol.
+--              Verificado: las 48 tablas quedan pobladas y el script carga sin errores en v26.
 --
 -- USO (Gerson): ejecutar UNA sola vez en CockroachDB v26 y queda lista para usar:
 --   cockroach sql --insecure --host=localhost:26260 --file sesga_global_completo.sql
@@ -5235,30 +5243,26 @@ END;
 $$;
 
 
-
-
 -- ====================================================================
--- SEMILLAS DEMO  -  datos de arranque para una empresa operativa completa
--- UUIDs fijos para poder referenciarlos entre tablas.
+-- SEMILLAS DEMO GLOBAL  -  datos de arranque para TODAS las capacidades
+-- UUIDs fijos (anclas) para FK consistentes. Orden por dependencias FK.
 -- ====================================================================
 
--- 1) Empresa base (multi-tenant: todo cuelga de aqui)
+-- ===== NUCLEO: empresa, usuario, periodos =====
 INSERT INTO empresa (id, ruc, razon_social, nombre_comercial, direccion, telefono, correo_electronico, estado)
 VALUES ('11111111-1111-1111-1111-111111111111', '20100010001', 'SESGA REYSER DEMO S.A.C.', 'SESGA REYSER', 'Av. Operativa 100, Lima', '014440000', 'contacto@sesgareyser.com', 'ACTIVO');
 
--- 2) Usuario base + vinculo a la empresa (para auditoria y acciones)
 INSERT INTO usuario (id, correo_electronico, clave_hash, nombres, apellidos, estado)
 VALUES ('22222222-2222-2222-2222-222222222222', 'admin@sesgareyser.com', 'demo-no-usar-en-produccion', 'Administrador', 'Demo', 'ACTIVO');
 
 INSERT INTO usuario_empresa (id_empresa, id_usuario, estado)
 VALUES ('11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'ACTIVO');
 
--- 3) Periodos operativos
 INSERT INTO periodo (id, id_empresa, anio, mes, codigo_periodo, fecha_inicio, fecha_fin, estado) VALUES
 ('33333333-3333-3333-3333-333333330001', '11111111-1111-1111-1111-111111111111', 2026, 1, '2026-01', '2026-01-01', '2026-01-31', 'ABIERTO'),
 ('33333333-3333-3333-3333-333333330002', '11111111-1111-1111-1111-111111111111', 2026, 2, '2026-02', '2026-02-01', '2026-02-28', 'ABIERTO');
 
--- 4) Gobierno central: roles + permisos
+-- ===== GOBIERNO: roles + permisos =====
 INSERT INTO rol (id, id_empresa, nombre, descripcion, estado) VALUES
 ('aa000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'ADMINISTRADOR', 'Acceso total a la plataforma operativa', 'ACTIVO'),
 (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'SUPERVISOR', 'Supervision y aprobacion operativa', 'ACTIVO'),
@@ -5270,7 +5274,7 @@ INSERT INTO permiso (id_empresa, id_rol, modulo, accion) VALUES
 ('11111111-1111-1111-1111-111111111111', 'aa000000-0000-0000-0000-000000000001', 'ACTIVOS', 'LISTAR'),
 ('11111111-1111-1111-1111-111111111111', 'aa000000-0000-0000-0000-000000000001', 'CIERRE', 'EJECUTAR');
 
--- 5) Contratos: catalogos base
+-- ===== CONTRATOS: catalogos base =====
 INSERT INTO estado_contrato (id, id_empresa, codigo, descripcion, es_vigente, estado) VALUES
 (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'BORRADOR', 'Contrato en preparacion', false, 'ACTIVO'),
 ('ec000000-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'VIGENTE', 'Contrato vigente y operativo', true, 'ACTIVO'),
@@ -5296,18 +5300,18 @@ INSERT INTO cliente (id, id_empresa, ruc, razon_social, estado) VALUES
 INSERT INTO contrato (id, id_empresa, id_tipo_contrato, id_estado_contrato, id_cliente, codigo, nombre) VALUES
 ('cc000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', '7c000000-0000-0000-0000-000000000001', 'ec000000-0000-0000-0000-000000000002', '55555555-5555-5555-5555-555555555555', 'CT-2026-001', 'Servicio operativo zona Lima 2026');
 
--- 6) Costeo directo: catalogos base
+-- ===== COSTEO: catalogos =====
 INSERT INTO tipo_clasificacion_gasto (id, id_empresa, codigo, descripcion) VALUES
 ('7d000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'DIRECTO', 'Gasto directo de operacion');
 
-INSERT INTO clasificacion_gasto (id_empresa, id_tipo_clasificacion_gasto, codigo, descripcion) VALUES
-('11111111-1111-1111-1111-111111111111', '7d000000-0000-0000-0000-000000000001', 'COMBUSTIBLE', 'Combustible y lubricantes');
+INSERT INTO clasificacion_gasto (id, id_empresa, id_tipo_clasificacion_gasto, codigo, descripcion) VALUES
+('7d000000-0000-0000-0000-000000000011', '11111111-1111-1111-1111-111111111111', '7d000000-0000-0000-0000-000000000001', 'COMBUSTIBLE', 'Combustible y lubricantes');
 
--- 7) Produccion: catalogo base
-INSERT INTO linea_servicio (id_empresa, id_grupo_actividad, codigo, nombre) VALUES
-('11111111-1111-1111-1111-111111111111', '6a000000-0000-0000-0000-000000000001', 'LS-001', 'Linea de servicio operativa');
+-- ===== PRODUCCION: catalogo linea_servicio =====
+INSERT INTO linea_servicio (id, id_empresa, id_grupo_actividad, codigo, nombre) VALUES
+('1c000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', '6a000000-0000-0000-0000-000000000001', 'LS-001', 'Linea de servicio operativa');
 
--- 8) Activos e inversion: catalogos
+-- ===== ACTIVOS: catalogos + demo =====
 INSERT INTO clasificacion_activo (id, id_empresa, codigo, descripcion, es_capitalizable, estado) VALUES
 ('a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', '11111111-1111-1111-1111-111111111111', 'VEHICULO', 'Vehiculo operativo', true, 'ACTIVO'),
 (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'MAQUINARIA', 'Maquinaria y equipo mayor', true, 'ACTIVO'),
@@ -5326,7 +5330,6 @@ INSERT INTO tipo_herramienta (id, id_empresa, codigo, descripcion, estado) VALUE
 (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'MEDICION', 'Herramienta de medicion', 'ACTIVO'),
 (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'SEGURIDAD', 'Herramienta o kit de seguridad', 'ACTIVO');
 
--- 9) Activos e inversion: datos demo
 INSERT INTO activo (id, id_empresa, id_clasificacion_activo, id_tipo_adquisicion_activo, codigo, descripcion, placa, marca, modelo, anio_fabricacion, costo_adquisicion, tiempo_vida_meses, depreciacion_mensual, importe_base_recuperable, fecha_inicio_depreciacion, fecha_fin_depreciacion, estado) VALUES
 ('b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1', '11111111-1111-1111-1111-111111111111', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2', 'ACT-001', 'Camioneta Toyota Hilux', 'ABC-123', 'Toyota', 'Hilux 4x4', 2024, 120000.00, 60, 2000.00, 120000.00, '2026-01-01', '2030-12-31', 'ACTIVO'),
 ('b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b2', '11111111-1111-1111-1111-111111111111', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2', 'ACT-002', 'Volquete Volvo FMX', 'XYZ-789', 'Volvo', 'FMX', 2023, 300000.00, 120, 2500.00, 300000.00, '2026-01-01', '2035-12-31', 'ACTIVO');
@@ -5334,6 +5337,43 @@ INSERT INTO activo (id, id_empresa, id_clasificacion_activo, id_tipo_adquisicion
 INSERT INTO herramienta (id, id_empresa, id_tipo_herramienta, codigo, descripcion, marca, modelo, costo_adquisicion, tiempo_vida_meses, fecha_inicio_depreciacion, fecha_fin_depreciacion, estado) VALUES
 ('b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2', '11111111-1111-1111-1111-111111111111', 'a3a3a3a3-a3a3-a3a3-a3a3-a3a3a3a3a3a3', 'HER-001', 'Taladro percutor', 'Bosch', 'GSB-550', 450.00, 36, '2026-01-01', '2028-12-31', 'ACTIVO');
 
--- 10) Asignacion de activo a contrato (con inversion pendiente de recuperar)
 INSERT INTO activo_asignacion_contrato (id, id_empresa, id_activo, id_contrato, id_zona, inversion_asignada, saldo_inversion_pendiente, cuota_recuperacion_mensual, fecha_inicio, estado) VALUES
 ('d1d1d1d1-d1d1-d1d1-d1d1-d1d1d1d1d1d1', '11111111-1111-1111-1111-111111111111', 'b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1', 'cc000000-0000-0000-0000-000000000001', '44444444-4444-4444-4444-444444444444', 120000.00, 100000.00, 10000.00, '2026-01-01', 'ACTIVO');
+
+-- ===== COSTEO: proveedor + transaccional =====
+INSERT INTO proveedor (id, id_empresa, tipo_documento_identidad, nro_documento, razon_social, nombre_comercial, direccion, telefono, correo_electronico, contacto, estado, creado_por_usuario_id) VALUES ('e0000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'RUC', '20512345678', 'PROVEEDOR DEMO SAC', 'Proveedor Demo', 'Av. Industrial 123, Lima', '014567890', 'contacto@proveedordemo.pe', 'Juan Perez', 'ACTIVO', '22222222-2222-2222-2222-222222222222');
+INSERT INTO erp_importacion (id, id_empresa, id_periodo, id_clasificacion_gasto, fecha_importacion, tipo_datos, archivo_origen, total_registros, registros_ok, registros_error, estado, creado_por_usuario_id) VALUES ('e5000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', '33333333-3333-3333-3333-333333330001', '7d000000-0000-0000-0000-000000000011', '2026-01-15 10:00:00+00', 'GASTOS', 'gastos_enero_2026.csv', 1, 1, 0, 'PROCESADO', '22222222-2222-2222-2222-222222222222');
+INSERT INTO gasto_directo (id, id_empresa, id_contrato, id_zona, id_periodo, id_clasificacion_gasto, id_proveedor, origen, tipo_documento, erp_serie, erp_numero, erp_fecha, descripcion, importe, estado, creado_por_usuario_id) VALUES ('e4000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'cc000000-0000-0000-0000-000000000001', '44444444-4444-4444-4444-444444444444', '33333333-3333-3333-3333-333333330001', '7d000000-0000-0000-0000-000000000011', 'e0000000-0000-0000-0000-000000000001', 'ERP', 'FACT', 'F001', '00012345', '2026-01-10', 'Compra de combustible enero 2026', 1500.00, 'ACTIVO', '22222222-2222-2222-2222-222222222222');
+INSERT INTO erp_importacion_detalle (id, id_empresa, id_erp_importacion, datos_raw, id_gasto_directo, estado, error_mensaje) VALUES (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'e5000000-0000-0000-0000-000000000001', '{"serie": "F001", "numero": "00012345", "fecha": "2026-01-10", "ruc": "20512345678", "importe": 1500.00, "descripcion": "Compra de combustible enero 2026"}', 'e4000000-0000-0000-0000-000000000001', 'PROCESADO', NULL);
+
+-- ===== CONTRATOS: relaciones (contrato_gasto_fijo usa proveedor) =====
+INSERT INTO contrato_zona (id, id_empresa, id_contrato, id_zona, estado, creado_por_usuario_id) VALUES ('c0000000-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','cc000000-0000-0000-0000-000000000001','44444444-4444-4444-4444-444444444444','ACTIVO','22222222-2222-2222-2222-222222222222');
+INSERT INTO contrato_porcentaje_distribucion (id, id_empresa, id_contrato, id_periodo, porcentaje, estado, creado_por_usuario_id) VALUES ('cf000000-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','cc000000-0000-0000-0000-000000000001','33333333-3333-3333-3333-333333330001',1.0000,'ACTIVO','22222222-2222-2222-2222-222222222222');
+INSERT INTO contrato_gasto_fijo (id, id_empresa, id_contrato, id_zona, id_clasificacion, id_proveedor, descripcion, importe, fecha_inicio, fecha_fin, estado, creado_por_usuario_id) VALUES ('ca000000-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','cc000000-0000-0000-0000-000000000001','44444444-4444-4444-4444-444444444444','7d000000-0000-0000-0000-000000000011','e0000000-0000-0000-0000-000000000001','Alquiler de oficina central',3500.00,'2026-01-01','2026-01-31','ACTIVO','22222222-2222-2222-2222-222222222222');
+INSERT INTO gasto_inicial (id, id_empresa, id_contrato, id_zona, descripcion, importe_total, importe_mensual, tiempo_en_meses, fecha_inicio, fecha_fin, estado, creado_por_usuario_id) VALUES ('cb000000-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','cc000000-0000-0000-0000-000000000001','44444444-4444-4444-4444-444444444444','Implementacion inicial de equipamiento',12000.00,1000.00,12,'2026-01-01','2026-01-31','ACTIVO','22222222-2222-2222-2222-222222222222');
+
+-- ===== PRODUCCION: transaccional (usa contrato_zona) =====
+INSERT INTO operario (id, id_empresa, tipo_documento, numero_documento, nombres, apellidos, cargo, licencia, estado, creado_por_usuario_id) VALUES ('e1000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'DNI', '40123456', 'Carlos Alberto', 'Quispe Mamani', 'OPERARIO DE LIMPIEZA', 'A-IIB-40123456', 'ACTIVO', '22222222-2222-2222-2222-222222222222');
+INSERT INTO rubro (id, id_empresa, codigo, nombre, descripcion, estado, creado_por_usuario_id) VALUES ('e2000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'RUB-001', 'LIMPIEZA Y MANTENIMIENTO', 'Rubro demo de servicios de limpieza y mantenimiento de areas', 'ACTIVO', '22222222-2222-2222-2222-222222222222');
+INSERT INTO produccion_mensual (id, id_empresa, id_contrato, id_contrato_zona, id_periodo, total_valorizado, fecha_registro, observacion, estado, creado_por_usuario_id) VALUES ('e3000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'cc000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333330001', 12260.00, '2026-01-31', 'Produccion mensual demo enero 2026', 'ACTIVO', '22222222-2222-2222-2222-222222222222');
+INSERT INTO produccion_mensual_detalle (id, id_empresa, id_produccion_mensual, id_linea_servicio, id_operario, descripcion, cantidad_producida, precio_unitario, valor_produccion_detalle, estado, creado_por_usuario_id) VALUES (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'e3000000-0000-0000-0000-000000000001', '1c000000-0000-0000-0000-000000000001', 'e1000000-0000-0000-0000-000000000001', 'Limpieza de areas comunes m2', 120.0000, 85.5000, 10260.00, 'ACTIVO', '22222222-2222-2222-2222-222222222222');
+INSERT INTO produccion_mensual_detalle (id, id_empresa, id_produccion_mensual, id_linea_servicio, id_operario, descripcion, cantidad_producida, precio_unitario, valor_produccion_detalle, estado, creado_por_usuario_id) VALUES (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'e3000000-0000-0000-0000-000000000001', '1c000000-0000-0000-0000-000000000001', 'e1000000-0000-0000-0000-000000000001', 'Recojo de residuos solidos viajes', 40.0000, 50.0000, 2000.00, 'ACTIVO', '22222222-2222-2222-2222-222222222222');
+
+-- ===== FACTURACION + VALORIZACION (usa contrato_zona, produccion_mensual, rubro) =====
+INSERT INTO zona_contratada (id) VALUES ('e6000000-0000-0000-0000-000000000001');
+INSERT INTO facturacion_contractual (id, id_empresa, id_contrato, id_zona_contratada, id_periodo, numero_documento, fecha_emision, total_facturado, observacion, estado, creado_por_usuario_id) VALUES ('e7000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'cc000000-0000-0000-0000-000000000001', 'e6000000-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333330001', 'F001-00000001', '2026-01-31', 15000.00, 'Facturacion contractual demo enero 2026', 'ACTIVO', '22222222-2222-2222-2222-222222222222');
+INSERT INTO facturacion_contractual_detalle (id, id_empresa, id_facturacion_contractual, concepto, importe, estado, creado_por_usuario_id) VALUES (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'e7000000-0000-0000-0000-000000000001', 'Servicio mensual contractual zona demo', 15000.00, 'ACTIVO', '22222222-2222-2222-2222-222222222222');
+INSERT INTO valorizacion_mensual (id, id_empresa, id_contrato, id_contrato_zona, id_periodo, id_produccion_mensual, fecha_valorizacion, observacion, total_valorizacion_mensual, estado, creado_por_usuario_id) VALUES ('e8000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'cc000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333330001', 'e3000000-0000-0000-0000-000000000001', '2026-01-31', 'Valorizacion mensual demo enero 2026', 12000.00, 'BORRADOR', '22222222-2222-2222-2222-222222222222');
+INSERT INTO valorizacion_mensual_detalle (id, id_empresa, id_valorizacion_mensual, id_rubro, concepto, cantidad_valorizada, precio_unitario, importe_valorizado, observacion, estado, creado_por_usuario_id) VALUES (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'e8000000-0000-0000-0000-000000000001', 'e2000000-0000-0000-0000-000000000001', 'Avance valorizado rubro demo', 100.0000, 120.0000, 12000.00, 'Detalle valorizacion mensual demo', 'ACTIVO', '22222222-2222-2222-2222-222222222222');
+INSERT INTO valorizacion_complementaria (id, id_empresa, id_contrato, id_contrato_zona, id_periodo, tipo_ajuste, motivo, fecha_registro, total_valorizacion_complementaria, estado, creado_por_usuario_id) VALUES ('e9000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'cc000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333330001', 'REGULARIZACION', 'Regularizacion de avance no valorizado en periodo demo', '2026-01-31', 2500.00, 'BORRADOR', '22222222-2222-2222-2222-222222222222');
+INSERT INTO valorizacion_complementaria_detalle (id, id_empresa, id_valorizacion_complementaria, id_rubro, concepto, cantidad, precio_unitario, importe, observacion, estado, creado_por_usuario_id) VALUES (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'e9000000-0000-0000-0000-000000000001', 'e2000000-0000-0000-0000-000000000001', 'Ajuste complementario rubro demo', 25.0000, 100.0000, 2500.00, 'Detalle complementario demo', 'ACTIVO', '22222222-2222-2222-2222-222222222222');
+
+-- ===== ACTIVOS / CIERRE / GOBIERNO: transaccional (hojas) =====
+INSERT INTO activo_registro_trabajo (id, id_empresa, id_activo, id_contrato, id_zona, id_periodo, fecha, fecha_hora_inicio, fecha_hora_fin, horas_trabajadas, descripcion_trabajo, valorizacion_trabajo, dias_depreciados, kilometraje_inicio, kilometraje_fin, creado_por_usuario_id) VALUES (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1', 'cc000000-0000-0000-0000-000000000001', '44444444-4444-4444-4444-444444444444', '33333333-3333-3333-3333-333333330001', '2026-01-15', '2026-01-15T08:00:00Z', '2026-01-15T16:00:00Z', 8.00, 'Operacion de vehiculo en ruta demo', 1200.00, 1.00, 10000, 10120, '22222222-2222-2222-2222-222222222222');
+INSERT INTO activo_traslado (id, id_empresa, id_activo, id_contrato_origen, id_zona_origen, id_contrato_destino, id_zona_destino, fecha_traslado, saldo_trasladado, motivo, creado_por_usuario_id) VALUES (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1', 'cc000000-0000-0000-0000-000000000001', '44444444-4444-4444-4444-444444444444', 'cc000000-0000-0000-0000-000000000001', '44444444-4444-4444-4444-444444444444', '2026-01-20', 5000.00, 'Reasignacion interna demo', '22222222-2222-2222-2222-222222222222');
+INSERT INTO herramienta_movimiento (id, id_empresa, id_herramienta, id_periodo, tipo_movimiento, fecha, id_contrato_origen, id_zona_origen, id_contrato_destino, id_zona_destino, cantidad, costo, valorizacion, motivo, creado_por_usuario_id) VALUES (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2', '33333333-3333-3333-3333-333333330001', 'ENTRADA', '2026-01-10', NULL, NULL, 'cc000000-0000-0000-0000-000000000001', '44444444-4444-4444-4444-444444444444', 2.00, 350.00, 700.00, 'Ingreso inicial de herramienta demo', '22222222-2222-2222-2222-222222222222');
+INSERT INTO recuperacion_inversion_mensual (id, id_empresa, id_activo, id_contrato, id_periodo, importe_recuperado, saldo_antes, saldo_despues, parado, creado_por_usuario_id) VALUES (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1', 'cc000000-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333330001', 1500.00, 30000.00, 28500.00, false, '22222222-2222-2222-2222-222222222222');
+INSERT INTO penalidad (id, id_empresa, id_contrato, id_periodo, descripcion, importe, creado_por_usuario_id) VALUES (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'cc000000-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333330001', 'Penalidad por incumplimiento de SLA demo', 800.00, '22222222-2222-2222-2222-222222222222');
+INSERT INTO provision (id, id_empresa, id_contrato, id_periodo, descripcion, importe, aplicado, creado_por_usuario_id) VALUES (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'cc000000-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333330001', 'Provision de gastos varios demo', 1200.00, false, '22222222-2222-2222-2222-222222222222');
+INSERT INTO cierre_mensual (id, id_empresa, id_contrato, id_periodo, total_facturado, total_produccion, gastos_directos, gastos_varios_fijos, gastos_iniciales_periodo, recuperacion_inversion, gastos_administrativos, gastos_indirectos, gastos_financieros, gastos_sig, total_gastos, utilidad_bruta, impuesto_renta, renta_adicional, reparto_utilidades, penalidades, utilidad_neta, utilidad_final, estado, creado_por_usuario_id) VALUES (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'cc000000-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333330001', 50000.00, 50000.00, 20000.00, 3000.00, 1000.00, 1500.00, 4000.00, 2000.00, 500.00, 800.00, 31300.00, 18700.00, 5610.00, 0.00, 1870.00, 800.00, 12290.00, 11420.00, 'BORRADOR', '22222222-2222-2222-2222-222222222222');
+INSERT INTO usuario_rol (id, id_usuario_empresa, id_rol, estado, creado_por_usuario_id) VALUES (gen_random_uuid(), (SELECT id FROM usuario_empresa WHERE id_empresa='11111111-1111-1111-1111-111111111111' LIMIT 1), 'aa000000-0000-0000-0000-000000000001', 'ACTIVO', '22222222-2222-2222-2222-222222222222');
