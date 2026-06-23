@@ -1,7 +1,15 @@
 -- ====================================================================
 -- sesga_global_completo.sql  -  BD GLOBAL: todas las capacidades de todos los grupos
 -- Generada desde codeplexMaster para pruebas locales (CockroachDB v26).
--- Contenido: 47 tablas + 1 stub + todos los indices + 17 funciones que compilan.
+-- Contenido: 47 tablas + 1 stub + todos los indices + 37 funciones que compilan
+--            + SEMILLAS DEMO al final (1 empresa vigente, 1 usuario, 2 periodos,
+--              catalogos de todas las capacidades y datos demo del grupo 5:
+--              clasificaciones/tipos, 2 activos, 1 herramienta, 1 cliente, 1 contrato,
+--              1 asignacion de activo a contrato con inversion pendiente).
+--
+-- USO (Gerson): ejecutar UNA sola vez en CockroachDB v26 y queda lista para usar:
+--   cockroach sql --insecure --host=localhost:26260 --file sesga_global_completo.sql
+--   (el script hace DROP/CREATE de la base sesga_global al inicio; no hay que pararse en ninguna BD)
 --
 -- FIXES LOCALES aplicados a SQL ajeno que no compilaba (avisar a sus autores):
 --   gobierno_central/entidad_empresa.sql        llaves { } en vez de ( ), CONTRAINT x3
@@ -5226,3 +5234,106 @@ EXCEPTION
 END;
 $$;
 
+
+
+
+-- ====================================================================
+-- SEMILLAS DEMO  -  datos de arranque para una empresa operativa completa
+-- UUIDs fijos para poder referenciarlos entre tablas.
+-- ====================================================================
+
+-- 1) Empresa base (multi-tenant: todo cuelga de aqui)
+INSERT INTO empresa (id, ruc, razon_social, nombre_comercial, direccion, telefono, correo_electronico, estado)
+VALUES ('11111111-1111-1111-1111-111111111111', '20100010001', 'SESGA REYSER DEMO S.A.C.', 'SESGA REYSER', 'Av. Operativa 100, Lima', '014440000', 'contacto@sesgareyser.com', 'ACTIVO');
+
+-- 2) Usuario base + vinculo a la empresa (para auditoria y acciones)
+INSERT INTO usuario (id, correo_electronico, clave_hash, nombres, apellidos, estado)
+VALUES ('22222222-2222-2222-2222-222222222222', 'admin@sesgareyser.com', 'demo-no-usar-en-produccion', 'Administrador', 'Demo', 'ACTIVO');
+
+INSERT INTO usuario_empresa (id_empresa, id_usuario, estado)
+VALUES ('11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'ACTIVO');
+
+-- 3) Periodos operativos
+INSERT INTO periodo (id, id_empresa, anio, mes, codigo_periodo, fecha_inicio, fecha_fin, estado) VALUES
+('33333333-3333-3333-3333-333333330001', '11111111-1111-1111-1111-111111111111', 2026, 1, '2026-01', '2026-01-01', '2026-01-31', 'ABIERTO'),
+('33333333-3333-3333-3333-333333330002', '11111111-1111-1111-1111-111111111111', 2026, 2, '2026-02', '2026-02-01', '2026-02-28', 'ABIERTO');
+
+-- 4) Gobierno central: roles + permisos
+INSERT INTO rol (id, id_empresa, nombre, descripcion, estado) VALUES
+('aa000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'ADMINISTRADOR', 'Acceso total a la plataforma operativa', 'ACTIVO'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'SUPERVISOR', 'Supervision y aprobacion operativa', 'ACTIVO'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'OPERADOR', 'Operacion diaria de las capacidades asignadas', 'ACTIVO'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'CONSULTA', 'Consulta de datos sin cambios operativos', 'ACTIVO');
+
+INSERT INTO permiso (id_empresa, id_rol, modulo, accion) VALUES
+('11111111-1111-1111-1111-111111111111', 'aa000000-0000-0000-0000-000000000001', 'ACTIVOS', 'CREAR'),
+('11111111-1111-1111-1111-111111111111', 'aa000000-0000-0000-0000-000000000001', 'ACTIVOS', 'LISTAR'),
+('11111111-1111-1111-1111-111111111111', 'aa000000-0000-0000-0000-000000000001', 'CIERRE', 'EJECUTAR');
+
+-- 5) Contratos: catalogos base
+INSERT INTO estado_contrato (id, id_empresa, codigo, descripcion, es_vigente, estado) VALUES
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'BORRADOR', 'Contrato en preparacion', false, 'ACTIVO'),
+('ec000000-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'VIGENTE', 'Contrato vigente y operativo', true, 'ACTIVO'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'SUSPENDIDO', 'Contrato suspendido temporalmente', false, 'ACTIVO'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'FINALIZADO', 'Contrato finalizado', false, 'ACTIVO'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'LIQUIDADO', 'Contrato liquidado y cerrado', false, 'ACTIVO');
+
+INSERT INTO tipo_contrato (id, id_empresa, codigo, descripcion, estado) VALUES
+('7c000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'SERVICIO', 'Contrato de servicio operativo', 'ACTIVO'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'OBRA', 'Contrato de obra o ejecucion', 'ACTIVO'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'ORDEN_SERV', 'Orden de servicio formalizada', 'ACTIVO'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'COMPLEMENT', 'Contrato complementario', 'ACTIVO');
+
+INSERT INTO grupo_actividad (id, id_empresa, codigo, descripcion) VALUES
+('6a000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'GA-OPER', 'Operaciones generales');
+
+INSERT INTO zona (id, id_empresa, codigo, descripcion, estado) VALUES
+('44444444-4444-4444-4444-444444444444', '11111111-1111-1111-1111-111111111111', 'ZN-LIMA', 'Zona Lima Metropolitana', 'ACTIVO');
+
+INSERT INTO cliente (id, id_empresa, ruc, razon_social, estado) VALUES
+('55555555-5555-5555-5555-555555555555', '11111111-1111-1111-1111-111111111111', '20600060006', 'CLIENTE OPERATIVO S.A.C.', 'ACTIVO');
+
+INSERT INTO contrato (id, id_empresa, id_tipo_contrato, id_estado_contrato, id_cliente, codigo, nombre) VALUES
+('cc000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', '7c000000-0000-0000-0000-000000000001', 'ec000000-0000-0000-0000-000000000002', '55555555-5555-5555-5555-555555555555', 'CT-2026-001', 'Servicio operativo zona Lima 2026');
+
+-- 6) Costeo directo: catalogos base
+INSERT INTO tipo_clasificacion_gasto (id, id_empresa, codigo, descripcion) VALUES
+('7d000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'DIRECTO', 'Gasto directo de operacion');
+
+INSERT INTO clasificacion_gasto (id_empresa, id_tipo_clasificacion_gasto, codigo, descripcion) VALUES
+('11111111-1111-1111-1111-111111111111', '7d000000-0000-0000-0000-000000000001', 'COMBUSTIBLE', 'Combustible y lubricantes');
+
+-- 7) Produccion: catalogo base
+INSERT INTO linea_servicio (id_empresa, id_grupo_actividad, codigo, nombre) VALUES
+('11111111-1111-1111-1111-111111111111', '6a000000-0000-0000-0000-000000000001', 'LS-001', 'Linea de servicio operativa');
+
+-- 8) Activos e inversion: catalogos
+INSERT INTO clasificacion_activo (id, id_empresa, codigo, descripcion, es_capitalizable, estado) VALUES
+('a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', '11111111-1111-1111-1111-111111111111', 'VEHICULO', 'Vehiculo operativo', true, 'ACTIVO'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'MAQUINARIA', 'Maquinaria y equipo mayor', true, 'ACTIVO'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'MOBILIARIO', 'Mobiliario y adecuacion', true, 'ACTIVO'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'EQUIPO_MENOR', 'Equipo menor no capitalizable', false, 'ACTIVO');
+
+INSERT INTO tipo_adquisicion_activo (id, id_empresa, codigo, descripcion, estado) VALUES
+('a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2', '11111111-1111-1111-1111-111111111111', 'COMPRA', 'Compra directa', 'ACTIVO'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'LEASING', 'Adquisicion por leasing', 'ACTIVO'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'ALQUILER', 'Activo alquilado o rentado', 'ACTIVO'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'TRANSFER', 'Transferencia interna', 'ACTIVO');
+
+INSERT INTO tipo_herramienta (id, id_empresa, codigo, descripcion, estado) VALUES
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'MANUAL', 'Herramienta manual', 'ACTIVO'),
+('a3a3a3a3-a3a3-a3a3-a3a3-a3a3a3a3a3a3', '11111111-1111-1111-1111-111111111111', 'ELECTRICA', 'Herramienta electrica', 'ACTIVO'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'MEDICION', 'Herramienta de medicion', 'ACTIVO'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'SEGURIDAD', 'Herramienta o kit de seguridad', 'ACTIVO');
+
+-- 9) Activos e inversion: datos demo
+INSERT INTO activo (id, id_empresa, id_clasificacion_activo, id_tipo_adquisicion_activo, codigo, descripcion, placa, marca, modelo, anio_fabricacion, costo_adquisicion, tiempo_vida_meses, depreciacion_mensual, importe_base_recuperable, fecha_inicio_depreciacion, fecha_fin_depreciacion, estado) VALUES
+('b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1', '11111111-1111-1111-1111-111111111111', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2', 'ACT-001', 'Camioneta Toyota Hilux', 'ABC-123', 'Toyota', 'Hilux 4x4', 2024, 120000.00, 60, 2000.00, 120000.00, '2026-01-01', '2030-12-31', 'ACTIVO'),
+('b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b2', '11111111-1111-1111-1111-111111111111', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2', 'ACT-002', 'Volquete Volvo FMX', 'XYZ-789', 'Volvo', 'FMX', 2023, 300000.00, 120, 2500.00, 300000.00, '2026-01-01', '2035-12-31', 'ACTIVO');
+
+INSERT INTO herramienta (id, id_empresa, id_tipo_herramienta, codigo, descripcion, marca, modelo, costo_adquisicion, tiempo_vida_meses, fecha_inicio_depreciacion, fecha_fin_depreciacion, estado) VALUES
+('b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2', '11111111-1111-1111-1111-111111111111', 'a3a3a3a3-a3a3-a3a3-a3a3-a3a3a3a3a3a3', 'HER-001', 'Taladro percutor', 'Bosch', 'GSB-550', 450.00, 36, '2026-01-01', '2028-12-31', 'ACTIVO');
+
+-- 10) Asignacion de activo a contrato (con inversion pendiente de recuperar)
+INSERT INTO activo_asignacion_contrato (id, id_empresa, id_activo, id_contrato, id_zona, inversion_asignada, saldo_inversion_pendiente, cuota_recuperacion_mensual, fecha_inicio, estado) VALUES
+('d1d1d1d1-d1d1-d1d1-d1d1-d1d1d1d1d1d1', '11111111-1111-1111-1111-111111111111', 'b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1', 'cc000000-0000-0000-0000-000000000001', '44444444-4444-4444-4444-444444444444', 120000.00, 100000.00, 10000.00, '2026-01-01', 'ACTIVO');
