@@ -1,7 +1,7 @@
 -- ====================================================================
 -- sesga_grupo5_capacidades.sql  -  Grupo 5 (activos-e-inversion + cierre-mensual)
 -- Esquema local funcional para CockroachDB v26.
--- Stubs de otras capacidades + 13 tablas + indices + 33 procedimientos (4 nuevos: registro de catalogos + baja de activo).
+-- Stubs de otras capacidades + 13 tablas + indices + 37 procedimientos (8 agregados: registro de catalogos, baja, edicion de activo/herramienta, reactivacion y finalizacion de asignacion).
 -- Generado desde codeplexMaster (fuente de verdad). Solo para pruebas locales.
 -- ====================================================================
 DROP DATABASE IF EXISTS sesga_test CASCADE;
@@ -2795,6 +2795,257 @@ BEGIN
 EXCEPTION
   WHEN OTHERS THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_BAJA_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al dar de baja el activo');
+END;
+$$;
+
+
+-- ---- PROCEDIMIENTOS NUEVOS (edicion de activo/herramienta, reactivacion de activo, finalizacion de asignacion) ----
+CREATE OR REPLACE FUNCTION fn_actualizar_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_activo UUID,
+  p_id_clasificacion_activo UUID,
+  p_id_tipo_adquisicion_activo UUID,
+  p_codigo STRING,
+  p_descripcion STRING,
+  p_placa STRING,
+  p_marca STRING,
+  p_modelo STRING,
+  p_numero_serie STRING,
+  p_anio_fabricacion INT2,
+  p_costo_adquisicion DECIMAL,
+  p_tiempo_vida_meses INT,
+  p_depreciacion_mensual DECIMAL,
+  p_importe_base_recuperable DECIMAL,
+  p_fecha_inicio_depreciacion DATE,
+  p_fecha_fin_depreciacion DATE
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM activo
+  WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_ENCONTRADO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
+  END IF;
+
+  IF p_descripcion IS NULL OR char_length(trim(p_descripcion)) = 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'DESCRIPCION_OBLIGATORIA', 'mensaje', 'La descripcion del activo es obligatoria');
+  END IF;
+
+  IF p_costo_adquisicion IS NULL OR p_costo_adquisicion <= 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'COSTO_INVALIDO', 'mensaje', 'El costo de adquisicion debe ser mayor a 0');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM clasificacion_activo
+    WHERE id = p_id_clasificacion_activo AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CLASIFICACION_ACTIVO_NO_VALIDA', 'mensaje', 'La clasificacion no existe o no pertenece a la empresa');
+  END IF;
+
+  IF p_id_tipo_adquisicion_activo IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM tipo_adquisicion_activo
+    WHERE id = p_id_tipo_adquisicion_activo AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_ADQUISICION_NO_VALIDO', 'mensaje', 'El tipo de adquisicion no existe o no pertenece a la empresa');
+  END IF;
+
+  UPDATE activo SET
+    id_clasificacion_activo = p_id_clasificacion_activo,
+    id_tipo_adquisicion_activo = p_id_tipo_adquisicion_activo,
+    codigo = NULLIF(trim(p_codigo), ''),
+    descripcion = trim(p_descripcion),
+    placa = NULLIF(trim(p_placa), ''),
+    marca = NULLIF(trim(p_marca), ''),
+    modelo = NULLIF(trim(p_modelo), ''),
+    numero_serie = NULLIF(trim(p_numero_serie), ''),
+    anio_fabricacion = p_anio_fabricacion,
+    costo_adquisicion = p_costo_adquisicion,
+    tiempo_vida_meses = p_tiempo_vida_meses,
+    depreciacion_mensual = p_depreciacion_mensual,
+    importe_base_recuperable = p_importe_base_recuperable,
+    fecha_inicio_depreciacion = p_fecha_inicio_depreciacion,
+    fecha_fin_depreciacion = p_fecha_fin_depreciacion,
+    actualizado_en = now(),
+    actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_activo AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'ACTIVO_ACTUALIZADO',
+    'mensaje', 'El activo fue actualizado correctamente',
+    'datos', jsonb_build_object('id_activo', p_id_activo)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_ACTUALIZACION_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al actualizar el activo');
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION fn_reactivar_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_activo UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM activo
+  WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_ENCONTRADO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
+  END IF;
+
+  IF v_estado <> 'BAJA' THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_ESTA_DADO_DE_BAJA', 'mensaje', 'El activo no esta dado de baja, no se puede reactivar');
+  END IF;
+
+  UPDATE activo
+  SET estado = 'ACTIVO', actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_activo AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'ACTIVO_REACTIVADO',
+    'mensaje', 'El activo fue reactivado correctamente',
+    'datos', jsonb_build_object('id_activo', p_id_activo, 'estado', 'ACTIVO')
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_REACTIVACION_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al reactivar el activo');
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION fn_actualizar_herramienta(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_herramienta UUID,
+  p_id_tipo_herramienta UUID,
+  p_codigo STRING,
+  p_descripcion STRING,
+  p_marca STRING,
+  p_modelo STRING,
+  p_numero_serie STRING,
+  p_costo_adquisicion DECIMAL,
+  p_tiempo_vida_meses INT,
+  p_fecha_inicio_depreciacion DATE,
+  p_fecha_fin_depreciacion DATE
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM herramienta WHERE id = p_id_herramienta AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'HERRAMIENTA_NO_ENCONTRADA', 'mensaje', 'La herramienta no existe o no pertenece a la empresa');
+  END IF;
+
+  IF p_id_tipo_herramienta IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM tipo_herramienta
+    WHERE id = p_id_tipo_herramienta AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_HERRAMIENTA_NO_VALIDO', 'mensaje', 'El tipo de herramienta no existe o no pertenece a la empresa');
+  END IF;
+
+  UPDATE herramienta SET
+    id_tipo_herramienta = p_id_tipo_herramienta,
+    codigo = NULLIF(trim(p_codigo), ''),
+    descripcion = NULLIF(trim(p_descripcion), ''),
+    marca = NULLIF(trim(p_marca), ''),
+    modelo = NULLIF(trim(p_modelo), ''),
+    numero_serie = NULLIF(trim(p_numero_serie), ''),
+    costo_adquisicion = p_costo_adquisicion,
+    tiempo_vida_meses = p_tiempo_vida_meses,
+    fecha_inicio_depreciacion = p_fecha_inicio_depreciacion,
+    fecha_fin_depreciacion = p_fecha_fin_depreciacion,
+    actualizado_en = now(),
+    actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_herramienta AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'HERRAMIENTA_ACTUALIZADA',
+    'mensaje', 'La herramienta fue actualizada correctamente',
+    'datos', jsonb_build_object('id_herramienta', p_id_herramienta)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'HERRAMIENTA_ACTUALIZACION_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al actualizar la herramienta');
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION fn_finalizar_asignacion_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_asignacion UUID,
+  p_fecha_fin DATE
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+  v_fecha_inicio DATE;
+  v_fecha_fin DATE;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  SELECT estado, fecha_inicio INTO v_estado, v_fecha_inicio
+  FROM activo_asignacion_contrato
+  WHERE id = p_id_asignacion AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ASIGNACION_NO_ENCONTRADA', 'mensaje', 'La asignacion no existe o no pertenece a la empresa');
+  END IF;
+
+  IF v_estado <> 'ACTIVO' THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ASIGNACION_NO_ACTIVA', 'mensaje', 'La asignacion no esta activa, no se puede finalizar');
+  END IF;
+
+  v_fecha_fin := COALESCE(p_fecha_fin, current_date);
+
+  IF v_fecha_fin < v_fecha_inicio THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'FECHA_FIN_INVALIDA', 'mensaje', 'La fecha de fin no puede ser anterior a la fecha de inicio de la asignacion');
+  END IF;
+
+  UPDATE activo_asignacion_contrato SET
+    estado = 'CERRADO',
+    fecha_fin = v_fecha_fin,
+    actualizado_en = now(),
+    actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_asignacion AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'ASIGNACION_FINALIZADA',
+    'mensaje', 'La asignacion del activo fue finalizada correctamente',
+    'datos', jsonb_build_object('id_asignacion', p_id_asignacion, 'estado', 'CERRADO', 'fecha_fin', v_fecha_fin)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ASIGNACION_FINALIZACION_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al finalizar la asignacion');
 END;
 $$;
 

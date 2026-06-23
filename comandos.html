@@ -149,7 +149,7 @@ node -v ; npm -v
   <div class="wrap">
     <p class="eyebrow">Paso 2</p>
     <h2><span class="num">2</span>Construir la base de datos</h2>
-    <p class="lead">Lo más simple: cargar el SQL de descarga del Vercel (trae tablas, índices y los 33 procedimientos; compila en v26). Define una variable con la ruta del binario para no repetirla:</p>
+    <p class="lead">Lo más simple: cargar el SQL de descarga del Vercel (trae tablas, índices y los 37 procedimientos; compila en v26). Define una variable con la ruta del binario para no repetirla:</p>
     <div class="qhace"><span class="when once">una vez por sesión</span> Atajo: guardar la ruta del binario</div>
     <pre>$CR = "C:\cockroachdb26\cockroach-v26.2.1.windows-6.2-amd64\cockroach.exe"</pre>
     <div class="qhace">Cargar <b>nuestras 2 capacidades</b> en la base <span class="mono">sesga_test</span></div>
@@ -162,7 +162,7 @@ INSERT INTO clasificacion_activo (id,id_empresa,codigo,descripcion,es_capitaliza
 INSERT INTO tipo_adquisicion_activo (id,id_empresa,codigo,descripcion) VALUES ('a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2','11111111-1111-1111-1111-111111111111','TA-COMP','Compra directa');
 INSERT INTO tipo_herramienta (id,id_empresa,codigo,descripcion) VALUES ('a3a3a3a3-a3a3-a3a3-a3a3-a3a3a3a3a3a3','11111111-1111-1111-1111-111111111111','TH-ELEC','Electrica');
 "@</pre>
-    <div class="ok"><b>Tip:</b> el <span class="mono">.sql</span> de descarga (botón del mapeo) ya está al día con los 33 procedimientos y compila a la primera en v26. La base global (todas las capacidades) ahora trae <b>semillas demo</b> (empresa vigente, usuario, periodos, catálogos de todas las capacidades y datos del grupo 5: activos, herramienta, contrato y asignación): se ejecuta <b>una sola vez</b> y queda lista para usar — <span class="mono">--file sesga_global_completo.sql</span> (hace DROP/CREATE de <span class="mono">sesga_global</span>).</div>
+    <div class="ok"><b>Tip:</b> el <span class="mono">.sql</span> de descarga (botón del mapeo) ya está al día con los 37 procedimientos y compila a la primera en v26. La base global (todas las capacidades) ahora trae <b>semillas demo</b> (empresa vigente, usuario, periodos, catálogos de todas las capacidades y datos del grupo 5: activos, herramienta, contrato y asignación): se ejecuta <b>una sola vez</b> y queda lista para usar — <span class="mono">--file sesga_global_completo.sql</span> (hace DROP/CREATE de <span class="mono">sesga_global</span>).</div>
   </div>
 </section>
 
@@ -233,7 +233,7 @@ Invoke-RestMethod "http://localhost:8080/api/v1/activos_e_inversion/registrar_he
 aplicaciones/api/postman/colecciones/cierre_mensual.postman_collection.json</pre>
     <pre><span class="c"># En Postman:</span>
 Import  →  elige el .json de la capacidad  →  abre cualquier request  →  Send</pre>
-    <p class="lead" style="margin:14px 0 8px"><b>Opción B: descargas del Vercel</b> — colección combinada (29 requests) + environment:</p>
+    <p class="lead" style="margin:14px 0 8px"><b>Opción B: descargas del Vercel</b> — colección combinada (37 requests) + environment:</p>
     <p style="margin:0 0 12px;display:flex;flex-wrap:wrap;gap:10px">
       <a class="dl" href="coleccion-postman-grupo5.json" download style="background:#ff6c37">⬇&nbsp; Colección (.json)</a>
       <a class="dl" href="entorno-postman-grupo5.json" download style="background:var(--accent)">⬇&nbsp; Environment (.json)</a>

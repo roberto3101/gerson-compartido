@@ -192,7 +192,7 @@
       <span class="chip">Grupo 5 · Jose &amp; Gerson</span>
       <span class="chip">CockroachDB</span>
       <span class="chip">13 tablas · 2 capacidades</span>
-      <span class="chip">33 procedimientos · 17 comando + 16 lectura</span>
+      <span class="chip">37 procedimientos · 21 comando + 16 lectura</span>
       <a href="#seccion-lecturas" class="chip" style="background:#fff;color:#312e81;font-weight:800;text-decoration:none;border-color:#fff;cursor:pointer">Listados (lectura) →</a>
       <a href="#seccion-indices" class="chip" style="background:#fff;color:#312e81;font-weight:800;text-decoration:none;border-color:#fff;cursor:pointer">Índices: por qué y para qué →</a>
       <a href="#pagina-cierre" class="chip" style="background:#fff;color:#312e81;font-weight:800;text-decoration:none;border-color:#fff;cursor:pointer">Cierre mensual: código y fórmulas explicados →</a>
@@ -1000,8 +1000,8 @@ ALTER TABLE cierre_mensual ADD CONSTRAINT fk_cierre_mensual_eliminado_por FOREIG
     <p class="lead">Todo acceso de negocio a la BD pasa por procedimientos. Cada cuadrito es un caso de uso: haz clic para ver <b>por qué existe</b> y desplegar su <b>código</b> (PL/pgSQL · CockroachDB · retorno JSONB · sin comentarios). <b>Tenant</b> y <b>auditoría</b> van en todos.</p>
 
     <div class="sp-intro">
-      <span class="item"><b>17</b> procedimientos</span>
-      <span class="item"><span class="sp-cap ai">activos-e-inversion</span> 11</span>
+      <span class="item"><b>21</b> procedimientos</span>
+      <span class="item"><span class="sp-cap ai">activos-e-inversion</span> 15</span>
       <span class="item"><span class="sp-cap cm">cierre-mensual</span> 6</span>
       <span class="item" style="margin-left:auto">Firma uniforme: <span class="mono">(p_id_empresa, p_id_usuario_accion, …)</span></span>
     </div>
@@ -1946,6 +1946,319 @@ BEGIN
 EXCEPTION
   WHEN OTHERS THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_BAJA_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al dar de baja el activo');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_actualizar_activo</div>
+          <div class="spcaso">Actualizar (editar) los datos de un activo. Método HTTP PUT.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Permite corregir o completar la ficha del activo (descripción, marca, modelo, costo, vida útil y parámetros de depreciación) sin recrearlo, conservando su historia y su id.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> empresa vigente y el activo debe existir y pertenecer a la empresa.</li>
+            <li>La clasificación y el tipo de adquisición, si se cambian, deben ser de la misma empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_actualizar_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_activo UUID,
+  p_id_clasificacion_activo UUID,
+  p_id_tipo_adquisicion_activo UUID,
+  p_codigo STRING,
+  p_descripcion STRING,
+  p_placa STRING,
+  p_marca STRING,
+  p_modelo STRING,
+  p_numero_serie STRING,
+  p_anio_fabricacion INT2,
+  p_costo_adquisicion DECIMAL,
+  p_tiempo_vida_meses INT,
+  p_depreciacion_mensual DECIMAL,
+  p_importe_base_recuperable DECIMAL,
+  p_fecha_inicio_depreciacion DATE,
+  p_fecha_fin_depreciacion DATE
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM activo
+    WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_ENCONTRADO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
+  END IF;
+
+  IF p_descripcion IS NULL OR char_length(trim(p_descripcion)) = 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'DESCRIPCION_OBLIGATORIA', 'mensaje', 'La descripcion del activo es obligatoria');
+  END IF;
+
+  IF p_costo_adquisicion IS NULL OR p_costo_adquisicion &lt;= 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'COSTO_INVALIDO', 'mensaje', 'El costo de adquisicion debe ser mayor a 0');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM clasificacion_activo
+    WHERE id = p_id_clasificacion_activo AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CLASIFICACION_ACTIVO_NO_VALIDA', 'mensaje', 'La clasificacion no existe o no pertenece a la empresa');
+  END IF;
+
+  IF p_id_tipo_adquisicion_activo IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM tipo_adquisicion_activo
+    WHERE id = p_id_tipo_adquisicion_activo AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_ADQUISICION_NO_VALIDO', 'mensaje', 'El tipo de adquisicion no existe o no pertenece a la empresa');
+  END IF;
+
+  UPDATE activo
+  SET id_clasificacion_activo = p_id_clasificacion_activo,
+      id_tipo_adquisicion_activo = p_id_tipo_adquisicion_activo,
+      codigo = NULLIF(trim(p_codigo), ''),
+      descripcion = trim(p_descripcion),
+      placa = NULLIF(trim(p_placa), ''),
+      marca = NULLIF(trim(p_marca), ''),
+      modelo = NULLIF(trim(p_modelo), ''),
+      numero_serie = NULLIF(trim(p_numero_serie), ''),
+      anio_fabricacion = p_anio_fabricacion,
+      costo_adquisicion = p_costo_adquisicion,
+      tiempo_vida_meses = p_tiempo_vida_meses,
+      depreciacion_mensual = p_depreciacion_mensual,
+      importe_base_recuperable = p_importe_base_recuperable,
+      fecha_inicio_depreciacion = p_fecha_inicio_depreciacion,
+      fecha_fin_depreciacion = p_fecha_fin_depreciacion,
+      actualizado_por_usuario_id = p_id_usuario_accion,
+      actualizado_en = now()
+  WHERE id = p_id_activo AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'ACTIVO_ACTUALIZADO',
+    'mensaje', 'El activo fue actualizado correctamente',
+    'datos', jsonb_build_object('id_activo', p_id_activo)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_ACTUALIZACION_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al actualizar el activo');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_reactivar_activo</div>
+          <div class="spcaso">Reactivar un activo dado de baja (BAJA → ACTIVO). Método HTTP POST.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Revierte una baja hecha por error o reincorpora un activo al inventario operativo: lo devuelve al estado <b>ACTIVO</b> sin perder su historia.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> empresa vigente y el activo debe existir.</li>
+            <li><b>Idempotente:</b> solo aplica si el activo está en <b>BAJA</b>; si no, error <span class="mono">ACTIVO_NO_ESTA_DADO_DE_BAJA</span>.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_reactivar_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_activo UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado_actual STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  SELECT estado INTO v_estado_actual
+  FROM activo
+  WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado_actual IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_ENCONTRADO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
+  END IF;
+
+  IF v_estado_actual &lt;&gt; 'BAJA' THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_ESTA_DADO_DE_BAJA', 'mensaje', 'El activo no se encuentra dado de baja');
+  END IF;
+
+  UPDATE activo
+  SET estado = 'ACTIVO',
+      actualizado_por_usuario_id = p_id_usuario_accion,
+      actualizado_en = now()
+  WHERE id = p_id_activo AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'ACTIVO_REACTIVADO',
+    'mensaje', 'El activo fue reactivado correctamente',
+    'datos', jsonb_build_object('id_activo', p_id_activo)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_REACTIVACION_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al reactivar el activo');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_actualizar_herramienta</div>
+          <div class="spcaso">Actualizar (editar) los datos de una herramienta. Método HTTP PUT.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Permite corregir la ficha de una herramienta menor (descripción, marca, modelo, costo, vida útil y depreciación) sin recrearla, conservando su id y su historia de movimientos.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> empresa vigente y la herramienta debe existir y pertenecer a la empresa.</li>
+            <li>El tipo de herramienta, si se cambia, debe ser de la misma empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_actualizar_herramienta(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_herramienta UUID,
+  p_id_tipo_herramienta UUID,
+  p_codigo STRING,
+  p_descripcion STRING,
+  p_marca STRING,
+  p_modelo STRING,
+  p_numero_serie STRING,
+  p_costo_adquisicion DECIMAL,
+  p_tiempo_vida_meses INT,
+  p_fecha_inicio_depreciacion DATE,
+  p_fecha_fin_depreciacion DATE
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM herramienta
+    WHERE id = p_id_herramienta AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'HERRAMIENTA_NO_ENCONTRADA', 'mensaje', 'La herramienta no existe o no pertenece a la empresa');
+  END IF;
+
+  IF p_descripcion IS NULL OR char_length(trim(p_descripcion)) = 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'DESCRIPCION_OBLIGATORIA', 'mensaje', 'La descripcion de la herramienta es obligatoria');
+  END IF;
+
+  IF p_id_tipo_herramienta IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM tipo_herramienta
+    WHERE id = p_id_tipo_herramienta AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_HERRAMIENTA_NO_VALIDO', 'mensaje', 'El tipo de herramienta no existe o no pertenece a la empresa');
+  END IF;
+
+  UPDATE herramienta
+  SET id_tipo_herramienta = p_id_tipo_herramienta,
+      codigo = NULLIF(trim(p_codigo), ''),
+      descripcion = trim(p_descripcion),
+      marca = NULLIF(trim(p_marca), ''),
+      modelo = NULLIF(trim(p_modelo), ''),
+      numero_serie = NULLIF(trim(p_numero_serie), ''),
+      costo_adquisicion = p_costo_adquisicion,
+      tiempo_vida_meses = p_tiempo_vida_meses,
+      fecha_inicio_depreciacion = p_fecha_inicio_depreciacion,
+      fecha_fin_depreciacion = p_fecha_fin_depreciacion,
+      actualizado_por_usuario_id = p_id_usuario_accion,
+      actualizado_en = now()
+  WHERE id = p_id_herramienta AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'HERRAMIENTA_ACTUALIZADA',
+    'mensaje', 'La herramienta fue actualizada correctamente',
+    'datos', jsonb_build_object('id_herramienta', p_id_herramienta)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'HERRAMIENTA_ACTUALIZACION_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al actualizar la herramienta');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_finalizar_asignacion_activo</div>
+          <div class="spcaso">Finalizar/cerrar la asignación de un activo a un contrato (ACTIVO → CERRADO). Método HTTP POST.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Cierra una asignación vigente cuando el activo deja de trabajar en ese contrato: corta la recuperación de inversión del periodo siguiente y deja el vínculo en estado <b>CERRADO</b>, conservando su historia.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> empresa vigente y la asignación debe existir y pertenecer a la empresa.</li>
+            <li><b>Idempotente:</b> solo aplica si la asignación está en <b>ACTIVO</b>; si no, error <span class="mono">ASIGNACION_NO_ACTIVA</span>.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_finalizar_asignacion_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_asignacion_contrato UUID,
+  p_fecha_fin DATE
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado_actual STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  SELECT estado INTO v_estado_actual
+  FROM activo_asignacion_contrato
+  WHERE id = p_id_asignacion_contrato AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado_actual IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ASIGNACION_NO_ENCONTRADA', 'mensaje', 'La asignacion no existe o no pertenece a la empresa');
+  END IF;
+
+  IF v_estado_actual &lt;&gt; 'ACTIVO' THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ASIGNACION_NO_ACTIVA', 'mensaje', 'La asignacion no se encuentra activa');
+  END IF;
+
+  UPDATE activo_asignacion_contrato
+  SET estado = 'CERRADO',
+      fecha_fin = COALESCE(p_fecha_fin, current_date),
+      actualizado_por_usuario_id = p_id_usuario_accion,
+      actualizado_en = now()
+  WHERE id = p_id_asignacion_contrato AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'ASIGNACION_FINALIZADA',
+    'mensaje', 'La asignacion del activo fue finalizada correctamente',
+    'datos', jsonb_build_object('id_asignacion_contrato', p_id_asignacion_contrato)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ASIGNACION_FINALIZACION_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al finalizar la asignacion del activo');
 END;
 $$;</pre>
         </div>
