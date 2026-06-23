@@ -192,7 +192,7 @@
       <span class="chip">Grupo 5 · Jose &amp; Gerson</span>
       <span class="chip">CockroachDB</span>
       <span class="chip">13 tablas · 2 capacidades</span>
-      <span class="chip">26 procedimientos · 13 comando + 13 lectura</span>
+      <span class="chip">33 procedimientos · 17 comando + 16 lectura</span>
       <a href="#seccion-lecturas" class="chip" style="background:#fff;color:#312e81;font-weight:800;text-decoration:none;border-color:#fff;cursor:pointer">Listados (lectura) →</a>
       <a href="#seccion-indices" class="chip" style="background:#fff;color:#312e81;font-weight:800;text-decoration:none;border-color:#fff;cursor:pointer">Índices: por qué y para qué →</a>
       <a href="#pagina-cierre" class="chip" style="background:#fff;color:#312e81;font-weight:800;text-decoration:none;border-color:#fff;cursor:pointer">Cierre mensual: código y fórmulas explicados →</a>
@@ -1000,8 +1000,8 @@ ALTER TABLE cierre_mensual ADD CONSTRAINT fk_cierre_mensual_eliminado_por FOREIG
     <p class="lead">Todo acceso de negocio a la BD pasa por procedimientos. Cada cuadrito es un caso de uso: haz clic para ver <b>por qué existe</b> y desplegar su <b>código</b> (PL/pgSQL · CockroachDB · retorno JSONB · sin comentarios). <b>Tenant</b> y <b>auditoría</b> van en todos.</p>
 
     <div class="sp-intro">
-      <span class="item"><b>13</b> procedimientos</span>
-      <span class="item"><span class="sp-cap ai">activos-e-inversion</span> 7</span>
+      <span class="item"><b>17</b> procedimientos</span>
+      <span class="item"><span class="sp-cap ai">activos-e-inversion</span> 11</span>
       <span class="item"><span class="sp-cap cm">cierre-mensual</span> 6</span>
       <span class="item" style="margin-left:auto">Firma uniforme: <span class="mono">(p_id_empresa, p_id_usuario_accion, …)</span></span>
     </div>
@@ -1693,6 +1693,266 @@ $$;</pre>
 
       <details class="spcard">
         <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_registrar_clasificacion_activo</div>
+          <div class="spcaso">Da de alta una clasificación de activo (catálogo).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Registrar un activo exige una clasificación vigente; este SP permite crear el catálogo que alimenta a fn_registrar_activo y al selector del listado.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> empresa vigente.</li>
+            <li><b>Código</b> obligatorio y único por empresa (idx_unico).</li>
+            <li>Estado inicial <b>ACTIVO</b>; devuelve el <b>id_clasificacion_activo</b>.</li>
+            <li><b>Auditoría</b> en alta.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_registrar_clasificacion_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_codigo STRING,
+  p_nombre STRING,
+  p_descripcion STRING
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_clasificacion_activo UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_codigo IS NULL OR char_length(trim(p_codigo)) = 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CODIGO_OBLIGATORIO', 'mensaje', 'El codigo de la clasificacion es obligatorio');
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM clasificacion_activo
+    WHERE id_empresa = p_id_empresa AND codigo = trim(p_codigo) AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CLASIFICACION_ACTIVO_DUPLICADA', 'mensaje', 'Ya existe una clasificacion con ese codigo en la empresa');
+  END IF;
+
+  INSERT INTO clasificacion_activo (
+    id_empresa, codigo, nombre, descripcion, estado, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, trim(p_codigo), trim(p_nombre), NULLIF(trim(p_descripcion), ''), 'ACTIVO', p_id_usuario_accion
+  ) RETURNING id INTO v_id_clasificacion_activo;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'CLASIFICACION_ACTIVO_REGISTRADA',
+    'mensaje', 'La clasificacion de activo fue registrada correctamente',
+    'datos', jsonb_build_object('id_clasificacion_activo', v_id_clasificacion_activo)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CLASIFICACION_ACTIVO_REGISTRO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al registrar la clasificacion de activo');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_registrar_tipo_adquisicion_activo</div>
+          <div class="spcaso">Da de alta un tipo de adquisición de activo (catálogo).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>El tipo de adquisición es requisito para registrar activos; este SP crea el catálogo (compra, leasing, donación…) que consume fn_registrar_activo.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> empresa vigente.</li>
+            <li><b>Código</b> único por empresa (idx_unico).</li>
+            <li>Requisito para registrar activos; estado inicial <b>ACTIVO</b>.</li>
+            <li><b>Auditoría</b> en alta.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_registrar_tipo_adquisicion_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_codigo STRING,
+  p_nombre STRING,
+  p_descripcion STRING
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_tipo_adquisicion_activo UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_codigo IS NULL OR char_length(trim(p_codigo)) = 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CODIGO_OBLIGATORIO', 'mensaje', 'El codigo del tipo de adquisicion es obligatorio');
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM tipo_adquisicion_activo
+    WHERE id_empresa = p_id_empresa AND codigo = trim(p_codigo) AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_ADQUISICION_ACTIVO_DUPLICADO', 'mensaje', 'Ya existe un tipo de adquisicion con ese codigo en la empresa');
+  END IF;
+
+  INSERT INTO tipo_adquisicion_activo (
+    id_empresa, codigo, nombre, descripcion, estado, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, trim(p_codigo), trim(p_nombre), NULLIF(trim(p_descripcion), ''), 'ACTIVO', p_id_usuario_accion
+  ) RETURNING id INTO v_id_tipo_adquisicion_activo;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'TIPO_ADQUISICION_ACTIVO_REGISTRADO',
+    'mensaje', 'El tipo de adquisicion de activo fue registrado correctamente',
+    'datos', jsonb_build_object('id_tipo_adquisicion_activo', v_id_tipo_adquisicion_activo)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_ADQUISICION_ACTIVO_REGISTRO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al registrar el tipo de adquisicion de activo');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_registrar_tipo_herramienta</div>
+          <div class="spcaso">Da de alta un tipo de herramienta (catálogo).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>El tipo de herramienta es requisito para registrar herramientas; este SP crea el catálogo que consume fn_registrar_herramienta y alimenta su selector.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> empresa vigente.</li>
+            <li><b>Código</b> único por empresa (idx_unico).</li>
+            <li>Requisito para registrar herramientas; estado inicial <b>ACTIVO</b>.</li>
+            <li><b>Auditoría</b> en alta.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_registrar_tipo_herramienta(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_codigo STRING,
+  p_nombre STRING,
+  p_descripcion STRING
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_tipo_herramienta UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_codigo IS NULL OR char_length(trim(p_codigo)) = 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CODIGO_OBLIGATORIO', 'mensaje', 'El codigo del tipo de herramienta es obligatorio');
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM tipo_herramienta
+    WHERE id_empresa = p_id_empresa AND codigo = trim(p_codigo) AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_HERRAMIENTA_DUPLICADO', 'mensaje', 'Ya existe un tipo de herramienta con ese codigo en la empresa');
+  END IF;
+
+  INSERT INTO tipo_herramienta (
+    id_empresa, codigo, nombre, descripcion, estado, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, trim(p_codigo), trim(p_nombre), NULLIF(trim(p_descripcion), ''), 'ACTIVO', p_id_usuario_accion
+  ) RETURNING id INTO v_id_tipo_herramienta;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'TIPO_HERRAMIENTA_REGISTRADO',
+    'mensaje', 'El tipo de herramienta fue registrado correctamente',
+    'datos', jsonb_build_object('id_tipo_herramienta', v_id_tipo_herramienta)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_HERRAMIENTA_REGISTRO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al registrar el tipo de herramienta');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_dar_de_baja_activo</div>
+          <div class="spcaso">Da de baja un activo (estado BAJA). Método HTTP DELETE.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Retira un activo conservando su historia (no es borrado físico): pasa a estado <b>BAJA</b> manteniendo trazabilidad de asignaciones, trabajos y traslados.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> empresa vigente y el activo debe existir.</li>
+            <li><b>Idempotente:</b> si ya está en BAJA, error <span class="mono">ACTIVO_YA_DADO_DE_BAJA</span>.</li>
+            <li>Se <b>bloquea</b> si el activo tiene una asignación activa con inversión pendiente de recuperar (<span class="mono">ACTIVO_CON_INVERSION_PENDIENTE</span>).</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_dar_de_baja_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_activo UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado_actual STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  SELECT estado INTO v_estado_actual
+  FROM activo
+  WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado_actual IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_ENCONTRADO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
+  END IF;
+
+  IF v_estado_actual = 'BAJA' THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_YA_DADO_DE_BAJA', 'mensaje', 'El activo ya se encuentra dado de baja');
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM activo_asignacion_contrato
+    WHERE id_activo = p_id_activo AND id_empresa = p_id_empresa
+      AND estado = 'ACTIVO' AND eliminado_en IS NULL
+      AND saldo_pendiente_recuperar &gt; 0
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_CON_INVERSION_PENDIENTE', 'mensaje', 'No se puede dar de baja: el activo tiene una asignacion activa con inversion pendiente de recuperar');
+  END IF;
+
+  UPDATE activo
+  SET estado = 'BAJA',
+      actualizado_por_usuario_id = p_id_usuario_accion,
+      actualizado_en = now()
+  WHERE id = p_id_activo AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'ACTIVO_DADO_DE_BAJA',
+    'mensaje', 'El activo fue dado de baja correctamente',
+    'datos', jsonb_build_object('id_activo', p_id_activo)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_BAJA_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al dar de baja el activo');
+END;
+$$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
           <div class="sp-top"><span class="sp-cap cm">cierre-mensual</span><span class="sp-ver">ver código</span></div>
           <div class="spname">fn_registrar_penalidad</div>
           <div class="spcaso">Registrar una penalidad de un contrato en un periodo.</div>
@@ -2240,10 +2500,10 @@ $$;</pre>
   <div class="wrap">
     <p class="eyebrow">Procedimientos de lectura</p>
     <h2>Listados y detalle · paginación por cursor</h2>
-    <p class="lead">Las <b>13 funciones de lectura</b> de las 2 capacidades. Mismo molde JSONB y multi-tenant que los comandos, pero con <b>paginación por cursor (keyset)</b> — sin OFFSET — y cada listado apoyado en su <b>índice estrella</b>. Clic en un cuadrito para ver el código.</p>
+    <p class="lead">Las <b>16 funciones de lectura</b> de las 2 capacidades. Mismo molde JSONB y multi-tenant que los comandos, pero con <b>paginación por cursor (keyset)</b> — sin OFFSET — y cada listado apoyado en su <b>índice estrella</b>. Clic en un cuadrito para ver el código.</p>
     <div class="sp-intro">
-      <span class="item"><b>13</b> de lectura</span>
-      <span class="item"><span class="sp-cap ai">activos-e-inversion</span> 9</span>
+      <span class="item"><b>16</b> de lectura</span>
+      <span class="item"><span class="sp-cap ai">activos-e-inversion</span> 12</span>
       <span class="item"><span class="sp-cap cm">cierre-mensual</span> 4</span>
       <span class="item" style="margin-left:auto">Return <span class="mono">{items, paginacion:{limite, hay_mas, cursor_siguiente}}</span></span>
     </div>
@@ -2957,6 +3217,249 @@ $;</pre>
 
       <details class="spcard">
         <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_clasificaciones_activo</div>
+          <div class="spcaso">Lista las clasificaciones de activo de la empresa (catálogo que alimenta los selectores).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Lectura del catálogo que alimenta los selectores de alta y los filtros del listado de activos. Paginación por cursor (creado_en DESC, id DESC), filtros opcionales por estado y búsqueda. Se apoya en el índice estrella idx_star_clasificacion_activo_listado.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_clasificaciones_activo(
+  p_id_empresa UUID,
+  p_estado STRING DEFAULT NULL,
+  p_texto_busqueda STRING DEFAULT NULL,
+  p_limite INT DEFAULT 20,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $
+DECLARE
+  v_limite_pagina INT;
+  v_clasificaciones_pagina JSONB;
+  v_existen_mas BOOL;
+  v_cantidad_pagina INT;
+  v_cursor_siguiente JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  WITH clasificaciones_ordenadas AS (
+    SELECT c.id, c.codigo, c.nombre, c.descripcion, c.estado, c.creado_en,
+           row_number() OVER (ORDER BY c.creado_en DESC, c.id DESC) AS orden_en_pagina
+    FROM clasificacion_activo c
+    WHERE c.id_empresa = p_id_empresa
+      AND c.eliminado_en IS NULL
+      AND (p_estado IS NULL OR c.estado = p_estado)
+      AND (p_texto_busqueda IS NULL OR c.codigo ILIKE '%' || p_texto_busqueda || '%' OR c.nombre ILIKE '%' || p_texto_busqueda || '%')
+      AND (p_cursor_creado_en IS NULL OR (c.creado_en, c.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY c.creado_en DESC, c.id DESC
+    LIMIT v_limite_pagina + 1
+  )
+  SELECT
+    COALESCE(
+      jsonb_agg(to_jsonb(clasificaciones_ordenadas) - 'orden_en_pagina' ORDER BY clasificaciones_ordenadas.orden_en_pagina)
+      FILTER (WHERE clasificaciones_ordenadas.orden_en_pagina &lt;= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) &gt; v_limite_pagina
+  INTO v_clasificaciones_pagina, v_existen_mas
+  FROM clasificaciones_ordenadas;
+
+  v_cantidad_pagina := jsonb_array_length(v_clasificaciones_pagina);
+  IF v_existen_mas AND v_cantidad_pagina &gt; 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_clasificaciones_pagina -&gt; (v_cantidad_pagina - 1) -&gt; 'creado_en',
+      'id', v_clasificaciones_pagina -&gt; (v_cantidad_pagina - 1) -&gt; 'id'
+    );
+  ELSE
+    v_cursor_siguiente := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'CLASIFICACIONES_ACTIVO_LISTADAS',
+    'mensaje', 'Listado de clasificaciones de activo obtenido',
+    'datos', jsonb_build_object(
+      'items', v_clasificaciones_pagina,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas, 'cursor_siguiente', v_cursor_siguiente)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CLASIFICACIONES_ACTIVO_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar las clasificaciones de activo');
+END;
+$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_tipos_adquisicion_activo</div>
+          <div class="spcaso">Lista los tipos de adquisición de activo (catálogo).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Lectura del catálogo de tipos de adquisición para selectores y filtros. Paginación por cursor (creado_en DESC, id DESC), filtros opcionales por estado y búsqueda. Se apoya en el índice estrella idx_star_tipo_adquisicion_activo_listado.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_tipos_adquisicion_activo(
+  p_id_empresa UUID,
+  p_estado STRING DEFAULT NULL,
+  p_texto_busqueda STRING DEFAULT NULL,
+  p_limite INT DEFAULT 20,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $
+DECLARE
+  v_limite_pagina INT;
+  v_tipos_pagina JSONB;
+  v_existen_mas BOOL;
+  v_cantidad_pagina INT;
+  v_cursor_siguiente JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  WITH tipos_ordenados AS (
+    SELECT t.id, t.codigo, t.nombre, t.descripcion, t.estado, t.creado_en,
+           row_number() OVER (ORDER BY t.creado_en DESC, t.id DESC) AS orden_en_pagina
+    FROM tipo_adquisicion_activo t
+    WHERE t.id_empresa = p_id_empresa
+      AND t.eliminado_en IS NULL
+      AND (p_estado IS NULL OR t.estado = p_estado)
+      AND (p_texto_busqueda IS NULL OR t.codigo ILIKE '%' || p_texto_busqueda || '%' OR t.nombre ILIKE '%' || p_texto_busqueda || '%')
+      AND (p_cursor_creado_en IS NULL OR (t.creado_en, t.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY t.creado_en DESC, t.id DESC
+    LIMIT v_limite_pagina + 1
+  )
+  SELECT
+    COALESCE(
+      jsonb_agg(to_jsonb(tipos_ordenados) - 'orden_en_pagina' ORDER BY tipos_ordenados.orden_en_pagina)
+      FILTER (WHERE tipos_ordenados.orden_en_pagina &lt;= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) &gt; v_limite_pagina
+  INTO v_tipos_pagina, v_existen_mas
+  FROM tipos_ordenados;
+
+  v_cantidad_pagina := jsonb_array_length(v_tipos_pagina);
+  IF v_existen_mas AND v_cantidad_pagina &gt; 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_tipos_pagina -&gt; (v_cantidad_pagina - 1) -&gt; 'creado_en',
+      'id', v_tipos_pagina -&gt; (v_cantidad_pagina - 1) -&gt; 'id'
+    );
+  ELSE
+    v_cursor_siguiente := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'TIPOS_ADQUISICION_ACTIVO_LISTADOS',
+    'mensaje', 'Listado de tipos de adquisicion de activo obtenido',
+    'datos', jsonb_build_object(
+      'items', v_tipos_pagina,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas, 'cursor_siguiente', v_cursor_siguiente)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPOS_ADQUISICION_ACTIVO_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar los tipos de adquisicion de activo');
+END;
+$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_tipos_herramienta</div>
+          <div class="spcaso">Lista los tipos de herramienta (catálogo).</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Lectura del catálogo de tipos de herramienta para selectores y filtros. Paginación por cursor (creado_en DESC, id DESC), filtros opcionales por estado y búsqueda. Se apoya en el índice estrella idx_star_tipo_herramienta_listado.</p>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_tipos_herramienta(
+  p_id_empresa UUID,
+  p_estado STRING DEFAULT NULL,
+  p_texto_busqueda STRING DEFAULT NULL,
+  p_limite INT DEFAULT 20,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $
+DECLARE
+  v_limite_pagina INT;
+  v_tipos_pagina JSONB;
+  v_existen_mas BOOL;
+  v_cantidad_pagina INT;
+  v_cursor_siguiente JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  WITH tipos_ordenados AS (
+    SELECT t.id, t.codigo, t.nombre, t.descripcion, t.estado, t.creado_en,
+           row_number() OVER (ORDER BY t.creado_en DESC, t.id DESC) AS orden_en_pagina
+    FROM tipo_herramienta t
+    WHERE t.id_empresa = p_id_empresa
+      AND t.eliminado_en IS NULL
+      AND (p_estado IS NULL OR t.estado = p_estado)
+      AND (p_texto_busqueda IS NULL OR t.codigo ILIKE '%' || p_texto_busqueda || '%' OR t.nombre ILIKE '%' || p_texto_busqueda || '%')
+      AND (p_cursor_creado_en IS NULL OR (t.creado_en, t.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY t.creado_en DESC, t.id DESC
+    LIMIT v_limite_pagina + 1
+  )
+  SELECT
+    COALESCE(
+      jsonb_agg(to_jsonb(tipos_ordenados) - 'orden_en_pagina' ORDER BY tipos_ordenados.orden_en_pagina)
+      FILTER (WHERE tipos_ordenados.orden_en_pagina &lt;= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) &gt; v_limite_pagina
+  INTO v_tipos_pagina, v_existen_mas
+  FROM tipos_ordenados;
+
+  v_cantidad_pagina := jsonb_array_length(v_tipos_pagina);
+  IF v_existen_mas AND v_cantidad_pagina &gt; 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_tipos_pagina -&gt; (v_cantidad_pagina - 1) -&gt; 'creado_en',
+      'id', v_tipos_pagina -&gt; (v_cantidad_pagina - 1) -&gt; 'id'
+    );
+  ELSE
+    v_cursor_siguiente := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'TIPOS_HERRAMIENTA_LISTADOS',
+    'mensaje', 'Listado de tipos de herramienta obtenido',
+    'datos', jsonb_build_object(
+      'items', v_tipos_pagina,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas, 'cursor_siguiente', v_cursor_siguiente)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPOS_HERRAMIENTA_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar los tipos de herramienta');
+END;
+$;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
           <div class="sp-top"><span class="sp-cap cm">cierre-mensual</span><span class="sp-ver">ver código</span></div>
           <div class="spname">fn_listar_cierres_mensuales</div>
           <div class="spcaso">Listar cierres mensuales (paginado, con filtros).</div>
@@ -3285,8 +3788,8 @@ $;</pre>
     </div>
 
     <div class="sp-intro">
-      <span class="item"><b>★ 10</b> índices estrella</span>
-      <span class="item"><span class="sp-cap ai">activos-e-inversion</span> 7</span>
+      <span class="item"><b>★ 13</b> índices estrella</span>
+      <span class="item"><span class="sp-cap ai">activos-e-inversion</span> 10</span>
       <span class="item"><span class="sp-cap cm">cierre-mensual</span> 3</span>
       <span class="item" style="margin-left:auto">Parcial <span class="mono">WHERE eliminado_en IS NULL</span> donde hay borrado lógico</span>
     </div>
@@ -3446,6 +3949,63 @@ CREATE INDEX idx_star_recuperacion_inversion_mensual_listado ON recuperacion_inv
           <pre class="sql">CREATE UNIQUE INDEX idx_unico_clasificacion_activo_codigo ON clasificacion_activo (id_empresa, codigo) WHERE eliminado_en IS NULL;
 CREATE UNIQUE INDEX idx_unico_tipo_adquisicion_activo_codigo ON tipo_adquisicion_activo (id_empresa, codigo) WHERE eliminado_en IS NULL;
 CREATE UNIQUE INDEX idx_unico_tipo_herramienta_codigo ON tipo_herramienta (id_empresa, codigo) WHERE eliminado_en IS NULL;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">clasificacion_activo</div>
+          <div class="spcaso">Catálogo de clasificaciones — unicidad de código + estrella de listado.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué / para qué</p>
+          <ul>
+            <li><b>idx_unico_clasificacion_activo_codigo</b> — código no repetido por empresa (parcial sobre los no eliminados).</li>
+            <li><b>★ idx_star_clasificacion_activo_listado</b> — estrella de <span class="mono">fn_listar_clasificaciones_activo</span>: <i>covering</i> (STORING de las columnas del selector), parcial y ordenado para la paginación por cursor.</li>
+          </ul>
+          <pre class="sql">CREATE UNIQUE INDEX idx_unico_clasificacion_activo_codigo ON clasificacion_activo (id_empresa, codigo) WHERE eliminado_en IS NULL;
+CREATE INDEX idx_star_clasificacion_activo_listado ON clasificacion_activo (id_empresa, creado_en DESC, id DESC)
+  STORING (codigo, descripcion, es_capitalizable, estado)
+  WHERE eliminado_en IS NULL;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">tipo_adquisicion_activo</div>
+          <div class="spcaso">Catálogo de tipos de adquisición — unicidad de código + estrella de listado.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué / para qué</p>
+          <ul>
+            <li><b>idx_unico_tipo_adquisicion_activo_codigo</b> — código no repetido por empresa (parcial sobre los no eliminados).</li>
+            <li><b>★ idx_star_tipo_adquisicion_activo_listado</b> — estrella de <span class="mono">fn_listar_tipos_adquisicion_activo</span>: <i>covering</i>, parcial y ordenado para la paginación por cursor.</li>
+          </ul>
+          <pre class="sql">CREATE UNIQUE INDEX idx_unico_tipo_adquisicion_activo_codigo ON tipo_adquisicion_activo (id_empresa, codigo) WHERE eliminado_en IS NULL;
+CREATE INDEX idx_star_tipo_adquisicion_activo_listado ON tipo_adquisicion_activo (id_empresa, creado_en DESC, id DESC)
+  STORING (codigo, descripcion, estado)
+  WHERE eliminado_en IS NULL;</pre>
+        </div>
+      </details>
+
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">tipo_herramienta</div>
+          <div class="spcaso">Catálogo de tipos de herramienta — unicidad de código + estrella de listado.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué / para qué</p>
+          <ul>
+            <li><b>idx_unico_tipo_herramienta_codigo</b> — código no repetido por empresa (parcial sobre los no eliminados).</li>
+            <li><b>★ idx_star_tipo_herramienta_listado</b> — estrella de <span class="mono">fn_listar_tipos_herramienta</span>: <i>covering</i>, parcial y ordenado para la paginación por cursor.</li>
+          </ul>
+          <pre class="sql">CREATE UNIQUE INDEX idx_unico_tipo_herramienta_codigo ON tipo_herramienta (id_empresa, codigo) WHERE eliminado_en IS NULL;
+CREATE INDEX idx_star_tipo_herramienta_listado ON tipo_herramienta (id_empresa, creado_en DESC, id DESC)
+  STORING (codigo, descripcion, estado)
+  WHERE eliminado_en IS NULL;</pre>
         </div>
       </details>
 
