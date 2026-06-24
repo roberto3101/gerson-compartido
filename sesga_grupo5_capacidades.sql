@@ -373,11 +373,9 @@ CREATE TABLE cierre_mensual (
   total_produccion DECIMAL(18,2) NOT NULL DEFAULT 0,
   gastos_directos DECIMAL(18,2) NOT NULL DEFAULT 0,
   gastos_varios_fijos DECIMAL(18,2) NOT NULL DEFAULT 0,
-  gastos_iniciales_periodo DECIMAL(18,2) NOT NULL DEFAULT 0,
   recuperacion_inversion DECIMAL(18,2) NOT NULL DEFAULT 0,
   gastos_administrativos DECIMAL(18,2) NOT NULL DEFAULT 0,
   gastos_indirectos DECIMAL(18,2) NOT NULL DEFAULT 0,
-  gastos_financieros DECIMAL(18,2) NOT NULL DEFAULT 0,
   gastos_sig DECIMAL(18,2) NOT NULL DEFAULT 0,
   total_gastos DECIMAL(18,2) NOT NULL DEFAULT 0,
   utilidad_bruta DECIMAL(18,2) NOT NULL DEFAULT 0,
@@ -400,11 +398,9 @@ CREATE TABLE cierre_mensual (
   CONSTRAINT ck_cierre_mensual_total_produccion CHECK (total_produccion >= 0),
   CONSTRAINT ck_cierre_mensual_gastos_directos CHECK (gastos_directos >= 0),
   CONSTRAINT ck_cierre_mensual_gastos_varios_fijos CHECK (gastos_varios_fijos >= 0),
-  CONSTRAINT ck_cierre_mensual_gastos_iniciales_periodo CHECK (gastos_iniciales_periodo >= 0),
   CONSTRAINT ck_cierre_mensual_recuperacion_inversion CHECK (recuperacion_inversion >= 0),
   CONSTRAINT ck_cierre_mensual_gastos_administrativos CHECK (gastos_administrativos >= 0),
   CONSTRAINT ck_cierre_mensual_gastos_indirectos CHECK (gastos_indirectos >= 0),
-  CONSTRAINT ck_cierre_mensual_gastos_financieros CHECK (gastos_financieros >= 0),
   CONSTRAINT ck_cierre_mensual_gastos_sig CHECK (gastos_sig >= 0),
   CONSTRAINT ck_cierre_mensual_total_gastos CHECK (total_gastos >= 0),
   CONSTRAINT ck_cierre_mensual_impuesto_renta CHECK (impuesto_renta >= 0),
@@ -1174,10 +1170,8 @@ CREATE OR REPLACE FUNCTION fn_ejecutar_cierre_mensual(
   p_total_produccion DECIMAL,
   p_gastos_directos DECIMAL,
   p_gastos_varios_fijos DECIMAL,
-  p_gastos_iniciales_periodo DECIMAL,
   p_gastos_administrativos DECIMAL,
   p_gastos_indirectos DECIMAL,
-  p_gastos_financieros DECIMAL,
   p_gastos_sig DECIMAL,
   p_impuesto_renta DECIMAL,
   p_renta_adicional DECIMAL,
@@ -1231,17 +1225,15 @@ BEGIN
   WHERE id_empresa = p_id_empresa AND id_contrato = p_id_contrato AND id_periodo = p_id_periodo AND eliminado_en IS NULL;
 
   v_total_gastos := COALESCE(p_gastos_directos, 0)
-    + COALESCE(p_gastos_varios_fijos, 0)
-    + COALESCE(p_gastos_iniciales_periodo, 0)
-    + v_recuperacion
-    + COALESCE(p_gastos_administrativos, 0)
-    + COALESCE(p_gastos_indirectos, 0)
-    + COALESCE(p_gastos_financieros, 0)
-    + COALESCE(p_gastos_sig, 0);
+    + COALESCE(p_gastos_varios_fijos, 0);
 
   v_utilidad_bruta := COALESCE(p_total_facturado, 0) - v_total_gastos;
 
   v_utilidad_neta := v_utilidad_bruta
+    - v_recuperacion
+    - COALESCE(p_gastos_administrativos, 0)
+    - COALESCE(p_gastos_indirectos, 0)
+    - COALESCE(p_gastos_sig, 0)
     - COALESCE(p_impuesto_renta, 0)
     - COALESCE(p_renta_adicional, 0)
     - COALESCE(p_reparto_utilidades, 0);
@@ -1250,14 +1242,14 @@ BEGIN
 
   INSERT INTO cierre_mensual (
     id_empresa, id_contrato, id_periodo,
-    total_facturado, total_produccion, gastos_directos, gastos_varios_fijos, gastos_iniciales_periodo,
-    recuperacion_inversion, gastos_administrativos, gastos_indirectos, gastos_financieros, gastos_sig,
+    total_facturado, total_produccion, gastos_directos, gastos_varios_fijos,
+    recuperacion_inversion, gastos_administrativos, gastos_indirectos, gastos_sig,
     total_gastos, utilidad_bruta, impuesto_renta, renta_adicional, reparto_utilidades, penalidades,
     utilidad_neta, utilidad_final, estado, creado_por_usuario_id
   ) VALUES (
     p_id_empresa, p_id_contrato, p_id_periodo,
-    COALESCE(p_total_facturado, 0), COALESCE(p_total_produccion, 0), COALESCE(p_gastos_directos, 0), COALESCE(p_gastos_varios_fijos, 0), COALESCE(p_gastos_iniciales_periodo, 0),
-    v_recuperacion, COALESCE(p_gastos_administrativos, 0), COALESCE(p_gastos_indirectos, 0), COALESCE(p_gastos_financieros, 0), COALESCE(p_gastos_sig, 0),
+    COALESCE(p_total_facturado, 0), COALESCE(p_total_produccion, 0), COALESCE(p_gastos_directos, 0), COALESCE(p_gastos_varios_fijos, 0),
+    v_recuperacion, COALESCE(p_gastos_administrativos, 0), COALESCE(p_gastos_indirectos, 0), COALESCE(p_gastos_sig, 0),
     v_total_gastos, v_utilidad_bruta, COALESCE(p_impuesto_renta, 0), COALESCE(p_renta_adicional, 0), COALESCE(p_reparto_utilidades, 0), v_penalidades,
     v_utilidad_neta, v_utilidad_final, 'BORRADOR', p_id_usuario_accion
   )
@@ -1266,11 +1258,9 @@ BEGIN
     total_produccion = excluded.total_produccion,
     gastos_directos = excluded.gastos_directos,
     gastos_varios_fijos = excluded.gastos_varios_fijos,
-    gastos_iniciales_periodo = excluded.gastos_iniciales_periodo,
     recuperacion_inversion = excluded.recuperacion_inversion,
     gastos_administrativos = excluded.gastos_administrativos,
     gastos_indirectos = excluded.gastos_indirectos,
-    gastos_financieros = excluded.gastos_financieros,
     gastos_sig = excluded.gastos_sig,
     total_gastos = excluded.total_gastos,
     utilidad_bruta = excluded.utilidad_bruta,
@@ -1314,10 +1304,8 @@ CREATE OR REPLACE FUNCTION fn_recalcular_cierre_mensual(
   p_total_produccion DECIMAL,
   p_gastos_directos DECIMAL,
   p_gastos_varios_fijos DECIMAL,
-  p_gastos_iniciales_periodo DECIMAL,
   p_gastos_administrativos DECIMAL,
   p_gastos_indirectos DECIMAL,
-  p_gastos_financieros DECIMAL,
   p_gastos_sig DECIMAL,
   p_impuesto_renta DECIMAL,
   p_renta_adicional DECIMAL,
@@ -1372,17 +1360,15 @@ BEGIN
   WHERE id_empresa = p_id_empresa AND id_contrato = p_id_contrato AND id_periodo = p_id_periodo AND eliminado_en IS NULL;
 
   v_total_gastos := COALESCE(p_gastos_directos, 0)
-    + COALESCE(p_gastos_varios_fijos, 0)
-    + COALESCE(p_gastos_iniciales_periodo, 0)
-    + v_recuperacion
-    + COALESCE(p_gastos_administrativos, 0)
-    + COALESCE(p_gastos_indirectos, 0)
-    + COALESCE(p_gastos_financieros, 0)
-    + COALESCE(p_gastos_sig, 0);
+    + COALESCE(p_gastos_varios_fijos, 0);
 
   v_utilidad_bruta := COALESCE(p_total_facturado, 0) - v_total_gastos;
 
   v_utilidad_neta := v_utilidad_bruta
+    - v_recuperacion
+    - COALESCE(p_gastos_administrativos, 0)
+    - COALESCE(p_gastos_indirectos, 0)
+    - COALESCE(p_gastos_sig, 0)
     - COALESCE(p_impuesto_renta, 0)
     - COALESCE(p_renta_adicional, 0)
     - COALESCE(p_reparto_utilidades, 0);
@@ -1400,11 +1386,9 @@ BEGIN
     total_produccion = COALESCE(p_total_produccion, 0),
     gastos_directos = COALESCE(p_gastos_directos, 0),
     gastos_varios_fijos = COALESCE(p_gastos_varios_fijos, 0),
-    gastos_iniciales_periodo = COALESCE(p_gastos_iniciales_periodo, 0),
     recuperacion_inversion = v_recuperacion,
     gastos_administrativos = COALESCE(p_gastos_administrativos, 0),
     gastos_indirectos = COALESCE(p_gastos_indirectos, 0),
-    gastos_financieros = COALESCE(p_gastos_financieros, 0),
     gastos_sig = COALESCE(p_gastos_sig, 0),
     total_gastos = v_total_gastos,
     utilidad_bruta = v_utilidad_bruta,

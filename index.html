@@ -942,11 +942,9 @@ CREATE TABLE cierre_mensual (
   <span class="c" data-tip="Total de producción valorizada del periodo.">total_produccion</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
   <span class="c" data-tip="Gastos directos del servicio.">gastos_directos</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
   <span class="c" data-tip="Gastos fijos varios del contrato.">gastos_varios_fijos</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
-  <span class="c" data-tip="Cuota de inversión inicial imputada al periodo.">gastos_iniciales_periodo</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
   <span class="c" data-tip="Recuperación de inversión de activos del periodo (viene de recuperacion_inversion_mensual).">recuperacion_inversion</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
   <span class="c" data-tip="Gastos administrativos prorrateados al contrato.">gastos_administrativos</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
   <span class="c" data-tip="Gastos indirectos prorrateados.">gastos_indirectos</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
-  <span class="c" data-tip="Gastos financieros distribuidos.">gastos_financieros</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
   <span class="c" data-tip="Gastos SIG / seguridad.">gastos_sig</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
   <span class="c" data-tip="Suma de todos los gastos del periodo.">total_gastos</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
   <span class="c" data-tip="Facturación menos gastos del servicio.">utilidad_bruta</span> DECIMAL(18,2) NOT NULL DEFAULT 0,
@@ -969,11 +967,9 @@ CREATE TABLE cierre_mensual (
   CONSTRAINT ck_cierre_mensual_total_produccion CHECK (total_produccion &gt;= 0),
   CONSTRAINT ck_cierre_mensual_gastos_directos CHECK (gastos_directos &gt;= 0),
   CONSTRAINT ck_cierre_mensual_gastos_varios_fijos CHECK (gastos_varios_fijos &gt;= 0),
-  CONSTRAINT ck_cierre_mensual_gastos_iniciales_periodo CHECK (gastos_iniciales_periodo &gt;= 0),
   CONSTRAINT ck_cierre_mensual_recuperacion_inversion CHECK (recuperacion_inversion &gt;= 0),
   CONSTRAINT ck_cierre_mensual_gastos_administrativos CHECK (gastos_administrativos &gt;= 0),
   CONSTRAINT ck_cierre_mensual_gastos_indirectos CHECK (gastos_indirectos &gt;= 0),
-  CONSTRAINT ck_cierre_mensual_gastos_financieros CHECK (gastos_financieros &gt;= 0),
   CONSTRAINT ck_cierre_mensual_gastos_sig CHECK (gastos_sig &gt;= 0),
   CONSTRAINT ck_cierre_mensual_total_gastos CHECK (total_gastos &gt;= 0),
   CONSTRAINT ck_cierre_mensual_impuesto_renta CHECK (impuesto_renta &gt;= 0),
@@ -2453,7 +2449,7 @@ $$;</pre>
         <div class="sp-body">
           <p class="h">Por qué</p>
           <p>Es el evento nuclear. Suma la <b>recuperación</b> y las <b>penalidades</b> desde nuestras tablas, y recibe facturación/gastos (G3-G4) <b>por parámetro</b> mientras esas tablas no existan. Es <b>idempotente</b> (UPSERT por contrato+periodo): re-ejecutar recalcula mientras no esté CERRADO.</p>
-          <div class="sp-note"><b>Fórmula con una única definición de gasto:</b> <b>total_gastos</b> agrupa los 8 rubros que reducen el resultado operativo del periodo (directos, varios fijos, iniciales, recuperación de inversión, administrativos, indirectos, financieros y SIG); <b>utilidad_bruta = facturado − total_gastos</b> (resultado operativo, ya no la bruta clásica del Excel); <b>utilidad_neta</b> solo descuenta impuesto, renta adicional y reparto; <b>utilidad_final = utilidad_neta − penalidades</b>. Así cada columna persiste una identidad verificable con un SELECT, y los resultados del Excel (RESUMEN · Chiclayo oct-2024) se conservan al centavo: neta −11 206.53, final −12 056.53 (solo cambia dónde se agrupan los gastos, no cuánto se descuenta).</div>
+          <div class="sp-note"><b>Fórmula alineada al Excel contractual:</b> <b>total_gastos = gastos_directos + gastos_varios_fijos</b> (solo costo de servicio); <b>utilidad_bruta = facturado − total_gastos</b> (la bruta clásica del Excel); <b>utilidad_neta</b> descuenta recuperación de inversión, administrativos, indirectos, SIG, impuesto, renta adicional y reparto; <b>utilidad_final = utilidad_neta − penalidades</b>. Así cada columna persiste una identidad verificable con un SELECT, y tanto los intermedios como los resultados del Excel (RESUMEN · Chiclayo oct-2024) cuadran al centavo: total_gastos 259 574.65, bruta 87 425.35, neta −11 206.53, final −12 056.53.</div>
           <pre class="sql">CREATE OR REPLACE FUNCTION fn_ejecutar_cierre_mensual(
   p_id_empresa UUID,
   p_id_usuario_accion UUID,
@@ -2463,10 +2459,8 @@ $$;</pre>
   p_total_produccion DECIMAL,
   p_gastos_directos DECIMAL,
   p_gastos_varios_fijos DECIMAL,
-  p_gastos_iniciales_periodo DECIMAL,
   p_gastos_administrativos DECIMAL,
   p_gastos_indirectos DECIMAL,
-  p_gastos_financieros DECIMAL,
   p_gastos_sig DECIMAL,
   p_impuesto_renta DECIMAL,
   p_renta_adicional DECIMAL,
@@ -2519,17 +2513,15 @@ BEGIN
   WHERE id_empresa = p_id_empresa AND id_contrato = p_id_contrato AND id_periodo = p_id_periodo AND eliminado_en IS NULL;
 
   v_total_gastos := COALESCE(p_gastos_directos, 0)
-    + COALESCE(p_gastos_varios_fijos, 0)
-    + COALESCE(p_gastos_iniciales_periodo, 0)
-    + v_recuperacion
-    + COALESCE(p_gastos_administrativos, 0)
-    + COALESCE(p_gastos_indirectos, 0)
-    + COALESCE(p_gastos_financieros, 0)
-    + COALESCE(p_gastos_sig, 0);
+    + COALESCE(p_gastos_varios_fijos, 0);
 
   v_utilidad_bruta := COALESCE(p_total_facturado, 0) - v_total_gastos;
 
   v_utilidad_neta := v_utilidad_bruta
+    - v_recuperacion
+    - COALESCE(p_gastos_administrativos, 0)
+    - COALESCE(p_gastos_indirectos, 0)
+    - COALESCE(p_gastos_sig, 0)
     - COALESCE(p_impuesto_renta, 0)
     - COALESCE(p_renta_adicional, 0)
     - COALESCE(p_reparto_utilidades, 0);
@@ -2538,14 +2530,14 @@ BEGIN
 
   INSERT INTO cierre_mensual (
     id_empresa, id_contrato, id_periodo,
-    total_facturado, total_produccion, gastos_directos, gastos_varios_fijos, gastos_iniciales_periodo,
-    recuperacion_inversion, gastos_administrativos, gastos_indirectos, gastos_financieros, gastos_sig,
+    total_facturado, total_produccion, gastos_directos, gastos_varios_fijos,
+    recuperacion_inversion, gastos_administrativos, gastos_indirectos, gastos_sig,
     total_gastos, utilidad_bruta, impuesto_renta, renta_adicional, reparto_utilidades, penalidades,
     utilidad_neta, utilidad_final, estado, creado_por_usuario_id
   ) VALUES (
     p_id_empresa, p_id_contrato, p_id_periodo,
-    COALESCE(p_total_facturado, 0), COALESCE(p_total_produccion, 0), COALESCE(p_gastos_directos, 0), COALESCE(p_gastos_varios_fijos, 0), COALESCE(p_gastos_iniciales_periodo, 0),
-    v_recuperacion, COALESCE(p_gastos_administrativos, 0), COALESCE(p_gastos_indirectos, 0), COALESCE(p_gastos_financieros, 0), COALESCE(p_gastos_sig, 0),
+    COALESCE(p_total_facturado, 0), COALESCE(p_total_produccion, 0), COALESCE(p_gastos_directos, 0), COALESCE(p_gastos_varios_fijos, 0),
+    v_recuperacion, COALESCE(p_gastos_administrativos, 0), COALESCE(p_gastos_indirectos, 0), COALESCE(p_gastos_sig, 0),
     v_total_gastos, v_utilidad_bruta, COALESCE(p_impuesto_renta, 0), COALESCE(p_renta_adicional, 0), COALESCE(p_reparto_utilidades, 0), v_penalidades,
     v_utilidad_neta, v_utilidad_final, 'BORRADOR', p_id_usuario_accion
   )
@@ -2554,11 +2546,9 @@ BEGIN
     total_produccion = excluded.total_produccion,
     gastos_directos = excluded.gastos_directos,
     gastos_varios_fijos = excluded.gastos_varios_fijos,
-    gastos_iniciales_periodo = excluded.gastos_iniciales_periodo,
     recuperacion_inversion = excluded.recuperacion_inversion,
     gastos_administrativos = excluded.gastos_administrativos,
     gastos_indirectos = excluded.gastos_indirectos,
-    gastos_financieros = excluded.gastos_financieros,
     gastos_sig = excluded.gastos_sig,
     total_gastos = excluded.total_gastos,
     utilidad_bruta = excluded.utilidad_bruta,
@@ -2613,10 +2603,8 @@ $$;</pre>
   p_total_produccion DECIMAL,
   p_gastos_directos DECIMAL,
   p_gastos_varios_fijos DECIMAL,
-  p_gastos_iniciales_periodo DECIMAL,
   p_gastos_administrativos DECIMAL,
   p_gastos_indirectos DECIMAL,
-  p_gastos_financieros DECIMAL,
   p_gastos_sig DECIMAL,
   p_impuesto_renta DECIMAL,
   p_renta_adicional DECIMAL,
@@ -2670,17 +2658,15 @@ BEGIN
   WHERE id_empresa = p_id_empresa AND id_contrato = p_id_contrato AND id_periodo = p_id_periodo AND eliminado_en IS NULL;
 
   v_total_gastos := COALESCE(p_gastos_directos, 0)
-    + COALESCE(p_gastos_varios_fijos, 0)
-    + COALESCE(p_gastos_iniciales_periodo, 0)
-    + v_recuperacion
-    + COALESCE(p_gastos_administrativos, 0)
-    + COALESCE(p_gastos_indirectos, 0)
-    + COALESCE(p_gastos_financieros, 0)
-    + COALESCE(p_gastos_sig, 0);
+    + COALESCE(p_gastos_varios_fijos, 0);
 
   v_utilidad_bruta := COALESCE(p_total_facturado, 0) - v_total_gastos;
 
   v_utilidad_neta := v_utilidad_bruta
+    - v_recuperacion
+    - COALESCE(p_gastos_administrativos, 0)
+    - COALESCE(p_gastos_indirectos, 0)
+    - COALESCE(p_gastos_sig, 0)
     - COALESCE(p_impuesto_renta, 0)
     - COALESCE(p_renta_adicional, 0)
     - COALESCE(p_reparto_utilidades, 0);
@@ -2698,11 +2684,9 @@ BEGIN
     total_produccion = COALESCE(p_total_produccion, 0),
     gastos_directos = COALESCE(p_gastos_directos, 0),
     gastos_varios_fijos = COALESCE(p_gastos_varios_fijos, 0),
-    gastos_iniciales_periodo = COALESCE(p_gastos_iniciales_periodo, 0),
     recuperacion_inversion = v_recuperacion,
     gastos_administrativos = COALESCE(p_gastos_administrativos, 0),
     gastos_indirectos = COALESCE(p_gastos_indirectos, 0),
-    gastos_financieros = COALESCE(p_gastos_financieros, 0),
     gastos_sig = COALESCE(p_gastos_sig, 0),
     total_gastos = v_total_gastos,
     utilidad_bruta = v_utilidad_bruta,
@@ -4479,17 +4463,17 @@ fnRes --> res(["resultado económico del contrato"]):::raiz
       <tbody>
         <tr><td>Total facturación</td><td class="mono">347,000.00</td><td class="why">G4 · valorización + complementaria − descuentos</td></tr>
         <tr><td>− Gastos del servicio + varios fijos</td><td class="mono">259,574.65</td><td class="why">G3 · gasto del servicio + fijos</td></tr>
+        <tr><td><b>= Total gastos (costo de servicio)</b></td><td class="mono"><b>259,574.65</b></td><td class="why"><b>directos + varios fijos</b>, alineado al Excel</td></tr>
+        <tr><td><b>= Utilidad bruta</b></td><td class="mono"><b>87,425.35</b></td><td class="why">facturación − total_gastos</td></tr>
         <tr><td>− Recuperación de inversión</td><td class="mono">60,593.43</td><td class="why"><b>Nosotros</b> · suma de cuotas de activos (hoja VARIOS)</td></tr>
         <tr><td>− Gastos admin + indirectos + SIG</td><td class="mono">27,445.44</td><td class="why">G3 · prorrateo</td></tr>
-        <tr><td><b>= Total gastos (los 8 rubros)</b></td><td class="mono"><b>347,613.53</b></td><td class="why"><b>una sola definición</b> de gasto del periodo</td></tr>
-        <tr><td><b>= Utilidad bruta (resultado operativo)</b></td><td class="mono"><b>−613.53</b></td><td class="why">facturación − total_gastos</td></tr>
         <tr><td>− Impuesto + renta adicional + reparto</td><td class="mono">10,593.00</td><td class="why">datos del periodo</td></tr>
         <tr><td><b>= Utilidad neta</b></td><td class="mono"><b>−11,206.53</b></td><td class="why">igual al Excel, al centavo</td></tr>
         <tr><td>− Penalidades</td><td class="mono">850.00</td><td class="why"><b>Nosotros</b> · se guardan positivas y se restan</td></tr>
         <tr><td><b>= Utilidad final</b></td><td class="mono"><b>−12,056.53</b></td><td class="why">resultado real del contrato</td></tr>
       </tbody>
     </table>
-    <p class="lead" style="margin-top:14px;font-size:13px"><b>Lo clave para defender:</b> <b>total_gastos agrupa con una única definición</b> todos los egresos operativos y financieros del periodo (el Excel presenta la recuperación entre la bruta y la neta; nosotros la agrupamos dentro del total para que la columna persistida sea el gasto real y cada renglón cumpla una identidad verificable con un SELECT). Por eso la <b>bruta del sistema es el resultado operativo</b> (no la bruta clásica de la hoja), y la <b>neta y la final cuadran con el Excel al centavo</b>: solo cambia dónde se agrupan los gastos, no cuánto se descuenta. Y <b>Lecturas</b> (un contrato comercial) tiene la misma estructura, lo que prueba que el motor de cierre es general, no exclusivo de obras.</p>
+    <p class="lead" style="margin-top:14px;font-size:13px"><b>Lo clave para defender:</b> <b>total_gastos es el costo de servicio del periodo</b> (gastos directos + varios fijos), exactamente como lo presenta el Excel RESUMEN CHICLAYO. Por eso la <b>bruta del sistema es la bruta clásica de la hoja</b> (87,425.35), y la recuperación de inversión, los prorrateos, los tributos y el reparto bajan a la <b>utilidad neta</b>. La <b>neta y la final cuadran con el Excel al centavo</b>, y los intermedios también: total_gastos y utilidad bruta coinciden con la hoja contractual. Y <b>Lecturas</b> (un contrato comercial) tiene la misma estructura, lo que prueba que el motor de cierre es general, no exclusivo de obras.</p>
   </div>
 </section>
 
@@ -4638,59 +4622,53 @@ fnRes --> res(["resultado económico del contrato"]):::raiz
       <div class="cm-op">−</div>
 
       <div class="cm-gastos">
-        <span class="lbl">total_gastos · una única definición: todo egreso operativo y financiero del periodo</span>
-        <div class="cm-rubros">
+        <span class="lbl">total_gastos · solo el costo de servicio del periodo (alineado al Excel)</span>
+        <div class="cm-rubros" style="grid-template-columns:repeat(2,1fr);max-width:520px">
           <div class="cm-rubro"><span class="rn">gastos_directos</span><br><span class="cmchip g3">G3</span>
             <div class="cmpop"><p class="ph">Gasto del servicio</p><p>Planillas, combustible, materiales: lo que cuesta <b>operar el contrato</b>. Viene de G3 por parámetro. En Chiclayo oct-24, junto con los varios fijos: <b>259,574.65</b>.</p></div>
           </div>
           <div class="cm-rubro"><span class="rn">gastos_varios_fijos</span><br><span class="cmchip g3">G3</span>
-            <div class="cmpop"><p class="ph">Fijos del contrato</p><p>Alquileres, vigilancia, servicios básicos: se pagan <b>aunque no haya producción</b>. Antes de la corrección, la fórmula solo sumaba este rubro y los directos.</p></div>
-          </div>
-          <div class="cm-rubro"><span class="rn">gastos_iniciales_periodo</span><br><span class="cmchip g3">G3</span>
-            <div class="cmpop"><p class="ph">Arranque prorrateado</p><p>La inversión inicial del contrato (acondicionamiento, EPP inicial) repartida en cuotas mensuales. Es un egreso real del periodo, así que entra al total. En Chiclayo oct-24: 0.00.</p></div>
-          </div>
-          <div class="cm-rubro"><span class="rn">recuperacion_inversion</span><br><span class="cmchip nos">Nosotros</span>
-            <div class="cmpop"><p class="ph">60,593.43 · la calcula la función sola</p><span class="f">SELECT SUM(importe_recuperado) FROM recuperacion_inversion_mensual</span><p>La porción de la inversión en <b>activos</b> que este mes se carga al contrato (cuota a cuota, hoja VARIOS del Excel). Es el único rubro que <b>no entra por parámetro</b>: ya vive en nuestra tabla. El Excel lo presenta fuera del total; aquí va dentro, para que total_gastos sea el gasto real.</p></div>
-          </div>
-          <div class="cm-rubro"><span class="rn">gastos_administrativos</span><br><span class="cmchip g3">G3 · prorrateo</span>
-            <div class="cmpop"><p class="ph">Administración repartida</p><p>La parte de la administración de la empresa que le toca a este contrato, según los <b>porcentajes de distribución</b> de G3. Junto con indirectos y SIG: <b>27,445.44</b>.</p></div>
-          </div>
-          <div class="cm-rubro"><span class="rn">gastos_indirectos</span><br><span class="cmchip g3">G3 · prorrateo</span>
-            <div class="cmpop"><p class="ph">Indirectos repartidos</p><p>Costos que sirven a varios contratos a la vez y se prorratean. No operarlos directamente no los hace gratis: por eso son gasto del periodo.</p></div>
-          </div>
-          <div class="cm-rubro"><span class="rn">gastos_financieros</span><br><span class="cmchip g3">G3</span>
-            <div class="cmpop"><p class="ph">El costo del dinero</p><p>Intereses y comisiones del financiamiento. La opción elegida (A) los incluye: son egresos <b>financieros del periodo</b>, aunque no sean operativos puros. En Chiclayo oct-24: 0.00.</p></div>
-          </div>
-          <div class="cm-rubro"><span class="rn">gastos_sig</span><br><span class="cmchip g3">G3 · prorrateo</span>
-            <div class="cmpop"><p class="ph">Seguridad, calidad y ambiente</p><p>El sistema integrado de gestión (SIG) prorrateado al contrato. Cierra la lista de los <b>8 rubros</b> de la definición única.</p></div>
+            <div class="cmpop"><p class="ph">Fijos del contrato</p><p>Alquileres, vigilancia, servicios básicos: se pagan <b>aunque no haya producción</b>. Con los directos forman el costo de servicio: los dos únicos rubros del total.</p></div>
           </div>
         </div>
         <div class="cmbox total">
-          <div class="t"><span class="nom">= total_gastos</span><span class="val">347,613.53</span></div>
-          <div class="sub">La suma de los 8 rubros — aquí estaba el error que corregimos</div>
-          <div class="cmpop"><p class="ph">Por qué se corrigió</p><span class="f">total_gastos = directos + varios_fijos + iniciales + recuperación + administrativos + indirectos + financieros + sig</span><p><b>Antes</b> sumaba solo 2 rubros (directos + varios fijos) y la utilidad neta descontaba los otros 6 por fuera: la columna decía «total» pero no lo era, y ningún SELECT podía cuadrar el cierre.</p><p><b>Ahora</b> hay una sola definición de gasto y cada resultado se deriva de ella en cadena. La neta y la final <b>no cambiaron ni un centavo</b>: es la misma resta, reagrupada.</p></div>
+          <div class="t"><span class="nom">= total_gastos</span><span class="val">259,574.65</span></div>
+          <div class="sub">Costo de servicio: directos + varios fijos</div>
+          <div class="cmpop"><p class="ph">Alineado al Excel contractual</p><span class="f">total_gastos = gastos_directos + gastos_varios_fijos</span><p>El total agrupa <b>solo el costo de servicio</b>, tal como lo presenta el Excel RESUMEN CHICLAYO. El resto de cargas (recuperación, prorrateos, tributos, reparto) baja a la utilidad neta, donde el contrato las descuenta del resultado operativo.</p></div>
         </div>
       </div>
 
       <div class="cm-op">=</div>
 
       <div class="cmbox res">
-        <div class="t"><span class="nom">utilidad_bruta</span><span class="sub" style="margin:0">resultado operativo</span><span class="val">−613.53</span></div>
-        <div class="sub">Lo facturado no alcanzó a cubrir el gasto del periodo</div>
-        <div class="cmpop"><p class="ph">Facturado − total_gastos</p><span class="f">utilidad_bruta = 347,000.00 − 347,613.53 = −613.53</span><p>Ya <b>no es la bruta clásica</b> del Excel (que era 87,425.35 sobre un total de 2 rubros): es el <b>resultado operativo</b> después de TODOS los gastos. Si da negativa, como aquí, el contrato no se autosostuvo este mes — y eso se ve de inmediato, sin perseguir descuentos sueltos.</p></div>
+        <div class="t"><span class="nom">utilidad_bruta</span><span class="cm-ok">cuadra con el Excel ✓</span><span class="val">87,425.35</span></div>
+        <div class="sub">Lo facturado menos el costo de servicio</div>
+        <div class="cmpop"><p class="ph">Facturado − total_gastos</p><span class="f">utilidad_bruta = 347,000.00 − 259,574.65 = 87,425.35</span><p>Es la <b>bruta clásica</b> del Excel: ingreso menos costo de servicio. Sobre ella se descuentan después la recuperación, los prorrateos, los tributos y el reparto para llegar a la neta.</p></div>
       </div>
 
       <div class="cm-op">−</div>
 
       <div class="cm-rubros" style="grid-template-columns:repeat(3,1fr);max-width:780px">
+        <div class="cm-rubro"><span class="rn">recuperacion_inversion</span><br><span class="cmchip nos">Nosotros</span>
+          <div class="cmpop"><p class="ph">60,593.43 · la calcula la función sola</p><span class="f">SELECT SUM(importe_recuperado) FROM recuperacion_inversion_mensual</span><p>La porción de la inversión en <b>activos</b> que este mes se carga al contrato (cuota a cuota, hoja VARIOS del Excel). Es el único rubro que <b>no entra por parámetro</b>: ya vive en nuestra tabla. Baja a la neta, fuera del costo de servicio, como en el Excel.</p></div>
+        </div>
+        <div class="cm-rubro"><span class="rn">gastos_administrativos</span><br><span class="cmchip g3">G3 · prorrateo</span>
+          <div class="cmpop"><p class="ph">Administración repartida</p><p>La parte de la administración de la empresa que le toca a este contrato, según los <b>porcentajes de distribución</b> de G3. Junto con indirectos y SIG: <b>27,445.44</b>.</p></div>
+        </div>
+        <div class="cm-rubro"><span class="rn">gastos_indirectos</span><br><span class="cmchip g3">G3 · prorrateo</span>
+          <div class="cmpop"><p class="ph">Indirectos repartidos</p><p>Costos que sirven a varios contratos a la vez y se prorratean. No son costo de servicio directo: por eso se descuentan entre la bruta y la neta.</p></div>
+        </div>
+        <div class="cm-rubro"><span class="rn">gastos_sig</span><br><span class="cmchip g3">G3 · prorrateo</span>
+          <div class="cmpop"><p class="ph">Seguridad, calidad y ambiente</p><p>El sistema integrado de gestión (SIG) prorrateado al contrato. Como los demás prorrateos, baja a la neta.</p></div>
+        </div>
         <div class="cm-rubro"><span class="rn">impuesto_renta</span><br><span class="cmchip per">periodo</span>
-          <div class="cmpop"><p class="ph">Por qué NO va en total_gastos</p><p>El impuesto no es un costo de operar: <b>depende del resultado</b>. La opción elegida (A) deja fuera del total a impuestos y reparto; por eso se descuentan después de la bruta. Los tres juntos en Chiclayo oct-24: <b>10,593.00</b>.</p></div>
+          <div class="cmpop"><p class="ph">Por qué NO va en total_gastos</p><p>El impuesto no es un costo de operar: <b>depende del resultado</b>. Por eso se descuenta después de la bruta. Impuesto, renta adicional y reparto juntos en Chiclayo oct-24: <b>10,593.00</b>.</p></div>
         </div>
         <div class="cm-rubro"><span class="rn">renta_adicional</span><br><span class="cmchip per">periodo</span>
-          <div class="cmpop"><p class="ph">Carga tributaria extra</p><p>Rentas adicionales del periodo. Misma lógica: tributo, no gasto operativo — entre la bruta y la neta.</p></div>
+          <div class="cmpop"><p class="ph">Carga tributaria extra</p><p>Rentas adicionales del periodo. Misma lógica: tributo, no costo de servicio — entre la bruta y la neta.</p></div>
         </div>
         <div class="cm-rubro"><span class="rn">reparto_utilidades</span><br><span class="cmchip per">periodo</span>
-          <div class="cmpop"><p class="ph">Participación de utilidades</p><p>Lo que se distribuye a los trabajadores. Es una <b>decisión societaria sobre el resultado</b>, no un costo del servicio: por eso cierra el bloque no operativo.</p></div>
+          <div class="cmpop"><p class="ph">Participación de utilidades</p><p>Lo que se distribuye a los trabajadores. Es una <b>decisión societaria sobre el resultado</b>, no un costo del servicio: por eso cierra el bloque que baja a la neta.</p></div>
         </div>
       </div>
 
@@ -4698,8 +4676,8 @@ fnRes --> res(["resultado económico del contrato"]):::raiz
 
       <div class="cmbox res">
         <div class="t"><span class="nom">utilidad_neta</span><span class="cm-ok">cuadra con el Excel ✓</span><span class="val">−11,206.53</span></div>
-        <div class="sub">bruta − impuesto − renta adicional − reparto</div>
-        <div class="cmpop"><p class="ph">El punto de control</p><span class="f">utilidad_neta = −613.53 − 10,593.00 = −11,206.53</span><p>Idéntica a la hoja RESUMEN <b>al centavo</b>. Es la prueba de que la corrección solo reagrupó los gastos: cambió <b>dónde</b> se restan, no <b>cuánto</b> se resta.</p></div>
+        <div class="sub">bruta − recuperación − prorrateos − tributos − reparto</div>
+        <div class="cmpop"><p class="ph">El punto de control</p><span class="f">utilidad_neta = 87,425.35 − 60,593.43 − 27,445.44 − 10,593.00 = −11,206.53</span><p>Idéntica a la hoja RESUMEN <b>al centavo</b>. El total_gastos quedó como el costo de servicio del Excel y el resto baja a la neta, donde corresponde.</p></div>
       </div>
 
       <div class="cm-op">−</div>
@@ -4721,16 +4699,16 @@ fnRes --> res(["resultado económico del contrato"]):::raiz
     </div>
 
     <p class="subt">2 · Las 4 identidades que hacen el cierre auditable</p>
-    <p class="lead" style="margin-bottom:14px;font-size:13px">Cada renglón persistido cumple una ecuación exacta con las demás columnas de su fila. Cualquiera puede verificar el cierre con un SELECT — esa fue la esencia de la corrección.</p>
+    <p class="lead" style="margin-bottom:14px;font-size:13px">Cada renglón persistido cumple una ecuación exacta con las demás columnas de su fila. Cualquiera puede verificar el cierre con un SELECT — y los intermedios cuadran con el Excel contractual.</p>
     <div class="cm-ids">
-      <div class="cm-id"><span class="n">Identidad 1 · el total es total</span>total_gastos = Σ (los 8 rubros)
-        <div class="cmpop"><p class="ph">Antes NO se cumplía</p><span class="f">total_gastos = gastos_directos + gastos_varios_fijos + gastos_iniciales_periodo + recuperacion_inversion + gastos_administrativos + gastos_indirectos + gastos_financieros + gastos_sig</span><p>La columna que decía «total» sumaba 2 rubros de 8. Ahora la suma de las columnas de gasto de la fila <b>siempre</b> da el total persistido.</p></div>
+      <div class="cm-id"><span class="n">Identidad 1 · costo de servicio</span>total_gastos = directos + varios_fijos
+        <div class="cmpop"><p class="ph">Alineado al Excel</p><span class="f">total_gastos = gastos_directos + gastos_varios_fijos</span><p>El total es exactamente el costo de servicio del Excel RESUMEN CHICLAYO: dos columnas. La suma de esos dos rubros de la fila <b>siempre</b> da el total persistido.</p></div>
       </div>
-      <div class="cm-id"><span class="n">Identidad 2 · operativo</span>utilidad_bruta = total_facturado − total_gastos
-        <div class="cmpop"><p class="ph">Una resta, una columna</p><p>La bruta del sistema se deriva solo de estas 2 columnas. Antes el «−» escondía gastos que no estaban en el total; ahora la resta es literal.</p></div>
+      <div class="cm-id"><span class="n">Identidad 2 · bruta</span>utilidad_bruta = total_facturado − total_gastos
+        <div class="cmpop"><p class="ph">Una resta, una columna</p><p>La bruta del sistema se deriva solo de estas 2 columnas: ingreso menos costo de servicio. Coincide con la bruta clásica del Excel.</p></div>
       </div>
-      <div class="cm-id"><span class="n">Identidad 3 · no operativo</span>utilidad_neta = bruta − impuesto − renta_adic − reparto
-        <div class="cmpop"><p class="ph">Solo tributos y distribución</p><p>Entre bruta y neta ya no se cuelan gastos operativos: únicamente impuesto a la renta, renta adicional y reparto de utilidades.</p></div>
+      <div class="cm-id"><span class="n">Identidad 3 · neta</span>utilidad_neta = bruta − recuperación − admin − indirectos − sig − impuesto − renta_adic − reparto
+        <div class="cmpop"><p class="ph">Lo que baja del resultado operativo</p><p>De la bruta se descuentan la recuperación de inversión, los prorrateos (administrativos, indirectos, SIG), los tributos (impuesto a la renta, renta adicional) y el reparto de utilidades.</p></div>
       </div>
       <div class="cm-id"><span class="n">Identidad 4 · resultado</span>utilidad_final = utilidad_neta − penalidades
         <div class="cmpop"><p class="ph">El último golpe</p><p>Las penalidades, sumadas de nuestra tabla, separan el resultado económico (neta) del resultado <b>real</b> tras sanciones del cliente (final).</p></div>
@@ -4777,25 +4755,23 @@ fnRes --> res(["resultado económico del contrato"]):::raiz
 <span class="lcm" data-tip="También tabla nuestra, de la capacidad cierre-mensual."><span class="k">FROM</span> penalidad</span>
 <span class="lcm" data-tip="Solo penalidades vivas: el borrado es lógico (eliminado_en IS NULL). Una penalidad anulada deja de castigar el resultado sin perder su historia."><span class="k">WHERE</span> id_empresa = p_id_empresa <span class="k">AND</span> id_contrato = p_id_contrato <span class="k">AND</span> id_periodo = p_id_periodo <span class="k">AND</span> eliminado_en <span class="k">IS NULL</span>;</span>
 
-<span class="lcm" data-tip="Aquí empieza la definición única de gasto (la corrección del feedback): total_gastos agrupa los 8 rubros que reducen el resultado del periodo. Antes sumaba solo 2 y el relato matemático se rompía. COALESCE convierte los NULL en 0 para que la suma nunca se anule."><span class="v">v_total_gastos</span> := COALESCE(p_gastos_directos, 0)</span>
-<span class="lcm" data-tip="Fijos del contrato (alquileres, vigilancia, servicios). Con los directos eran los únicos 2 rubros del total viejo.">  + COALESCE(p_gastos_varios_fijos, 0)</span>
-<span class="lcm" data-tip="El arranque del contrato prorrateado al periodo. Antes se descontaba suelto en la neta; ahora entra al total, donde corresponde.">  + COALESCE(p_gastos_iniciales_periodo, 0)</span>
-<span class="lcm" data-tip="La recuperación de inversión calculada arriba: la porción de los activos que este mes se carga al contrato. Es variable propia (v_), no parámetro (p_): la única del total que sale de nuestras tablas.">  + <span class="v">v_recuperacion</span></span>
-<span class="lcm" data-tip="Prorrateo de la administración de la empresa (porcentajes de G3).">  + COALESCE(p_gastos_administrativos, 0)</span>
-<span class="lcm" data-tip="Prorrateo de costos indirectos que sirven a varios contratos.">  + COALESCE(p_gastos_indirectos, 0)</span>
-<span class="lcm" data-tip="Intereses y comisiones: la opción A incluye lo financiero en el total (es egreso del periodo), pero deja fuera impuestos y reparto.">  + COALESCE(p_gastos_financieros, 0)</span>
-<span class="lcm" data-tip="Seguridad, calidad y medio ambiente prorrateados. Octavo y último rubro de la definición.">  + COALESCE(p_gastos_sig, 0);</span>
+<span class="lcm" data-tip="total_gastos es el costo de servicio del periodo, alineado al Excel RESUMEN CHICLAYO: solo gastos directos + varios fijos. COALESCE convierte los NULL en 0 para que la suma nunca se anule."><span class="v">v_total_gastos</span> := COALESCE(p_gastos_directos, 0)</span>
+<span class="lcm" data-tip="Fijos del contrato (alquileres, vigilancia, servicios). Con los directos forman el costo de servicio: los dos únicos rubros del total.">  + COALESCE(p_gastos_varios_fijos, 0);</span>
 
-<span class="lcm" data-tip="Resultado operativo: el ingreso menos TODO el gasto. Ya no es la bruta clásica del Excel; si da negativa, el contrato no cubrió sus gastos este mes (Chiclayo: −613.53)."><span class="v">v_utilidad_bruta</span> := COALESCE(p_total_facturado, 0) - <span class="v">v_total_gastos</span>;</span>
+<span class="lcm" data-tip="Bruta clásica del Excel: el ingreso menos el costo de servicio. En Chiclayo oct-24: 347,000.00 − 259,574.65 = 87,425.35."><span class="v">v_utilidad_bruta</span> := COALESCE(p_total_facturado, 0) - <span class="v">v_total_gastos</span>;</span>
 
-<span class="lcm" data-tip="De la bruta a la neta solo se descuenta lo NO operativo. Antes esta resta escondía 6 gastos operativos más; ahora es limpia."><span class="v">v_utilidad_neta</span> := <span class="v">v_utilidad_bruta</span></span>
+<span class="lcm" data-tip="De la bruta a la neta bajan la recuperación de inversión, los prorrateos, los tributos y el reparto: todo lo que no es costo de servicio."><span class="v">v_utilidad_neta</span> := <span class="v">v_utilidad_bruta</span></span>
+<span class="lcm" data-tip="La recuperación de inversión calculada arriba: la porción de los activos que este mes se carga al contrato. Es variable propia (v_), no parámetro (p_): sale de nuestras tablas.">  - <span class="v">v_recuperacion</span></span>
+<span class="lcm" data-tip="Prorrateo de la administración de la empresa (porcentajes de G3).">  - COALESCE(p_gastos_administrativos, 0)</span>
+<span class="lcm" data-tip="Prorrateo de costos indirectos que sirven a varios contratos.">  - COALESCE(p_gastos_indirectos, 0)</span>
+<span class="lcm" data-tip="Seguridad, calidad y medio ambiente prorrateados al contrato.">  - COALESCE(p_gastos_sig, 0)</span>
 <span class="lcm" data-tip="El impuesto depende del resultado, no de operar: por eso queda fuera de total_gastos y se descuenta aquí.">  - COALESCE(p_impuesto_renta, 0)</span>
 <span class="lcm" data-tip="Cargas tributarias adicionales del periodo, misma lógica que el impuesto.">  - COALESCE(p_renta_adicional, 0)</span>
-<span class="lcm" data-tip="La participación de utilidades es una decisión societaria sobre el resultado. Cierra el bloque no operativo: neta = bruta − impuesto − renta adicional − reparto. En Chiclayo: −11,206.53, igual al Excel al centavo.">  - COALESCE(p_reparto_utilidades, 0);</span>
+<span class="lcm" data-tip="La participación de utilidades es una decisión societaria sobre el resultado. Cierra el bloque que baja a la neta. En Chiclayo: −11,206.53, igual al Excel al centavo.">  - COALESCE(p_reparto_utilidades, 0);</span>
 
 <span class="lcm" data-tip="El resultado real: neta menos penalidades. Se guardan positivas y restan al final porque son sanción contractual, no costo de operación. Chiclayo: −12,056.53 — el contrato perdió este mes."><span class="v">v_utilidad_final</span> := <span class="v">v_utilidad_neta</span> - <span class="v">v_penalidades</span>;</span>
 
-<span class="lcm" data-tip="Persiste el cierre con TODOS los componentes y resultados: cada columna guarda su pedazo de la fórmula y por eso las 4 identidades se pueden verificar con un SELECT."><span class="k">INSERT INTO</span> cierre_mensual (... los 8 rubros, los 4 resultados, estado ...)</span>
+<span class="lcm" data-tip="Persiste el cierre con TODOS los componentes y resultados: cada columna guarda su pedazo de la fórmula y por eso las 4 identidades se pueden verificar con un SELECT."><span class="k">INSERT INTO</span> cierre_mensual (... los rubros, los 4 resultados, estado ...)</span>
 <span class="lcm" data-tip="Idempotente: si el cierre del contrato + periodo ya existe, recalcula encima en vez de fallar (UPSERT por la restricción UNIQUE). Re-ejecutar durante el mes es seguro."><span class="k">ON CONFLICT</span> (id_contrato, id_periodo) <span class="k">DO UPDATE SET</span> ...</span>
 <span class="lcm" data-tip="El cierre nace o se recalcula como BORRADOR: editable hasta que fn_cerrar_cierre_mensual lo selle con fecha y usuario.">  estado = <span class="v">'BORRADOR'</span>;</span></pre>
     <p class="lead" style="margin-top:12px;font-size:12.5px">Fragmento de <b>fn_ejecutar_cierre_mensual</b> (la misma fórmula vive en <b>fn_recalcular_cierre_mensual</b>; el versionado está en <span class="mono">cambios/cierre_mensual/2026-06-11_002_*.sql</span>).</p>
@@ -4936,14 +4912,14 @@ fnRes --> res(["resultado económico del contrato"]):::raiz
     if(m=t.match(/^['"]([a-z_]+)['"]\s*,\s*count\s*\(/i)) return 'Dato del resumen: «'+m[1].replace(/_/g,' ')+'» (un conteo de filas).';
     if(/^['"][a-z_]+['"]\s*,/i.test(t)){ var kk=t.match(/^['"]([a-z_]+)['"]/)[1]; return 'Agrega «'+kk+'» al JSON de la respuesta.'; }
 
-    if(/^v_total_gastos\s+DECIMAL/i.test(t)) return 'Variable «v_total_gastos»: la suma de los 8 rubros de gasto del periodo (lo que se resta a lo facturado).';
+    if(/^v_total_gastos\s+DECIMAL/i.test(t)) return 'Variable «v_total_gastos»: el costo de servicio del periodo (gastos directos + varios fijos), lo que se resta a lo facturado para la bruta.';
     if(/^v_utilidad_bruta\s+DECIMAL/i.test(t)) return 'Variable «v_utilidad_bruta»: utilidad bruta (facturado menos el total de gastos).';
     if(/^v_utilidad_neta\s+DECIMAL/i.test(t)) return 'Variable «v_utilidad_neta»: utilidad neta (bruta menos impuestos y reparto).';
     if(/^v_utilidad_final\s+DECIMAL/i.test(t)) return 'Variable «v_utilidad_final»: utilidad final (neta menos penalidades).';
     if(/^v_recuperacion\s+DECIMAL/i.test(t)) return 'Variable «v_recuperacion»: recuperación de inversión del periodo (entra como un rubro de gasto).';
     if(/^v_penalidades\s+DECIMAL/i.test(t)) return 'Variable «v_penalidades»: suma de penalidades del periodo (se resta al final).';
 
-    if(/^v_total_gastos\s*:=/i.test(t)) return 'Calcula el TOTAL DE GASTOS: suma los 8 rubros del periodo (directos, varios fijos, iniciales, recuperación, administrativos, indirectos, financieros y SIG), usando 0 donde venga vacío.';
+    if(/^v_total_gastos\s*:=/i.test(t)) return 'Calcula el TOTAL DE GASTOS: el costo de servicio del periodo (gastos directos + varios fijos), usando 0 donde venga vacío.';
     if(/^v_utilidad_bruta\s*:=/i.test(t)) return 'Utilidad BRUTA = total facturado menos el total de gastos.';
     if(/^v_utilidad_neta\s*:=/i.test(t)) return 'Utilidad NETA = utilidad bruta menos impuesto a la renta, renta adicional y reparto de utilidades.';
     if(/^v_utilidad_final\s*:=/i.test(t)) return 'Utilidad FINAL = utilidad neta menos las penalidades del periodo.';

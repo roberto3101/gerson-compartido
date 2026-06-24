@@ -184,12 +184,12 @@ curl.exe -s -X PUT "http://localhost:8080/api/v1/activos_e_inversion/actualizar_
 
 ## 10. La lógica del cierre mensual (referencia — NO TOCAR sin el jefe)
 
-Fórmula ("Opción A", en `fn_ejecutar_cierre_mensual` / `fn_recalcular_cierre_mensual`):
+Fórmula (alineada al Excel contractual RESUMEN CHICLAYO, en `fn_ejecutar_cierre_mensual` / `fn_recalcular_cierre_mensual`):
 ```
-total_gastos   = gastos_directos + varios_fijos + iniciales_periodo + recuperacion
-                 + administrativos + indirectos + financieros + sig          (8 rubros)
+total_gastos   = gastos_directos + gastos_varios_fijos                       (solo costo de servicio)
 utilidad_bruta = total_facturado − total_gastos
-utilidad_neta  = utilidad_bruta − impuesto_renta − renta_adicional − reparto_utilidades
+utilidad_neta  = utilidad_bruta − recuperacion − administrativos − indirectos − sig
+                 − impuesto_renta − renta_adicional − reparto_utilidades
 utilidad_final = utilidad_neta − penalidades
 ```
 - **Cómo entran los números:** la mayoría llegan como **parámetros** al ejecutar/recalcular (facturado, producción, los gastos). Solo `recuperacion_inversion` y `penalidades` se **leen de sus tablas** (`SUM`) en cada recálculo. (Nota: `provision` no entra en la fórmula del recálculo.)

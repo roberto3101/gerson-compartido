@@ -314,8 +314,8 @@ go run ./cmd/api          <span class="c"># api sesga reyser escuchando en puert
     {cap:"cierre_mensual",op:"listar_penalidades",m:"GET",p:[["id_contrato",true],["id_periodo",true],["limite",true],["cursor_creado_en",true],["cursor_id",true]]},
     {cap:"cierre_mensual",op:"listar_provisiones",m:"GET",p:[["id_contrato",true],["id_periodo",true],["limite",true],["cursor_creado_en",true],["cursor_id",true]]},
     {cap:"cierre_mensual",op:"obtener_resumen_cierre_por_periodo",m:"GET",p:[["id_periodo",true]]},
-    {cap:"cierre_mensual",op:"ejecutar_cierre_mensual",m:"POST",p:[["id_usuario_accion",true],["id_contrato",true],["id_periodo",true],["total_facturado",true],["total_produccion",true],["gastos_directos",true],["gastos_varios_fijos",true],["gastos_iniciales_periodo",true],["gastos_administrativos",true],["gastos_indirectos",true],["gastos_financieros",true],["gastos_sig",true],["impuesto_renta",true],["renta_adicional",true],["reparto_utilidades",true]]},
-    {cap:"cierre_mensual",op:"recalcular_cierre_mensual",m:"POST",p:[["id_usuario_accion",true],["id_contrato",true],["id_periodo",true],["total_facturado",true],["total_produccion",true],["gastos_directos",true],["gastos_varios_fijos",true],["gastos_iniciales_periodo",true],["gastos_administrativos",true],["gastos_indirectos",true],["gastos_financieros",true],["gastos_sig",true],["impuesto_renta",true],["renta_adicional",true],["reparto_utilidades",true]]},
+    {cap:"cierre_mensual",op:"ejecutar_cierre_mensual",m:"POST",p:[["id_usuario_accion",true],["id_contrato",true],["id_periodo",true],["total_facturado",true],["total_produccion",true],["gastos_directos",true],["gastos_varios_fijos",true],["gastos_administrativos",true],["gastos_indirectos",true],["gastos_sig",true],["impuesto_renta",true],["renta_adicional",true],["reparto_utilidades",true]]},
+    {cap:"cierre_mensual",op:"recalcular_cierre_mensual",m:"POST",p:[["id_usuario_accion",true],["id_contrato",true],["id_periodo",true],["total_facturado",true],["total_produccion",true],["gastos_directos",true],["gastos_varios_fijos",true],["gastos_administrativos",true],["gastos_indirectos",true],["gastos_sig",true],["impuesto_renta",true],["renta_adicional",true],["reparto_utilidades",true]]},
     {cap:"cierre_mensual",op:"cerrar_cierre_mensual",m:"POST",p:[["id_usuario_accion",true],["id_contrato",true],["id_periodo",true]]},
     {cap:"cierre_mensual",op:"consultar_resultado_contrato",m:"POST",p:[["id_contrato",true],["id_periodo",true]]},
     {cap:"cierre_mensual",op:"registrar_penalidad",m:"POST",p:[["id_usuario_accion",true],["id_contrato",true],["id_periodo",true],["descripcion",true],["importe",true]]},
@@ -353,8 +353,8 @@ go run ./cmd/api          <span class="c"># api sesga reyser escuchando en puert
     cantidad:'1', costo:'100.00', valorizacion:'120.00', motivo:'Demo',
     inversion_asignada:'50000.00', cuota_recuperacion_mensual:'1000.00', importe:'250.00',
     total_facturado:'100000.00', total_produccion:'95000.00', gastos_directos:'40000.00',
-    gastos_varios_fijos:'1000.00', gastos_iniciales_periodo:'500.00', gastos_administrativos:'2000.00',
-    gastos_indirectos:'1500.00', gastos_financieros:'300.00', gastos_sig:'200.00',
+    gastos_varios_fijos:'1000.00', gastos_administrativos:'2000.00',
+    gastos_indirectos:'1500.00', gastos_sig:'200.00',
     impuesto_renta:'5000.00', renta_adicional:'0.00', reparto_utilidades:'0.00'
   };
   var EST={

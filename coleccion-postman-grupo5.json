@@ -1326,7 +1326,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"total_facturado\": \"100000.00\",\n  \"total_produccion\": \"95000.00\",\n  \"gastos_directos\": \"40000.00\",\n  \"gastos_varios_fijos\": \"1000.00\",\n  \"gastos_iniciales_periodo\": \"500.00\",\n  \"gastos_administrativos\": \"2000.00\",\n  \"gastos_indirectos\": \"1500.00\",\n  \"gastos_financieros\": \"300.00\",\n  \"gastos_sig\": \"200.00\",\n  \"impuesto_renta\": \"5000.00\",\n  \"renta_adicional\": \"0.00\",\n  \"reparto_utilidades\": \"0.00\"\n}",
+              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"total_facturado\": \"100000.00\",\n  \"total_produccion\": \"95000.00\",\n  \"gastos_directos\": \"40000.00\",\n  \"gastos_varios_fijos\": \"1000.00\",\n  \"gastos_administrativos\": \"2000.00\",\n  \"gastos_indirectos\": \"1500.00\",\n  \"gastos_sig\": \"200.00\",\n  \"impuesto_renta\": \"5000.00\",\n  \"renta_adicional\": \"0.00\",\n  \"reparto_utilidades\": \"0.00\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1361,7 +1361,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"total_facturado\": \"100000.00\",\n  \"total_produccion\": \"95000.00\",\n  \"gastos_directos\": \"40000.00\",\n  \"gastos_varios_fijos\": \"1000.00\",\n  \"gastos_iniciales_periodo\": \"500.00\",\n  \"gastos_administrativos\": \"2000.00\",\n  \"gastos_indirectos\": \"1500.00\",\n  \"gastos_financieros\": \"300.00\",\n  \"gastos_sig\": \"200.00\",\n  \"impuesto_renta\": \"5000.00\",\n  \"renta_adicional\": \"0.00\",\n  \"reparto_utilidades\": \"0.00\"\n}",
+              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_contrato\": \"cccccccc-cccc-cccc-cccc-cccccccccccc\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\",\n  \"total_facturado\": \"100000.00\",\n  \"total_produccion\": \"95000.00\",\n  \"gastos_directos\": \"40000.00\",\n  \"gastos_varios_fijos\": \"1000.00\",\n  \"gastos_administrativos\": \"2000.00\",\n  \"gastos_indirectos\": \"1500.00\",\n  \"gastos_sig\": \"200.00\",\n  \"impuesto_renta\": \"5000.00\",\n  \"renta_adicional\": \"0.00\",\n  \"reparto_utilidades\": \"0.00\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
