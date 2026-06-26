@@ -156,7 +156,7 @@
       <a href="#camino" class="chip link">El camino dorado →</a>
       <a href="#avance" class="chip link" style="background:#22c55e;color:#06281a;border-color:#22c55e">★ Avance del Grupo 5 →</a>
       <a href="#comandos" class="chip link">Comandos de ejecución →</a>
-      <a href="#endpoints" class="chip link">Endpoints (37) →</a>
+      <a href="#endpoints" class="chip link">Endpoints (41) →</a>
       <a href="#probador" class="chip link" style="background:#22c55e;color:#06281a;border-color:#22c55e">▶ Probador de endpoints →</a>
       <a href="codigo-componible.html" class="chip link" style="background:#fbbf24;color:#3a2c05;border-color:#fbbf24">⟨⟩ Código componible explicado →</a>
       <a href="comandos.html" class="chip link" style="background:#0ea5e9;color:#04222e;border-color:#0ea5e9">⌨ Comandos (runbook) →</a>
@@ -170,7 +170,7 @@
     <h2>Lo que ya construimos (archivo por archivo)</h2>
     <p class="lead">Sobre la arquitectura componible, esto es lo que el Grupo 5 lleva en la capacidad <b>activos-e-inversion</b>: el <b>backend</b> (generado desde el SQL) y la primera <b>pantalla del frontend</b> (a mano, sobre el molde de <span class="mono">contratos</span>). Cada tarjeta dice qué hace su archivo.</p>
 
-    <div class="ok"><b>Backend — listo:</b> los <b>37 endpoints</b> de nuestras 2 capacidades (27 de activos + 10 de cierre) ya están <b>generados</b> desde el catálogo + SQL; <span class="mono">go build</span> y <span class="mono">go vet</span> limpios. Se realineó <span class="mono">operaciones_generadas.go</span> (corrección de <span class="mono">fn_listar_herramientas</span>, que estaba desactualizado). <b>Ya incluidos y probados:</b> 3 SP de catálogo (<span class="mono">fn_listar_clasificaciones_activo</span>, <span class="mono">fn_listar_tipos_adquisicion_activo</span>, <span class="mono">fn_listar_tipos_herramienta</span>) que devuelven data real para los selectores.</div>
+    <div class="ok"><b>Backend — listo:</b> los <b>41 endpoints</b> de nuestras 2 capacidades (27 de activos + 10 de cierre) ya están <b>generados</b> desde el catálogo + SQL; <span class="mono">go build</span> y <span class="mono">go vet</span> limpios. Se realineó <span class="mono">operaciones_generadas.go</span> (corrección de <span class="mono">fn_listar_herramientas</span>, que estaba desactualizado). <b>Ya incluidos y probados:</b> 3 SP de catálogo (<span class="mono">fn_listar_clasificaciones_activo</span>, <span class="mono">fn_listar_tipos_adquisicion_activo</span>, <span class="mono">fn_listar_tipos_herramienta</span>) que devuelven data real para los selectores.</div>
 
     <h3>Backend · endpoints de activos-e-inversion (generados)</h3>
     <table class="tabla">
@@ -230,7 +230,7 @@ go run ./cmd/api          <span class="c"># api sesga reyser escuchando en puert
 <section id="endpoints">
   <div class="wrap">
     <p class="eyebrow">Superficie del API</p>
-    <h2>Endpoints — 37 vivos</h2>
+    <h2>Endpoints — 41 vivos</h2>
     <p class="lead">27 de <b>activos-e-inversion</b> + 10 de <b>cierre-mensual</b>, todos generados desde el SQL. Base: <span class="mono">http://localhost:8080/api/v1/&lt;capacidad&gt;/&lt;operacion&gt;</span> · cabecera obligatoria <span class="mono">X-Empresa-Id</span>.</p>
     <table class="tabla">
       <thead><tr><th style="width:78px">Método</th><th>activos_e_inversion (27)</th></tr></thead>

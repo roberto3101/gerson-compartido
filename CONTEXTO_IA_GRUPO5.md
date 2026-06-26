@@ -12,9 +12,9 @@
 - **Multiempresa (multi-tenant):** todo cuelga de una `empresa`; cada request lleva la empresa en una cabecera HTTP.
 - **Dividido en capacidades** (módulos de dominio). Las 9 del sistema: `gobierno_central`, `contratos`, `costeo_directo`, `gastos_compartidos`, `produccion`, `facturacion`/`valorizacion`, `activos_e_inversion`, `cierre_mensual`, `reportes`.
 - **El Grupo 5 es dueño de 2 capacidades:**
-  - **`activos_e_inversion`** — activos fijos, herramientas, su asignación a contratos, traslados, trabajos, recuperación de inversión. **27 endpoints.**
+  - **`activos_e_inversion`** — activos fijos, herramientas, su asignación a contratos, traslados, trabajos, recuperación de inversión. **31 endpoints.**
   - **`cierre_mensual`** — estado de resultados por contrato/período, penalidades, provisiones. **10 endpoints.**
-  - **Total Grupo 5: 37 endpoints.**
+  - **Total Grupo 5: 41 endpoints.**
 - **Repos:**
   - Código del producto: `CODEPLEX-SAC/plataforma-sesga-reyser` (local: `C:/Users/user/Desktop/CSRAYSER/plataforma-sesga-reyser`).
   - Páginas/descargables de documentación (Vercel): `roberto3101/gerson-compartido` (local: `C:/Users/user/Desktop/gerson-compartido`).
@@ -92,7 +92,7 @@ powershell -ExecutionPolicy Bypass -File .\herramientas\componibilidad\generar_f
 
 > **Gotcha:** `activos_e_inversion` y `cierre_mensual` son 100% generadas. Solo `contratos`, `gobierno_central` y `produccion` tienen handlers personalizados (`$codigosPersonalizados`).
 
-## 6. Inventario de endpoints (37) — la superficie completa
+## 6. Inventario de endpoints (41) — la superficie completa
 
 Base de URL: `http://localhost:8080/api/v1/<capacidad>/<operacion>`. Cabecera obligatoria `X-Empresa-Id`; las acciones piden además `X-Usuario-Id`.
 
@@ -198,7 +198,7 @@ utilidad_final = utilidad_neta − penalidades
 
 ## 11. Estado actual y lo que falta
 
-**Cerrado y verificado (2026-06-23):** 37 endpoints, todos generados desde SQL, `go build`/`go vet` limpios, probados (lógica + HTTP). En GitHub: `capacidad/activos-e-inversion` (27) y `capacidad/cierre-mensual` (10). El ciclo de vida de activos quedó completo con 4 SP nuevos: `fn_actualizar_activo`, `fn_reactivar_activo`, `fn_actualizar_herramienta`, `fn_finalizar_asignacion_activo` (esta cierra la asignación y desbloquea la baja de un activo con saldo pendiente).
+**Cerrado y verificado (2026-06-23):** 41 endpoints, todos generados desde SQL, `go build`/`go vet` limpios, probados (lógica + HTTP). En GitHub: `capacidad/activos-e-inversion` (27) y `capacidad/cierre-mensual` (10). El ciclo de vida de activos quedó completo con 4 SP nuevos: `fn_actualizar_activo`, `fn_reactivar_activo`, `fn_actualizar_herramienta`, `fn_finalizar_asignacion_activo` (esta cierra la asignación y desbloquea la baja de un activo con saldo pendiente).
 
 **Gaps pendientes (NO bloquean el frontend):**
 - **Media** (consistencia; el cliente/PDF no los pide): CRUD completo de los 3 catálogos — `actualizar_/dar_de_baja_/reactivar_` para `clasificacion_activo`, `tipo_adquisicion_activo`, `tipo_herramienta` (9 SP); más `reactivar_herramienta`.
@@ -286,4 +286,4 @@ plataforma-sesga-reyser/
 
 ---
 
-*Documento generado el 2026-06-23. Refleja el estado del Grupo 5 con 37 endpoints (27 activos_e_inversion + 10 cierre_mensual). Si algo aquí contradice el código, el código manda: re-verifica contra `infraestructura/base-de-datos/procedimientos/` y `aplicaciones/api/interno/servidor/operaciones_generadas_*.go`.*
+*Documento generado el 2026-06-23. Refleja el estado del Grupo 5 con 41 endpoints (31 activos_e_inversion + 10 cierre_mensual). Si algo aquí contradice el código, el código manda: re-verifica contra `infraestructura/base-de-datos/procedimientos/` y `aplicaciones/api/interno/servidor/operaciones_generadas_*.go`.*

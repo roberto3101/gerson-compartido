@@ -1113,6 +1113,172 @@
               }
             }
           }
+        },
+        {
+          "name": "obtener_resumen_activos_inversion",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Empresa-Id",
+                "value": "{{empresaId}}"
+              },
+              {
+                "key": "X-Usuario-Id",
+                "value": "{{usuarioId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activos_e_inversion/obtener_resumen_activos_inversion?id_periodo={{idPeriodo}}&estado=ACTIVO&id_clasificacion_activo={{idClasificacion}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activos_e_inversion",
+                "obtener_resumen_activos_inversion"
+              ],
+              "query": [
+                {
+                  "key": "id_periodo",
+                  "value": "{{idPeriodo}}"
+                },
+                {
+                  "key": "estado",
+                  "value": "ACTIVO"
+                },
+                {
+                  "key": "id_clasificacion_activo",
+                  "value": "{{idClasificacion}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "listar_periodos_disponibles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Empresa-Id",
+                "value": "{{empresaId}}"
+              },
+              {
+                "key": "X-Usuario-Id",
+                "value": "{{usuarioId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activos_e_inversion/listar_periodos_disponibles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activos_e_inversion",
+                "listar_periodos_disponibles"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "listar_alertas_activos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Empresa-Id",
+                "value": "{{empresaId}}"
+              },
+              {
+                "key": "X-Usuario-Id",
+                "value": "{{usuarioId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activos_e_inversion/listar_alertas_activos?tipo=VIDA_UTIL&busqueda=&limite=20&desplazamiento=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activos_e_inversion",
+                "listar_alertas_activos"
+              ],
+              "query": [
+                {
+                  "key": "tipo",
+                  "value": "VIDA_UTIL"
+                },
+                {
+                  "key": "busqueda",
+                  "value": ""
+                },
+                {
+                  "key": "limite",
+                  "value": "20"
+                },
+                {
+                  "key": "desplazamiento",
+                  "value": "0"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "listar_activos_detalle",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Empresa-Id",
+                "value": "{{empresaId}}"
+              },
+              {
+                "key": "X-Usuario-Id",
+                "value": "{{usuarioId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activos_e_inversion/listar_activos_detalle?estado=ACTIVO&id_clasificacion_activo={{idClasificacion}}&busqueda=&limite=200&cursor_creado_en={{cursorCreadoEn}}&cursor_id={{cursorId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activos_e_inversion",
+                "listar_activos_detalle"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "ACTIVO"
+                },
+                {
+                  "key": "id_clasificacion_activo",
+                  "value": "{{idClasificacion}}"
+                },
+                {
+                  "key": "busqueda",
+                  "value": ""
+                },
+                {
+                  "key": "limite",
+                  "value": "200"
+                },
+                {
+                  "key": "cursor_creado_en",
+                  "value": "{{cursorCreadoEn}}"
+                },
+                {
+                  "key": "cursor_id",
+                  "value": "{{cursorId}}"
+                }
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
