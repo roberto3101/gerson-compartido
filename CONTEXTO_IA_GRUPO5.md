@@ -97,7 +97,7 @@ powershell -ExecutionPolicy Bypass -File .\herramientas\componibilidad\generar_f
 Base de URL: `http://localhost:8080/api/v1/<capacidad>/<operacion>`. Cabecera obligatoria `X-Empresa-Id`; las acciones piden además `X-Usuario-Id`.
 
 ### activos_e_inversion — 27 (12 GET + 12 POST + 2 PUT + 1 DELETE)
-- **GET (lectura):** `listar_activos`, `obtener_detalle_activo`, `listar_herramientas`, `obtener_detalle_herramienta`, `listar_movimientos_herramienta`, `listar_asignaciones_activo`, `listar_traslados_activo`, `listar_trabajos_activo`, `listar_recuperaciones_inversion`, `listar_clasificaciones_activo`, `listar_tipos_adquisicion_activo`, `listar_tipos_herramienta`
+- **GET (lectura):** `listar_activos`, `obtener_detalle_activo`, `listar_herramientas`, `obtener_detalle_herramienta`, `listar_movimientos_herramienta`, `listar_asignaciones_activo`, `listar_traslados_activo`, `listar_trabajos_activo`, `listar_recuperaciones_inversion`, `listar_clasificaciones_activo`, `listar_tipos_adquisicion_activo`, `listar_tipos_herramienta`, `obtener_resumen_activos_inversion`, `listar_periodos_disponibles`, `listar_alertas_activos`, `listar_activos_detalle`
 - **POST:** `registrar_activo`, `registrar_herramienta`, `asignar_activo_a_contrato`, `mover_herramienta`, `registrar_trabajo_activo`, `registrar_traslado_activo`, `ejecutar_recuperacion_mensual`, `registrar_clasificacion_activo`, `registrar_tipo_adquisicion_activo`, `registrar_tipo_herramienta`, `reactivar_activo`, `finalizar_asignacion_activo`
 - **PUT:** `actualizar_activo`, `actualizar_herramienta`
 - **DELETE:** `dar_de_baja_activo`
@@ -198,7 +198,7 @@ utilidad_final = utilidad_neta − penalidades
 
 ## 11. Estado actual y lo que falta
 
-**Cerrado y verificado (2026-06-23):** 41 endpoints, todos generados desde SQL, `go build`/`go vet` limpios, probados (lógica + HTTP). En GitHub: `capacidad/activos-e-inversion` (27) y `capacidad/cierre-mensual` (10). El ciclo de vida de activos quedó completo con 4 SP nuevos: `fn_actualizar_activo`, `fn_reactivar_activo`, `fn_actualizar_herramienta`, `fn_finalizar_asignacion_activo` (esta cierra la asignación y desbloquea la baja de un activo con saldo pendiente).
+**Cerrado y verificado (2026-06-23):** 41 endpoints, todos generados desde SQL, `go build`/`go vet` limpios, probados (lógica + HTTP). En GitHub: `capacidad/activos-e-inversion` (31) y `capacidad/cierre-mensual` (10). El ciclo de vida de activos quedó completo con 4 SP nuevos: `fn_actualizar_activo`, `fn_reactivar_activo`, `fn_actualizar_herramienta`, `fn_finalizar_asignacion_activo` (esta cierra la asignación y desbloquea la baja de un activo con saldo pendiente).
 
 **Gaps pendientes (NO bloquean el frontend):**
 - **Media** (consistencia; el cliente/PDF no los pide): CRUD completo de los 3 catálogos — `actualizar_/dar_de_baja_/reactivar_` para `clasificacion_activo`, `tipo_adquisicion_activo`, `tipo_herramienta` (9 SP); más `reactivar_herramienta`.
