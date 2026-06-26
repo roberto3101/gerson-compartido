@@ -3104,6 +3104,32 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'KILOMETRAJE_INVALIDO', 'mensaje', 'El kilometraje final no puede ser menor que el inicial');
   END IF;
 
+  IF p_horas_trabajadas IS NULL OR p_horas_trabajadas <= 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'HORAS_INVALIDAS', 'mensaje', 'Las horas trabajadas deben ser mayores a 0');
+  END IF;
+
+  IF COALESCE(p_valorizacion_trabajo, 0) < 0 OR COALESCE(p_dias_depreciados, 0) < 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'MONTO_INVALIDO', 'mensaje', 'La valorizacion y los dias depreciados no pueden ser negativos');
+  END IF;
+
+  IF p_fecha_hora_inicio IS NOT NULL AND p_fecha_hora_fin IS NOT NULL AND p_fecha_hora_fin <= p_fecha_hora_inicio THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'RANGO_HORARIO_INVALIDO', 'mensaje', 'La fecha y hora de fin debe ser posterior a la de inicio');
+  END IF;
+
+  IF p_id_operario IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM operario WHERE id = p_id_operario AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'OPERARIO_NO_VALIDO', 'mensaje', 'El operario no existe o no pertenece a la empresa');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM activo_asignacion_contrato
+    WHERE id_empresa = p_id_empresa AND id_activo = p_id_activo AND id_contrato = p_id_contrato
+      AND eliminado_en IS NULL AND estado = 'ACTIVO'
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_ASIGNADO_CONTRATO', 'mensaje', 'El activo no tiene una asignacion vigente en ese contrato; asigne el activo antes de registrar trabajo');
+  END IF;
+
   INSERT INTO activo_registro_trabajo (
     id_empresa, id_activo, id_contrato, id_zona, id_operario, id_periodo,
     fecha, fecha_hora_inicio, fecha_hora_fin, horas_trabajadas,
@@ -3238,6 +3264,7 @@ AS $$
 DECLARE
   v_saldo DECIMAL(18,2);
   v_cuota DECIMAL(18,2);
+  v_fecha_inicio_origen DATE;
   v_id_traslado UUID;
   v_id_asignacion_destino UUID;
 BEGIN
@@ -3247,6 +3274,10 @@ BEGIN
 
   IF NOT EXISTS (SELECT 1 FROM activo WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_VALIDO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM activo WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL AND estado = 'BAJA') THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_DADO_DE_BAJA', 'mensaje', 'El activo esta dado de baja, no se puede trasladar');
   END IF;
 
   IF p_id_contrato_origen IS NOT NULL AND NOT EXISTS (
@@ -3263,8 +3294,8 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ZONA_ORIGEN_NO_VALIDA', 'mensaje', 'La zona origen no existe o no pertenece a la empresa');
   END IF;
 
-  SELECT saldo_inversion_pendiente, cuota_recuperacion_mensual
-    INTO v_saldo, v_cuota
+  SELECT saldo_inversion_pendiente, cuota_recuperacion_mensual, fecha_inicio
+    INTO v_saldo, v_cuota, v_fecha_inicio_origen
   FROM activo_asignacion_contrato
   WHERE id_empresa = p_id_empresa AND id_activo = p_id_activo AND id_contrato = p_id_contrato_origen
     AND eliminado_en IS NULL AND estado = 'ACTIVO';
@@ -3294,6 +3325,31 @@ BEGIN
     WHERE id = p_id_zona_destino AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
   ) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ZONA_DESTINO_NO_VALIDA', 'mensaje', 'La zona destino no existe, no pertenece a la empresa o no esta vigente');
+  END IF;
+
+  IF p_id_contrato_origen IS NOT DISTINCT FROM p_id_contrato_destino
+     AND p_id_zona_origen IS NOT DISTINCT FROM p_id_zona_destino THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TRASLADO_SIN_CAMBIO', 'mensaje', 'El traslado debe cambiar de contrato o de zona; el destino es igual al origen');
+  END IF;
+
+  IF p_fecha_traslado IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'FECHA_TRASLADO_OBLIGATORIA', 'mensaje', 'La fecha de traslado es obligatoria');
+  END IF;
+
+  IF p_fecha_traslado > current_date THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'FECHA_TRASLADO_FUTURA', 'mensaje', 'La fecha de traslado no puede ser futura');
+  END IF;
+
+  IF p_fecha_traslado < v_fecha_inicio_origen THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'FECHA_TRASLADO_INVALIDA', 'mensaje', 'La fecha de traslado no puede ser anterior al inicio de la asignacion de origen');
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM activo_asignacion_contrato
+    WHERE id_empresa = p_id_empresa AND id_activo = p_id_activo AND id_contrato = p_id_contrato_destino
+      AND eliminado_en IS NULL AND estado = 'ACTIVO'
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_YA_ASIGNADO_DESTINO', 'mensaje', 'El activo ya tiene una asignacion vigente en el contrato destino');
   END IF;
 
   INSERT INTO activo_traslado (
@@ -3419,6 +3475,22 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_MOVIMIENTO_NO_VALIDO', 'mensaje', 'El tipo de movimiento no es valido');
   END IF;
 
+  IF p_cantidad IS NULL OR p_cantidad <= 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CANTIDAD_INVALIDA', 'mensaje', 'La cantidad del movimiento debe ser mayor a 0');
+  END IF;
+
+  IF COALESCE(p_costo, 0) < 0 OR COALESCE(p_valorizacion, 0) < 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'MONTO_INVALIDO', 'mensaje', 'El costo y la valorizacion no pueden ser negativos');
+  END IF;
+
+  IF p_fecha IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'FECHA_OBLIGATORIA', 'mensaje', 'La fecha del movimiento es obligatoria');
+  END IF;
+
+  IF p_fecha > current_date THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'FECHA_FUTURA', 'mensaje', 'La fecha del movimiento no puede ser futura');
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1 FROM periodo
     WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL
@@ -3453,6 +3525,18 @@ BEGIN
     WHERE id = p_id_zona_destino AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
   ) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ZONA_DESTINO_NO_VALIDA', 'mensaje', 'La zona destino no existe, no pertenece a la empresa o no esta vigente');
+  END IF;
+
+  IF p_tipo_movimiento = 'ENTRADA' AND (p_id_contrato_destino IS NULL OR p_id_zona_destino IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'DESTINO_OBLIGATORIO', 'mensaje', 'Un movimiento de ENTRADA requiere contrato y zona de destino');
+  END IF;
+
+  IF p_tipo_movimiento IN ('SALIDA', 'BAJA') AND (p_id_contrato_origen IS NULL OR p_id_zona_origen IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ORIGEN_OBLIGATORIO', 'mensaje', 'Un movimiento de SALIDA o BAJA requiere contrato y zona de origen');
+  END IF;
+
+  IF p_tipo_movimiento = 'TRASLADO' AND (p_id_contrato_origen IS NULL OR p_id_zona_origen IS NULL OR p_id_contrato_destino IS NULL OR p_id_zona_destino IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ORIGEN_DESTINO_OBLIGATORIO', 'mensaje', 'Un movimiento de TRASLADO requiere contrato y zona de origen y de destino');
   END IF;
 
   INSERT INTO herramienta_movimiento (
@@ -3955,12 +4039,12 @@ CREATE INDEX idx_provision_listado ON provision (id_empresa, creado_en DESC, id 
 
 CREATE OR REPLACE FUNCTION fn_listar_activos(
   p_id_empresa UUID,
-  p_estado STRING,
-  p_id_clasificacion_activo UUID,
-  p_busqueda STRING,
-  p_limite INT,
-  p_cursor_creado_en TIMESTAMPTZ,
-  p_cursor_id UUID
+  p_estado STRING DEFAULT NULL,
+  p_id_clasificacion_activo UUID DEFAULT NULL,
+  p_busqueda STRING DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
 ) RETURNS JSONB
 LANGUAGE plpgsql
 AS $$
@@ -4075,12 +4159,12 @@ $$;
 
 CREATE OR REPLACE FUNCTION fn_listar_herramientas(
   p_id_empresa UUID,
-  p_estado STRING,
-  p_id_tipo_herramienta UUID,
-  p_texto_busqueda  STRING,
-  p_limite_pagina  INT,
-  p_cursor_creado_en TIMESTAMPTZ,
-  p_cursor_id UUID
+  p_estado STRING DEFAULT NULL,
+  p_id_tipo_herramienta UUID DEFAULT NULL,
+  p_texto_busqueda  STRING DEFAULT NULL,
+  p_limite_pagina  INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
 ) RETURNS JSONB
 LANGUAGE plpgsql
 AS $$
@@ -4191,12 +4275,12 @@ $$;
 
 CREATE OR REPLACE FUNCTION fn_listar_movimientos_herramienta(
   p_id_empresa UUID,
-  p_id_herramienta UUID,
-  p_id_periodo UUID,
-  p_tipo_movimiento STRING,
-  p_limite INT,
-  p_cursor_creado_en TIMESTAMPTZ,
-  p_cursor_id UUID
+  p_id_herramienta UUID DEFAULT NULL,
+  p_id_periodo UUID DEFAULT NULL,
+  p_tipo_movimiento STRING DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
 ) RETURNS JSONB
 LANGUAGE plpgsql
 AS $$
@@ -4267,11 +4351,11 @@ END;
 $$;
 CREATE OR REPLACE FUNCTION fn_listar_asignaciones_activo(
   p_id_empresa UUID,
-  p_id_activo UUID,
-  p_estado STRING,
-  p_limite INT,
-  p_cursor_creado_en TIMESTAMPTZ,
-  p_cursor_id UUID
+  p_id_activo UUID DEFAULT NULL,
+  p_estado STRING DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
 ) RETURNS JSONB
 LANGUAGE plpgsql
 AS $$
@@ -4335,12 +4419,12 @@ $$;
 
 CREATE OR REPLACE FUNCTION fn_listar_trabajos_activo(
   p_id_empresa UUID,
-  p_id_activo UUID,
-  p_id_contrato UUID,
-  p_id_periodo UUID,
-  p_limite INT,
-  p_cursor_creado_en TIMESTAMPTZ,
-  p_cursor_id UUID
+  p_id_activo UUID DEFAULT NULL,
+  p_id_contrato UUID DEFAULT NULL,
+  p_id_periodo UUID DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
 ) RETURNS JSONB
 LANGUAGE plpgsql
 AS $$
@@ -4413,10 +4497,10 @@ $$;
 
 CREATE OR REPLACE FUNCTION fn_listar_traslados_activo(
   p_id_empresa UUID,
-  p_id_activo UUID,
-  p_limite INT,
-  p_cursor_creado_en TIMESTAMPTZ,
-  p_cursor_id UUID
+  p_id_activo UUID DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
 ) RETURNS JSONB
 LANGUAGE plpgsql
 AS $$
@@ -4486,12 +4570,12 @@ $$;
 
 CREATE OR REPLACE FUNCTION fn_listar_recuperaciones_inversion(
   p_id_empresa UUID,
-  p_id_activo UUID,
-  p_id_contrato UUID,
-  p_id_periodo UUID,
-  p_limite INT,
-  p_cursor_creado_en TIMESTAMPTZ,
-  p_cursor_id UUID
+  p_id_activo UUID DEFAULT NULL,
+  p_id_contrato UUID DEFAULT NULL,
+  p_id_periodo UUID DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
 ) RETURNS JSONB
 LANGUAGE plpgsql
 AS $$
@@ -4558,12 +4642,12 @@ $$;
 
 CREATE OR REPLACE FUNCTION fn_listar_cierres_mensuales(
   p_id_empresa UUID,
-  p_id_contrato UUID,
-  p_id_periodo UUID,
-  p_estado STRING,
-  p_limite INT,
-  p_cursor_creado_en TIMESTAMPTZ,
-  p_cursor_id UUID
+  p_id_contrato UUID DEFAULT NULL,
+  p_id_periodo UUID DEFAULT NULL,
+  p_estado STRING DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
 ) RETURNS JSONB
 LANGUAGE plpgsql
 AS $$
@@ -4630,11 +4714,11 @@ END;
 $$;
 CREATE OR REPLACE FUNCTION fn_listar_penalidades(
   p_id_empresa UUID,
-  p_id_contrato UUID,
-  p_id_periodo UUID,
-  p_limite INT,
-  p_cursor_creado_en TIMESTAMPTZ,
-  p_cursor_id UUID
+  p_id_contrato UUID DEFAULT NULL,
+  p_id_periodo UUID DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
 ) RETURNS JSONB
 LANGUAGE plpgsql
 AS $$
@@ -4693,11 +4777,11 @@ $$;
 
 CREATE OR REPLACE FUNCTION fn_listar_provisiones(
   p_id_empresa UUID,
-  p_id_contrato UUID,
-  p_id_periodo UUID,
-  p_limite INT,
-  p_cursor_creado_en TIMESTAMPTZ,
-  p_cursor_id UUID
+  p_id_contrato UUID DEFAULT NULL,
+  p_id_periodo UUID DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
 ) RETURNS JSONB
 LANGUAGE plpgsql
 AS $$
@@ -5265,6 +5349,10 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_ENCONTRADO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
   END IF;
 
+  IF v_estado = 'BAJA' THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_DADO_DE_BAJA', 'mensaje', 'El activo esta dado de baja; reactivelo antes de editar sus datos');
+  END IF;
+
   IF p_descripcion IS NULL OR char_length(trim(p_descripcion)) = 0 THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'DESCRIPCION_OBLIGATORIA', 'mensaje', 'La descripcion del activo es obligatoria');
   END IF;
@@ -5387,6 +5475,12 @@ BEGIN
     SELECT 1 FROM herramienta WHERE id = p_id_herramienta AND id_empresa = p_id_empresa AND eliminado_en IS NULL
   ) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'HERRAMIENTA_NO_ENCONTRADA', 'mensaje', 'La herramienta no existe o no pertenece a la empresa');
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM herramienta WHERE id = p_id_herramienta AND id_empresa = p_id_empresa AND eliminado_en IS NULL AND estado = 'BAJA'
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'HERRAMIENTA_DADA_DE_BAJA', 'mensaje', 'La herramienta esta dada de baja, no se puede editar');
   END IF;
 
   IF p_id_tipo_herramienta IS NOT NULL AND NOT EXISTS (
