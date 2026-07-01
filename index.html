@@ -1109,8 +1109,8 @@ ALTER TABLE cierre_mensual ADD CONSTRAINT fk_cierre_mensual_eliminado_por FOREIG
     <p class="lead">Todo acceso de negocio a la BD pasa por procedimientos. Cada cuadrito es un caso de uso: haz clic para ver <b>por qué existe</b> y desplegar su <b>código</b> (PL/pgSQL · CockroachDB · retorno JSONB · sin comentarios). <b>Tenant</b> y <b>auditoría</b> van en todos.</p>
 
     <div class="sp-intro">
-      <span class="item"><b>21</b> procedimientos</span>
-      <span class="item"><span class="sp-cap ai">activos-e-inversion</span> 15</span>
+      <span class="item"><b>52</b> procedimientos</span>
+      <span class="item"><span class="sp-cap ai">activos-e-inversion</span> 46</span>
       <span class="item"><span class="sp-cap cm">cierre-mensual</span> 6</span>
       <span class="item" style="margin-left:auto">Firma uniforme: <span class="mono">(p_id_empresa, p_id_usuario_accion, …)</span></span>
     </div>
@@ -2901,6 +2901,1983 @@ END;
 $$;</pre>
         </div>
       </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_actualizar_ajuste_recuperacion</div>
+          <div class="spcaso">Actualiza los datos de ajuste de recuperación de inversión.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Modifica ajuste de recuperación de inversión existente; revalida tenant y reglas de negocio.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que ajuste de recuperación de inversión pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_actualizar_ajuste_recuperacion(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_ajuste UUID,
+  p_fecha DATE,
+  p_monto_ajuste DECIMAL,
+  p_motivo STRING
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM recuperacion_ajuste
+  WHERE id = p_id_ajuste AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;AJUSTE_RECUPERACION_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El ajuste no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado &lt;&gt; &#x27;PENDIENTE&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;AJUSTE_RECUPERACION_NO_PENDIENTE&#x27;, &#x27;mensaje&#x27;, &#x27;Solo se puede editar un ajuste pendiente&#x27;);
+  END IF;
+
+  IF p_fecha IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;FECHA_OBLIGATORIA&#x27;, &#x27;mensaje&#x27;, &#x27;La fecha del ajuste es obligatoria&#x27;);
+  END IF;
+
+  IF p_monto_ajuste IS NULL OR p_monto_ajuste = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;MONTO_INVALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El monto del ajuste debe ser distinto de cero&#x27;);
+  END IF;
+
+  IF p_motivo IS NULL OR char_length(trim(p_motivo)) = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;MOTIVO_OBLIGATORIO&#x27;, &#x27;mensaje&#x27;, &#x27;El motivo del ajuste es obligatorio&#x27;);
+  END IF;
+
+  UPDATE recuperacion_ajuste SET
+    fecha = p_fecha,
+    monto_ajuste = p_monto_ajuste,
+    motivo = trim(p_motivo),
+    actualizado_en = now(),
+    actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_ajuste AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;AJUSTE_RECUPERACION_ACTUALIZADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El ajuste fue actualizado correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_ajuste&#x27;, p_id_ajuste)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;AJUSTE_RECUPERACION_ACTUALIZACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al actualizar el ajuste&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_actualizar_clasificacion_activo</div>
+          <div class="spcaso">Actualiza los datos de clasificación de activo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Modifica clasificación de activo existente; revalida tenant y reglas de negocio.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que clasificación de activo pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_actualizar_clasificacion_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_clasificacion_activo UUID,
+  p_codigo STRING,
+  p_descripcion STRING,
+  p_es_capitalizable BOOL DEFAULT true
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  IF p_codigo IS NULL OR char_length(trim(p_codigo)) = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;CODIGO_OBLIGATORIO&#x27;, &#x27;mensaje&#x27;, &#x27;El codigo de la clasificacion es obligatorio&#x27;);
+  END IF;
+
+  IF p_descripcion IS NULL OR char_length(trim(p_descripcion)) = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;DESCRIPCION_OBLIGATORIA&#x27;, &#x27;mensaje&#x27;, &#x27;La descripcion de la clasificacion es obligatoria&#x27;);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM clasificacion_activo
+    WHERE id = p_id_clasificacion_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;CLASIFICACION_ACTIVO_NO_ENCONTRADA&#x27;, &#x27;mensaje&#x27;, &#x27;La clasificacion de activo no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM clasificacion_activo
+    WHERE id_empresa = p_id_empresa AND codigo = trim(p_codigo) AND eliminado_en IS NULL AND id &lt;&gt; p_id_clasificacion_activo
+  ) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;CLASIFICACION_ACTIVO_CODIGO_DUPLICADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ya existe una clasificacion de activo con ese codigo en la empresa&#x27;);
+  END IF;
+
+  UPDATE clasificacion_activo SET
+    codigo = trim(p_codigo),
+    descripcion = trim(p_descripcion),
+    es_capitalizable = COALESCE(p_es_capitalizable, true),
+    actualizado_en = now(),
+    actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_clasificacion_activo AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;CLASIFICACION_ACTIVO_ACTUALIZADA&#x27;,
+    &#x27;mensaje&#x27;, &#x27;La clasificacion de activo fue actualizada correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_clasificacion_activo&#x27;, p_id_clasificacion_activo)
+  );
+EXCEPTION
+  WHEN unique_violation THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;CLASIFICACION_ACTIVO_CODIGO_DUPLICADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ya existe una clasificacion de activo con ese codigo en la empresa&#x27;);
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;CLASIFICACION_ACTIVO_ACTUALIZACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al actualizar la clasificacion de activo&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_actualizar_incidencia_activo</div>
+          <div class="spcaso">Actualiza los datos de incidencia de activo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Modifica incidencia de activo existente; revalida tenant y reglas de negocio.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que incidencia de activo pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_actualizar_incidencia_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_incidencia UUID,
+  p_titulo STRING,
+  p_descripcion STRING DEFAULT NULL,
+  p_severidad STRING DEFAULT &#x27;MEDIA&#x27;
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM activo_incidencia
+  WHERE id = p_id_incidencia AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INCIDENCIA_ACTIVO_NO_ENCONTRADA&#x27;, &#x27;mensaje&#x27;, &#x27;La incidencia no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado IN (&#x27;RESUELTA&#x27;, &#x27;ANULADA&#x27;) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INCIDENCIA_ACTIVO_CERRADA&#x27;, &#x27;mensaje&#x27;, &#x27;La incidencia esta resuelta o anulada, no se puede editar&#x27;);
+  END IF;
+
+  IF p_titulo IS NULL OR char_length(trim(p_titulo)) = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TITULO_OBLIGATORIO&#x27;, &#x27;mensaje&#x27;, &#x27;El titulo de la incidencia es obligatorio&#x27;);
+  END IF;
+
+  IF COALESCE(p_severidad, &#x27;MEDIA&#x27;) NOT IN (&#x27;BAJA&#x27;, &#x27;MEDIA&#x27;, &#x27;ALTA&#x27;, &#x27;CRITICA&#x27;) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;SEVERIDAD_NO_VALIDA&#x27;, &#x27;mensaje&#x27;, &#x27;La severidad no es valida&#x27;);
+  END IF;
+
+  UPDATE activo_incidencia SET
+    titulo = trim(p_titulo),
+    descripcion = NULLIF(trim(p_descripcion), &#x27;&#x27;),
+    severidad = COALESCE(p_severidad, &#x27;MEDIA&#x27;),
+    actualizado_en = now(),
+    actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_incidencia AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;INCIDENCIA_ACTIVO_ACTUALIZADA&#x27;,
+    &#x27;mensaje&#x27;, &#x27;La incidencia fue actualizada correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_incidencia&#x27;, p_id_incidencia)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INCIDENCIA_ACTIVO_ACTUALIZACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al actualizar la incidencia&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_actualizar_intervencion_herramienta</div>
+          <div class="spcaso">Actualiza los datos de intervención de herramienta.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Modifica intervención de herramienta existente; revalida tenant y reglas de negocio.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que intervención de herramienta pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_actualizar_intervencion_herramienta(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_intervencion UUID,
+  p_tipo STRING,
+  p_fecha DATE,
+  p_descripcion STRING DEFAULT NULL,
+  p_costo DECIMAL DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM herramienta_intervencion
+  WHERE id = p_id_intervencion AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INTERVENCION_HERRAMIENTA_NO_ENCONTRADA&#x27;, &#x27;mensaje&#x27;, &#x27;La intervencion no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado IN (&#x27;FINALIZADA&#x27;, &#x27;ANULADA&#x27;) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INTERVENCION_HERRAMIENTA_CERRADA&#x27;, &#x27;mensaje&#x27;, &#x27;La intervencion esta finalizada o anulada, no se puede editar&#x27;);
+  END IF;
+
+  IF p_tipo IS NULL OR p_tipo NOT IN (&#x27;REPARACION&#x27;, &#x27;CALIBRACION&#x27;, &#x27;REVISION&#x27;) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_INTERVENCION_NO_VALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El tipo de intervencion no es valido&#x27;);
+  END IF;
+
+  IF p_fecha IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;FECHA_OBLIGATORIA&#x27;, &#x27;mensaje&#x27;, &#x27;La fecha de la intervencion es obligatoria&#x27;);
+  END IF;
+
+  IF COALESCE(p_costo, 0) &lt; 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;COSTO_INVALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El costo no puede ser negativo&#x27;);
+  END IF;
+
+  UPDATE herramienta_intervencion SET
+    tipo = p_tipo,
+    fecha = p_fecha,
+    descripcion = NULLIF(trim(p_descripcion), &#x27;&#x27;),
+    costo = p_costo,
+    actualizado_en = now(),
+    actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_intervencion AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;INTERVENCION_HERRAMIENTA_ACTUALIZADA&#x27;,
+    &#x27;mensaje&#x27;, &#x27;La intervencion fue actualizada correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_intervencion&#x27;, p_id_intervencion)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INTERVENCION_HERRAMIENTA_ACTUALIZACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al actualizar la intervencion&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_actualizar_mantenimiento_activo</div>
+          <div class="spcaso">Actualiza los datos de mantenimiento de activo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Modifica mantenimiento de activo existente; revalida tenant y reglas de negocio.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que mantenimiento de activo pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_actualizar_mantenimiento_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_mantenimiento UUID,
+  p_tipo STRING,
+  p_fecha_programada DATE,
+  p_descripcion STRING,
+  p_costo DECIMAL DEFAULT NULL,
+  p_id_responsable UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM activo_mantenimiento
+  WHERE id = p_id_mantenimiento AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;MANTENIMIENTO_ACTIVO_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El mantenimiento no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado = &#x27;ANULADO&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;MANTENIMIENTO_ACTIVO_ANULADO&#x27;, &#x27;mensaje&#x27;, &#x27;El mantenimiento esta anulado, no se puede editar&#x27;);
+  END IF;
+
+  IF p_tipo IS NULL OR p_tipo NOT IN (&#x27;PREVENTIVO&#x27;, &#x27;CORRECTIVO&#x27;) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_MANTENIMIENTO_NO_VALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El tipo de mantenimiento debe ser PREVENTIVO o CORRECTIVO&#x27;);
+  END IF;
+
+  IF p_fecha_programada IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;FECHA_OBLIGATORIA&#x27;, &#x27;mensaje&#x27;, &#x27;La fecha programada del mantenimiento es obligatoria&#x27;);
+  END IF;
+
+  IF p_descripcion IS NULL OR char_length(trim(p_descripcion)) = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;DESCRIPCION_OBLIGATORIA&#x27;, &#x27;mensaje&#x27;, &#x27;La descripcion del mantenimiento es obligatoria&#x27;);
+  END IF;
+
+  IF COALESCE(p_costo, 0) &lt; 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;COSTO_INVALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El costo no puede ser negativo&#x27;);
+  END IF;
+
+  IF p_id_responsable IS NOT NULL AND NOT EXISTS (SELECT 1 FROM usuario WHERE id = p_id_responsable) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;RESPONSABLE_NO_VALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El responsable no existe&#x27;);
+  END IF;
+
+  UPDATE activo_mantenimiento SET
+    tipo = p_tipo,
+    fecha_programada = p_fecha_programada,
+    descripcion = trim(p_descripcion),
+    costo = p_costo,
+    id_responsable = p_id_responsable,
+    actualizado_en = now(),
+    actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_mantenimiento AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;MANTENIMIENTO_ACTIVO_ACTUALIZADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El mantenimiento fue actualizado correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_mantenimiento&#x27;, p_id_mantenimiento)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;MANTENIMIENTO_ACTIVO_ACTUALIZACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al actualizar el mantenimiento&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_actualizar_parametro_activos_inversion</div>
+          <div class="spcaso">Actualiza los datos de parámetro de activos e inversión.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Modifica parámetro de activos e inversión existente; revalida tenant y reglas de negocio.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que parámetro de activos e inversión pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_actualizar_parametro_activos_inversion(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_parametro UUID,
+  p_valor STRING,
+  p_descripcion STRING DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM parametro_activos_inversion WHERE id = p_id_parametro AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;PARAMETRO_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El parametro no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF p_valor IS NULL OR char_length(trim(p_valor)) = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;VALOR_OBLIGATORIO&#x27;, &#x27;mensaje&#x27;, &#x27;El valor del parametro es obligatorio&#x27;);
+  END IF;
+
+  UPDATE parametro_activos_inversion SET
+    valor = trim(p_valor),
+    descripcion = NULLIF(trim(p_descripcion), &#x27;&#x27;),
+    actualizado_en = now(),
+    actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_parametro AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;PARAMETRO_ACTUALIZADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El parametro fue actualizado correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_parametro&#x27;, p_id_parametro)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;PARAMETRO_ACTUALIZACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al actualizar el parametro&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_actualizar_tipo_adquisicion_activo</div>
+          <div class="spcaso">Actualiza los datos de tipo de adquisición de activo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Modifica tipo de adquisición de activo existente; revalida tenant y reglas de negocio.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que tipo de adquisición de activo pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_actualizar_tipo_adquisicion_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_tipo_adquisicion_activo UUID,
+  p_codigo STRING,
+  p_descripcion STRING
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  IF p_codigo IS NULL OR char_length(trim(p_codigo)) = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;CODIGO_OBLIGATORIO&#x27;, &#x27;mensaje&#x27;, &#x27;El codigo del tipo de adquisicion es obligatorio&#x27;);
+  END IF;
+
+  IF p_descripcion IS NULL OR char_length(trim(p_descripcion)) = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;DESCRIPCION_OBLIGATORIA&#x27;, &#x27;mensaje&#x27;, &#x27;La descripcion del tipo de adquisicion es obligatoria&#x27;);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM tipo_adquisicion_activo
+    WHERE id = p_id_tipo_adquisicion_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_ADQUISICION_ACTIVO_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El tipo de adquisicion de activo no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM tipo_adquisicion_activo
+    WHERE id_empresa = p_id_empresa AND codigo = trim(p_codigo) AND eliminado_en IS NULL AND id &lt;&gt; p_id_tipo_adquisicion_activo
+  ) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_ADQUISICION_ACTIVO_CODIGO_DUPLICADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ya existe un tipo de adquisicion con ese codigo en la empresa&#x27;);
+  END IF;
+
+  UPDATE tipo_adquisicion_activo SET
+    codigo = trim(p_codigo),
+    descripcion = trim(p_descripcion),
+    actualizado_en = now(),
+    actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_tipo_adquisicion_activo AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;TIPO_ADQUISICION_ACTIVO_ACTUALIZADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El tipo de adquisicion de activo fue actualizado correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_tipo_adquisicion_activo&#x27;, p_id_tipo_adquisicion_activo)
+  );
+EXCEPTION
+  WHEN unique_violation THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_ADQUISICION_ACTIVO_CODIGO_DUPLICADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ya existe un tipo de adquisicion con ese codigo en la empresa&#x27;);
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_ADQUISICION_ACTIVO_ACTUALIZACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al actualizar el tipo de adquisicion de activo&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_actualizar_tipo_herramienta</div>
+          <div class="spcaso">Actualiza los datos de tipo de herramienta.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Modifica tipo de herramienta existente; revalida tenant y reglas de negocio.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que tipo de herramienta pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_actualizar_tipo_herramienta(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_tipo_herramienta UUID,
+  p_codigo STRING,
+  p_descripcion STRING
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  IF p_codigo IS NULL OR char_length(trim(p_codigo)) = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;CODIGO_OBLIGATORIO&#x27;, &#x27;mensaje&#x27;, &#x27;El codigo del tipo de herramienta es obligatorio&#x27;);
+  END IF;
+
+  IF p_descripcion IS NULL OR char_length(trim(p_descripcion)) = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;DESCRIPCION_OBLIGATORIA&#x27;, &#x27;mensaje&#x27;, &#x27;La descripcion del tipo de herramienta es obligatoria&#x27;);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM tipo_herramienta
+    WHERE id = p_id_tipo_herramienta AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_HERRAMIENTA_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El tipo de herramienta no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM tipo_herramienta
+    WHERE id_empresa = p_id_empresa AND codigo = trim(p_codigo) AND eliminado_en IS NULL AND id &lt;&gt; p_id_tipo_herramienta
+  ) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_HERRAMIENTA_CODIGO_DUPLICADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ya existe un tipo de herramienta con ese codigo en la empresa&#x27;);
+  END IF;
+
+  UPDATE tipo_herramienta SET
+    codigo = trim(p_codigo),
+    descripcion = trim(p_descripcion),
+    actualizado_en = now(),
+    actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_tipo_herramienta AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;TIPO_HERRAMIENTA_ACTUALIZADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El tipo de herramienta fue actualizado correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_tipo_herramienta&#x27;, p_id_tipo_herramienta)
+  );
+EXCEPTION
+  WHEN unique_violation THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_HERRAMIENTA_CODIGO_DUPLICADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ya existe un tipo de herramienta con ese codigo en la empresa&#x27;);
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_HERRAMIENTA_ACTUALIZACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al actualizar el tipo de herramienta&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_anular_incidencia_activo</div>
+          <div class="spcaso">Anula incidencia de activo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Deja incidencia de activo sin efecto (estado ANULADO); no borra el registro para conservar trazabilidad.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que incidencia de activo pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_anular_incidencia_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_incidencia UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM activo_incidencia
+  WHERE id = p_id_incidencia AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INCIDENCIA_ACTIVO_NO_ENCONTRADA&#x27;, &#x27;mensaje&#x27;, &#x27;La incidencia no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado = &#x27;ANULADA&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INCIDENCIA_ACTIVO_YA_ANULADA&#x27;, &#x27;mensaje&#x27;, &#x27;La incidencia ya se encuentra anulada&#x27;);
+  END IF;
+
+  UPDATE activo_incidencia
+  SET estado = &#x27;ANULADA&#x27;, actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_incidencia AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;INCIDENCIA_ACTIVO_ANULADA&#x27;,
+    &#x27;mensaje&#x27;, &#x27;La incidencia fue anulada correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_incidencia&#x27;, p_id_incidencia, &#x27;estado&#x27;, &#x27;ANULADA&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INCIDENCIA_ACTIVO_ANULACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al anular la incidencia&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_anular_intervencion_herramienta</div>
+          <div class="spcaso">Anula intervención de herramienta.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Deja intervención de herramienta sin efecto (estado ANULADO); no borra el registro para conservar trazabilidad.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que intervención de herramienta pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_anular_intervencion_herramienta(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_intervencion UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM herramienta_intervencion
+  WHERE id = p_id_intervencion AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INTERVENCION_HERRAMIENTA_NO_ENCONTRADA&#x27;, &#x27;mensaje&#x27;, &#x27;La intervencion no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado = &#x27;ANULADA&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INTERVENCION_HERRAMIENTA_YA_ANULADA&#x27;, &#x27;mensaje&#x27;, &#x27;La intervencion ya se encuentra anulada&#x27;);
+  END IF;
+
+  UPDATE herramienta_intervencion
+  SET estado = &#x27;ANULADA&#x27;, actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_intervencion AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;INTERVENCION_HERRAMIENTA_ANULADA&#x27;,
+    &#x27;mensaje&#x27;, &#x27;La intervencion fue anulada correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_intervencion&#x27;, p_id_intervencion, &#x27;estado&#x27;, &#x27;ANULADA&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INTERVENCION_HERRAMIENTA_ANULACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al anular la intervencion&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_anular_mantenimiento_activo</div>
+          <div class="spcaso">Anula mantenimiento de activo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Deja mantenimiento de activo sin efecto (estado ANULADO); no borra el registro para conservar trazabilidad.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que mantenimiento de activo pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_anular_mantenimiento_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_mantenimiento UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM activo_mantenimiento
+  WHERE id = p_id_mantenimiento AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;MANTENIMIENTO_ACTIVO_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El mantenimiento no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado = &#x27;ANULADO&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;MANTENIMIENTO_ACTIVO_YA_ANULADO&#x27;, &#x27;mensaje&#x27;, &#x27;El mantenimiento ya se encuentra anulado&#x27;);
+  END IF;
+
+  UPDATE activo_mantenimiento
+  SET estado = &#x27;ANULADO&#x27;, actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_mantenimiento AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;MANTENIMIENTO_ACTIVO_ANULADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El mantenimiento fue anulado correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_mantenimiento&#x27;, p_id_mantenimiento, &#x27;estado&#x27;, &#x27;ANULADO&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;MANTENIMIENTO_ACTIVO_ANULACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al anular el mantenimiento&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_aprobar_ajuste_recuperacion</div>
+          <div class="spcaso">Aprueba ajuste de recuperación de inversión.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Aprueba ajuste de recuperación de inversión (estado APROBADO) para que impacte la recuperación del contrato.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que ajuste de recuperación de inversión pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_aprobar_ajuste_recuperacion(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_ajuste UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM recuperacion_ajuste
+  WHERE id = p_id_ajuste AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;AJUSTE_RECUPERACION_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El ajuste no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado &lt;&gt; &#x27;PENDIENTE&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;AJUSTE_RECUPERACION_NO_PENDIENTE&#x27;, &#x27;mensaje&#x27;, &#x27;Solo se puede aprobar un ajuste pendiente&#x27;);
+  END IF;
+
+  UPDATE recuperacion_ajuste
+  SET estado = &#x27;APROBADO&#x27;, fecha_resolucion = current_date, actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_ajuste AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;AJUSTE_RECUPERACION_APROBADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El ajuste fue aprobado correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_ajuste&#x27;, p_id_ajuste, &#x27;estado&#x27;, &#x27;APROBADO&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;AJUSTE_RECUPERACION_APROBACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al aprobar el ajuste&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_dar_de_baja_clasificacion_activo</div>
+          <div class="spcaso">Da de baja clasificación de activo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Baja lógica (soft-delete) de clasificación de activo; conserva el historial y libera el código.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que clasificación de activo pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>eliminado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_dar_de_baja_clasificacion_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_clasificacion_activo UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM clasificacion_activo
+  WHERE id = p_id_clasificacion_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;CLASIFICACION_ACTIVO_NO_ENCONTRADA&#x27;, &#x27;mensaje&#x27;, &#x27;La clasificacion de activo no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado = &#x27;INACTIVO&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;CLASIFICACION_ACTIVO_YA_INACTIVA&#x27;, &#x27;mensaje&#x27;, &#x27;La clasificacion de activo ya se encuentra inactiva&#x27;);
+  END IF;
+
+  UPDATE clasificacion_activo
+  SET estado = &#x27;INACTIVO&#x27;, actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_clasificacion_activo AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;CLASIFICACION_ACTIVO_INACTIVADA&#x27;,
+    &#x27;mensaje&#x27;, &#x27;La clasificacion de activo fue inactivada correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_clasificacion_activo&#x27;, p_id_clasificacion_activo, &#x27;estado&#x27;, &#x27;INACTIVO&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;CLASIFICACION_ACTIVO_BAJA_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al inactivar la clasificacion de activo&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_dar_de_baja_herramienta</div>
+          <div class="spcaso">Da de baja herramienta.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Baja lógica (soft-delete) de herramienta; conserva el historial y libera el código.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que herramienta pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>eliminado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_dar_de_baja_herramienta(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_herramienta UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM herramienta
+  WHERE id = p_id_herramienta AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;HERRAMIENTA_NO_ENCONTRADA&#x27;, &#x27;mensaje&#x27;, &#x27;La herramienta no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado = &#x27;BAJA&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;HERRAMIENTA_YA_DADA_DE_BAJA&#x27;, &#x27;mensaje&#x27;, &#x27;La herramienta ya se encuentra dada de baja&#x27;);
+  END IF;
+
+  UPDATE herramienta
+  SET estado = &#x27;BAJA&#x27;, actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_herramienta AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;HERRAMIENTA_DADA_DE_BAJA&#x27;,
+    &#x27;mensaje&#x27;, &#x27;La herramienta fue dada de baja correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_herramienta&#x27;, p_id_herramienta, &#x27;estado&#x27;, &#x27;BAJA&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;HERRAMIENTA_BAJA_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al dar de baja la herramienta&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_dar_de_baja_parametro_activos_inversion</div>
+          <div class="spcaso">Da de baja parámetro de activos e inversión.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Baja lógica (soft-delete) de parámetro de activos e inversión; conserva el historial y libera el código.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que parámetro de activos e inversión pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>eliminado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_dar_de_baja_parametro_activos_inversion(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_parametro UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM parametro_activos_inversion
+  WHERE id = p_id_parametro AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;PARAMETRO_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El parametro no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado = &#x27;INACTIVO&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;PARAMETRO_YA_INACTIVO&#x27;, &#x27;mensaje&#x27;, &#x27;El parametro ya se encuentra inactivo&#x27;);
+  END IF;
+
+  UPDATE parametro_activos_inversion
+  SET estado = &#x27;INACTIVO&#x27;, actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_parametro AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;PARAMETRO_INACTIVADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El parametro fue inactivado correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_parametro&#x27;, p_id_parametro, &#x27;estado&#x27;, &#x27;INACTIVO&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;PARAMETRO_BAJA_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al inactivar el parametro&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_dar_de_baja_tipo_adquisicion_activo</div>
+          <div class="spcaso">Da de baja tipo de adquisición de activo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Baja lógica (soft-delete) de tipo de adquisición de activo; conserva el historial y libera el código.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que tipo de adquisición de activo pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>eliminado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_dar_de_baja_tipo_adquisicion_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_tipo_adquisicion_activo UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM tipo_adquisicion_activo
+  WHERE id = p_id_tipo_adquisicion_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_ADQUISICION_ACTIVO_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El tipo de adquisicion de activo no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado = &#x27;INACTIVO&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_ADQUISICION_ACTIVO_YA_INACTIVO&#x27;, &#x27;mensaje&#x27;, &#x27;El tipo de adquisicion de activo ya se encuentra inactivo&#x27;);
+  END IF;
+
+  UPDATE tipo_adquisicion_activo
+  SET estado = &#x27;INACTIVO&#x27;, actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_tipo_adquisicion_activo AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;TIPO_ADQUISICION_ACTIVO_INACTIVADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El tipo de adquisicion de activo fue inactivado correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_tipo_adquisicion_activo&#x27;, p_id_tipo_adquisicion_activo, &#x27;estado&#x27;, &#x27;INACTIVO&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_ADQUISICION_ACTIVO_BAJA_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al inactivar el tipo de adquisicion de activo&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_dar_de_baja_tipo_herramienta</div>
+          <div class="spcaso">Da de baja tipo de herramienta.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Baja lógica (soft-delete) de tipo de herramienta; conserva el historial y libera el código.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que tipo de herramienta pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>eliminado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_dar_de_baja_tipo_herramienta(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_tipo_herramienta UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM tipo_herramienta
+  WHERE id = p_id_tipo_herramienta AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_HERRAMIENTA_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El tipo de herramienta no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado = &#x27;INACTIVO&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_HERRAMIENTA_YA_INACTIVO&#x27;, &#x27;mensaje&#x27;, &#x27;El tipo de herramienta ya se encuentra inactivo&#x27;);
+  END IF;
+
+  UPDATE tipo_herramienta
+  SET estado = &#x27;INACTIVO&#x27;, actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_tipo_herramienta AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;TIPO_HERRAMIENTA_INACTIVADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El tipo de herramienta fue inactivado correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_tipo_herramienta&#x27;, p_id_tipo_herramienta, &#x27;estado&#x27;, &#x27;INACTIVO&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_HERRAMIENTA_BAJA_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al inactivar el tipo de herramienta&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_ejecutar_mantenimiento_activo</div>
+          <div class="spcaso">Marca mantenimiento de activo como ejecutado.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Registra la ejecución real de mantenimiento de activo (fecha y costo real) y cambia su estado.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que mantenimiento de activo pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_ejecutar_mantenimiento_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_mantenimiento UUID,
+  p_fecha_ejecucion DATE DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM activo_mantenimiento
+  WHERE id = p_id_mantenimiento AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;MANTENIMIENTO_ACTIVO_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El mantenimiento no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado &lt;&gt; &#x27;PROGRAMADO&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;MANTENIMIENTO_ACTIVO_NO_PROGRAMADO&#x27;, &#x27;mensaje&#x27;, &#x27;Solo se puede ejecutar un mantenimiento en estado PROGRAMADO&#x27;);
+  END IF;
+
+  UPDATE activo_mantenimiento
+  SET estado = &#x27;EJECUTADO&#x27;, fecha_ejecucion = COALESCE(p_fecha_ejecucion, current_date), actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_mantenimiento AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;MANTENIMIENTO_ACTIVO_EJECUTADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El mantenimiento fue marcado como ejecutado&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_mantenimiento&#x27;, p_id_mantenimiento, &#x27;estado&#x27;, &#x27;EJECUTADO&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;MANTENIMIENTO_ACTIVO_EJECUCION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al ejecutar el mantenimiento&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_finalizar_intervencion_herramienta</div>
+          <div class="spcaso">Finaliza intervención de herramienta.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Cierra el ciclo de intervención de herramienta (estado FINALIZADA) con su resultado.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que intervención de herramienta pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_finalizar_intervencion_herramienta(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_intervencion UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM herramienta_intervencion
+  WHERE id = p_id_intervencion AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INTERVENCION_HERRAMIENTA_NO_ENCONTRADA&#x27;, &#x27;mensaje&#x27;, &#x27;La intervencion no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado NOT IN (&#x27;REGISTRADA&#x27;, &#x27;EN_PROCESO&#x27;) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INTERVENCION_HERRAMIENTA_NO_FINALIZABLE&#x27;, &#x27;mensaje&#x27;, &#x27;Solo se puede finalizar una intervencion registrada o en proceso&#x27;);
+  END IF;
+
+  UPDATE herramienta_intervencion
+  SET estado = &#x27;FINALIZADA&#x27;, actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_intervencion AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;INTERVENCION_HERRAMIENTA_FINALIZADA&#x27;,
+    &#x27;mensaje&#x27;, &#x27;La intervencion fue finalizada correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_intervencion&#x27;, p_id_intervencion, &#x27;estado&#x27;, &#x27;FINALIZADA&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INTERVENCION_HERRAMIENTA_FINALIZACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al finalizar la intervencion&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_reactivar_clasificacion_activo</div>
+          <div class="spcaso">Reactiva clasificación de activo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Revierte la baja de clasificación de activo, devolviéndolo al estado ACTIVO.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que clasificación de activo pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_reactivar_clasificacion_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_clasificacion_activo UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM clasificacion_activo
+  WHERE id = p_id_clasificacion_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;CLASIFICACION_ACTIVO_NO_ENCONTRADA&#x27;, &#x27;mensaje&#x27;, &#x27;La clasificacion de activo no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado &lt;&gt; &#x27;INACTIVO&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;CLASIFICACION_ACTIVO_NO_ESTA_INACTIVA&#x27;, &#x27;mensaje&#x27;, &#x27;La clasificacion de activo no esta inactiva, no se puede reactivar&#x27;);
+  END IF;
+
+  UPDATE clasificacion_activo
+  SET estado = &#x27;ACTIVO&#x27;, actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_clasificacion_activo AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;CLASIFICACION_ACTIVO_REACTIVADA&#x27;,
+    &#x27;mensaje&#x27;, &#x27;La clasificacion de activo fue reactivada correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_clasificacion_activo&#x27;, p_id_clasificacion_activo, &#x27;estado&#x27;, &#x27;ACTIVO&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;CLASIFICACION_ACTIVO_REACTIVACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al reactivar la clasificacion de activo&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_reactivar_herramienta</div>
+          <div class="spcaso">Reactiva herramienta.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Revierte la baja de herramienta, devolviéndolo al estado ACTIVO.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que herramienta pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_reactivar_herramienta(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_herramienta UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM herramienta
+  WHERE id = p_id_herramienta AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;HERRAMIENTA_NO_ENCONTRADA&#x27;, &#x27;mensaje&#x27;, &#x27;La herramienta no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado &lt;&gt; &#x27;BAJA&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;HERRAMIENTA_NO_ESTA_DADA_DE_BAJA&#x27;, &#x27;mensaje&#x27;, &#x27;La herramienta no esta dada de baja, no se puede reactivar&#x27;);
+  END IF;
+
+  UPDATE herramienta
+  SET estado = &#x27;ACTIVO&#x27;, actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_herramienta AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;HERRAMIENTA_REACTIVADA&#x27;,
+    &#x27;mensaje&#x27;, &#x27;La herramienta fue reactivada correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_herramienta&#x27;, p_id_herramienta, &#x27;estado&#x27;, &#x27;ACTIVO&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;HERRAMIENTA_REACTIVACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al reactivar la herramienta&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_reactivar_parametro_activos_inversion</div>
+          <div class="spcaso">Reactiva parámetro de activos e inversión.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Revierte la baja de parámetro de activos e inversión, devolviéndolo al estado ACTIVO.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que parámetro de activos e inversión pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_reactivar_parametro_activos_inversion(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_parametro UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM parametro_activos_inversion
+  WHERE id = p_id_parametro AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;PARAMETRO_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El parametro no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado &lt;&gt; &#x27;INACTIVO&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;PARAMETRO_NO_ESTA_INACTIVO&#x27;, &#x27;mensaje&#x27;, &#x27;El parametro no esta inactivo, no se puede reactivar&#x27;);
+  END IF;
+
+  UPDATE parametro_activos_inversion
+  SET estado = &#x27;ACTIVO&#x27;, actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_parametro AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;PARAMETRO_REACTIVADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El parametro fue reactivado correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_parametro&#x27;, p_id_parametro, &#x27;estado&#x27;, &#x27;ACTIVO&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;PARAMETRO_REACTIVACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al reactivar el parametro&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_reactivar_tipo_adquisicion_activo</div>
+          <div class="spcaso">Reactiva tipo de adquisición de activo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Revierte la baja de tipo de adquisición de activo, devolviéndolo al estado ACTIVO.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que tipo de adquisición de activo pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_reactivar_tipo_adquisicion_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_tipo_adquisicion_activo UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM tipo_adquisicion_activo
+  WHERE id = p_id_tipo_adquisicion_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_ADQUISICION_ACTIVO_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El tipo de adquisicion de activo no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado &lt;&gt; &#x27;INACTIVO&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_ADQUISICION_ACTIVO_NO_ESTA_INACTIVO&#x27;, &#x27;mensaje&#x27;, &#x27;El tipo de adquisicion de activo no esta inactivo, no se puede reactivar&#x27;);
+  END IF;
+
+  UPDATE tipo_adquisicion_activo
+  SET estado = &#x27;ACTIVO&#x27;, actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_tipo_adquisicion_activo AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;TIPO_ADQUISICION_ACTIVO_REACTIVADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El tipo de adquisicion de activo fue reactivado correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_tipo_adquisicion_activo&#x27;, p_id_tipo_adquisicion_activo, &#x27;estado&#x27;, &#x27;ACTIVO&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_ADQUISICION_ACTIVO_REACTIVACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al reactivar el tipo de adquisicion de activo&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_reactivar_tipo_herramienta</div>
+          <div class="spcaso">Reactiva tipo de herramienta.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Revierte la baja de tipo de herramienta, devolviéndolo al estado ACTIVO.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que tipo de herramienta pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_reactivar_tipo_herramienta(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_tipo_herramienta UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM tipo_herramienta
+  WHERE id = p_id_tipo_herramienta AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_HERRAMIENTA_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El tipo de herramienta no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado &lt;&gt; &#x27;INACTIVO&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_HERRAMIENTA_NO_ESTA_INACTIVO&#x27;, &#x27;mensaje&#x27;, &#x27;El tipo de herramienta no esta inactivo, no se puede reactivar&#x27;);
+  END IF;
+
+  UPDATE tipo_herramienta
+  SET estado = &#x27;ACTIVO&#x27;, actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_tipo_herramienta AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;TIPO_HERRAMIENTA_REACTIVADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El tipo de herramienta fue reactivado correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_tipo_herramienta&#x27;, p_id_tipo_herramienta, &#x27;estado&#x27;, &#x27;ACTIVO&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_HERRAMIENTA_REACTIVACION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al reactivar el tipo de herramienta&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_rechazar_ajuste_recuperacion</div>
+          <div class="spcaso">Rechaza ajuste de recuperación de inversión.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Rechaza ajuste de recuperación de inversión (estado RECHAZADO); queda registrado pero sin impacto.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que ajuste de recuperación de inversión pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_rechazar_ajuste_recuperacion(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_ajuste UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM recuperacion_ajuste
+  WHERE id = p_id_ajuste AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;AJUSTE_RECUPERACION_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El ajuste no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado &lt;&gt; &#x27;PENDIENTE&#x27; THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;AJUSTE_RECUPERACION_NO_PENDIENTE&#x27;, &#x27;mensaje&#x27;, &#x27;Solo se puede rechazar un ajuste pendiente&#x27;);
+  END IF;
+
+  UPDATE recuperacion_ajuste
+  SET estado = &#x27;RECHAZADO&#x27;, fecha_resolucion = current_date, actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_ajuste AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;AJUSTE_RECUPERACION_RECHAZADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El ajuste fue rechazado correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_ajuste&#x27;, p_id_ajuste, &#x27;estado&#x27;, &#x27;RECHAZADO&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;AJUSTE_RECUPERACION_RECHAZO_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al rechazar el ajuste&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_registrar_ajuste_recuperacion</div>
+          <div class="spcaso">Da de alta ajuste de recuperación de inversión en la empresa.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Crea ajuste de recuperación de inversión validando el tenant y las reglas del molde antes de insertar.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que ajuste de recuperación de inversión pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>creado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_registrar_ajuste_recuperacion(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_activo UUID,
+  p_fecha DATE,
+  p_monto_ajuste DECIMAL,
+  p_motivo STRING,
+  p_id_contrato UUID DEFAULT NULL,
+  p_id_periodo UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_ajuste UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM activo WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;ACTIVO_NO_VALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El activo no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF p_id_contrato IS NOT NULL AND NOT EXISTS (SELECT 1 FROM contrato WHERE id = p_id_contrato AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;CONTRATO_NO_VALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El contrato no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF p_id_periodo IS NOT NULL AND NOT EXISTS (SELECT 1 FROM periodo WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;PERIODO_NO_VALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El periodo no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF p_fecha IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;FECHA_OBLIGATORIA&#x27;, &#x27;mensaje&#x27;, &#x27;La fecha del ajuste es obligatoria&#x27;);
+  END IF;
+
+  IF p_monto_ajuste IS NULL OR p_monto_ajuste = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;MONTO_INVALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El monto del ajuste debe ser distinto de cero&#x27;);
+  END IF;
+
+  IF p_motivo IS NULL OR char_length(trim(p_motivo)) = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;MOTIVO_OBLIGATORIO&#x27;, &#x27;mensaje&#x27;, &#x27;El motivo del ajuste es obligatorio&#x27;);
+  END IF;
+
+  INSERT INTO recuperacion_ajuste (
+    id_empresa, id_activo, id_contrato, id_periodo, fecha, monto_ajuste, motivo, estado, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_activo, p_id_contrato, p_id_periodo, p_fecha, p_monto_ajuste, trim(p_motivo), &#x27;PENDIENTE&#x27;, p_id_usuario_accion
+  ) RETURNING id INTO v_id_ajuste;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;AJUSTE_RECUPERACION_REGISTRADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El ajuste de recuperacion fue registrado correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_ajuste&#x27;, v_id_ajuste)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;AJUSTE_RECUPERACION_REGISTRO_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al registrar el ajuste de recuperacion&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_registrar_incidencia_activo</div>
+          <div class="spcaso">Da de alta incidencia de activo en la empresa.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Crea incidencia de activo validando el tenant y las reglas del molde antes de insertar.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que incidencia de activo pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>creado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_registrar_incidencia_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_activo UUID,
+  p_fecha_reporte DATE,
+  p_titulo STRING,
+  p_descripcion STRING DEFAULT NULL,
+  p_severidad STRING DEFAULT &#x27;MEDIA&#x27;
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_incidencia UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM activo WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;ACTIVO_NO_VALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El activo no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF p_fecha_reporte IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;FECHA_OBLIGATORIA&#x27;, &#x27;mensaje&#x27;, &#x27;La fecha de reporte es obligatoria&#x27;);
+  END IF;
+
+  IF p_titulo IS NULL OR char_length(trim(p_titulo)) = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TITULO_OBLIGATORIO&#x27;, &#x27;mensaje&#x27;, &#x27;El titulo de la incidencia es obligatorio&#x27;);
+  END IF;
+
+  IF COALESCE(p_severidad, &#x27;MEDIA&#x27;) NOT IN (&#x27;BAJA&#x27;, &#x27;MEDIA&#x27;, &#x27;ALTA&#x27;, &#x27;CRITICA&#x27;) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;SEVERIDAD_NO_VALIDA&#x27;, &#x27;mensaje&#x27;, &#x27;La severidad no es valida&#x27;);
+  END IF;
+
+  INSERT INTO activo_incidencia (
+    id_empresa, id_activo, fecha_reporte, titulo, descripcion, severidad, estado, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_activo, p_fecha_reporte, trim(p_titulo), NULLIF(trim(p_descripcion), &#x27;&#x27;), COALESCE(p_severidad, &#x27;MEDIA&#x27;), &#x27;ABIERTA&#x27;, p_id_usuario_accion
+  ) RETURNING id INTO v_id_incidencia;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;INCIDENCIA_ACTIVO_REGISTRADA&#x27;,
+    &#x27;mensaje&#x27;, &#x27;La incidencia fue registrada correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_incidencia&#x27;, v_id_incidencia)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INCIDENCIA_ACTIVO_REGISTRO_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al registrar la incidencia&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_registrar_intervencion_herramienta</div>
+          <div class="spcaso">Da de alta intervención de herramienta en la empresa.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Crea intervención de herramienta validando el tenant y las reglas del molde antes de insertar.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que intervención de herramienta pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>creado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_registrar_intervencion_herramienta(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_herramienta UUID,
+  p_tipo STRING,
+  p_fecha DATE,
+  p_descripcion STRING DEFAULT NULL,
+  p_costo DECIMAL DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_intervencion UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM herramienta WHERE id = p_id_herramienta AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;HERRAMIENTA_NO_VALIDA&#x27;, &#x27;mensaje&#x27;, &#x27;La herramienta no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF p_tipo IS NULL OR p_tipo NOT IN (&#x27;REPARACION&#x27;, &#x27;CALIBRACION&#x27;, &#x27;REVISION&#x27;) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_INTERVENCION_NO_VALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El tipo de intervencion no es valido&#x27;);
+  END IF;
+
+  IF p_fecha IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;FECHA_OBLIGATORIA&#x27;, &#x27;mensaje&#x27;, &#x27;La fecha de la intervencion es obligatoria&#x27;);
+  END IF;
+
+  IF COALESCE(p_costo, 0) &lt; 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;COSTO_INVALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El costo no puede ser negativo&#x27;);
+  END IF;
+
+  INSERT INTO herramienta_intervencion (
+    id_empresa, id_herramienta, tipo, fecha, descripcion, costo, estado, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_herramienta, p_tipo, p_fecha, NULLIF(trim(p_descripcion), &#x27;&#x27;), p_costo, &#x27;REGISTRADA&#x27;, p_id_usuario_accion
+  ) RETURNING id INTO v_id_intervencion;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;INTERVENCION_HERRAMIENTA_REGISTRADA&#x27;,
+    &#x27;mensaje&#x27;, &#x27;La intervencion fue registrada correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_intervencion&#x27;, v_id_intervencion)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INTERVENCION_HERRAMIENTA_REGISTRO_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al registrar la intervencion&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_registrar_mantenimiento_activo</div>
+          <div class="spcaso">Da de alta mantenimiento de activo en la empresa.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Crea mantenimiento de activo validando el tenant y las reglas del molde antes de insertar.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que mantenimiento de activo pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>creado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_registrar_mantenimiento_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_activo UUID,
+  p_tipo STRING,
+  p_fecha_programada DATE,
+  p_descripcion STRING,
+  p_costo DECIMAL DEFAULT NULL,
+  p_id_responsable UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_mantenimiento UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM activo WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;ACTIVO_NO_VALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El activo no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF p_tipo IS NULL OR p_tipo NOT IN (&#x27;PREVENTIVO&#x27;, &#x27;CORRECTIVO&#x27;) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;TIPO_MANTENIMIENTO_NO_VALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El tipo de mantenimiento debe ser PREVENTIVO o CORRECTIVO&#x27;);
+  END IF;
+
+  IF p_fecha_programada IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;FECHA_OBLIGATORIA&#x27;, &#x27;mensaje&#x27;, &#x27;La fecha programada del mantenimiento es obligatoria&#x27;);
+  END IF;
+
+  IF p_descripcion IS NULL OR char_length(trim(p_descripcion)) = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;DESCRIPCION_OBLIGATORIA&#x27;, &#x27;mensaje&#x27;, &#x27;La descripcion del mantenimiento es obligatoria&#x27;);
+  END IF;
+
+  IF COALESCE(p_costo, 0) &lt; 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;COSTO_INVALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El costo no puede ser negativo&#x27;);
+  END IF;
+
+  IF p_id_responsable IS NOT NULL AND NOT EXISTS (SELECT 1 FROM usuario WHERE id = p_id_responsable) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;RESPONSABLE_NO_VALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El responsable no existe&#x27;);
+  END IF;
+
+  INSERT INTO activo_mantenimiento (
+    id_empresa, id_activo, tipo, fecha_programada, descripcion, costo, id_responsable, estado, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_activo, p_tipo, p_fecha_programada, trim(p_descripcion), p_costo, p_id_responsable, &#x27;PROGRAMADO&#x27;, p_id_usuario_accion
+  ) RETURNING id INTO v_id_mantenimiento;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;MANTENIMIENTO_ACTIVO_REGISTRADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El mantenimiento fue registrado correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_mantenimiento&#x27;, v_id_mantenimiento)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;MANTENIMIENTO_ACTIVO_REGISTRO_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al registrar el mantenimiento&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_registrar_parametro_activos_inversion</div>
+          <div class="spcaso">Da de alta parámetro de activos e inversión en la empresa.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Crea parámetro de activos e inversión validando el tenant y las reglas del molde antes de insertar.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que parámetro de activos e inversión pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>creado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_registrar_parametro_activos_inversion(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_categoria STRING,
+  p_clave STRING,
+  p_valor STRING,
+  p_descripcion STRING DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_parametro UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  IF p_categoria IS NULL OR p_categoria NOT IN (&#x27;PARAMETRO_ACTIVO&#x27;, &#x27;REGLA_RECUPERACION&#x27;, &#x27;REGLA_MAESTRA&#x27;, &#x27;BASE_RECUPERACION&#x27;, &#x27;DISTRIBUCION&#x27;) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;CATEGORIA_NO_VALIDA&#x27;, &#x27;mensaje&#x27;, &#x27;La categoria del parametro no es valida&#x27;);
+  END IF;
+
+  IF p_clave IS NULL OR char_length(trim(p_clave)) = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;CLAVE_OBLIGATORIA&#x27;, &#x27;mensaje&#x27;, &#x27;La clave del parametro es obligatoria&#x27;);
+  END IF;
+
+  IF p_valor IS NULL OR char_length(trim(p_valor)) = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;VALOR_OBLIGATORIO&#x27;, &#x27;mensaje&#x27;, &#x27;El valor del parametro es obligatorio&#x27;);
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM parametro_activos_inversion WHERE id_empresa = p_id_empresa AND categoria = p_categoria AND clave = trim(p_clave) AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;PARAMETRO_CLAVE_DUPLICADA&#x27;, &#x27;mensaje&#x27;, &#x27;Ya existe un parametro con esa clave en la categoria&#x27;);
+  END IF;
+
+  INSERT INTO parametro_activos_inversion (
+    id_empresa, categoria, clave, valor, descripcion, estado, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_categoria, trim(p_clave), trim(p_valor), NULLIF(trim(p_descripcion), &#x27;&#x27;), &#x27;ACTIVO&#x27;, p_id_usuario_accion
+  ) RETURNING id INTO v_id_parametro;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;PARAMETRO_REGISTRADO&#x27;,
+    &#x27;mensaje&#x27;, &#x27;El parametro fue registrado correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_parametro&#x27;, v_id_parametro)
+  );
+EXCEPTION
+  WHEN unique_violation THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;PARAMETRO_CLAVE_DUPLICADA&#x27;, &#x27;mensaje&#x27;, &#x27;Ya existe un parametro con esa clave en la categoria&#x27;);
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;PARAMETRO_REGISTRO_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al registrar el parametro&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_resolver_incidencia_activo</div>
+          <div class="spcaso">Resuelve incidencia de activo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Cierra incidencia de activo marcándola como resuelta, con su solución y fecha.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> valida empresa vigente y que incidencia de activo pertenece a la empresa.</li>
+            <li><b>Auditoría:</b> graba <b>actualizado_por_usuario_id</b>.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_resolver_incidencia_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_incidencia UUID,
+  p_solucion STRING,
+  p_fecha_resolucion DATE DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM activo_incidencia
+  WHERE id = p_id_incidencia AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INCIDENCIA_ACTIVO_NO_ENCONTRADA&#x27;, &#x27;mensaje&#x27;, &#x27;La incidencia no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  IF v_estado NOT IN (&#x27;ABIERTA&#x27;, &#x27;EN_PROCESO&#x27;) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INCIDENCIA_ACTIVO_NO_RESOLUBLE&#x27;, &#x27;mensaje&#x27;, &#x27;Solo se puede resolver una incidencia abierta o en proceso&#x27;);
+  END IF;
+
+  IF p_solucion IS NULL OR char_length(trim(p_solucion)) = 0 THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;SOLUCION_OBLIGATORIA&#x27;, &#x27;mensaje&#x27;, &#x27;La solucion es obligatoria para resolver la incidencia&#x27;);
+  END IF;
+
+  UPDATE activo_incidencia
+  SET estado = &#x27;RESUELTA&#x27;, solucion = trim(p_solucion), fecha_resolucion = COALESCE(p_fecha_resolucion, current_date),
+      actualizado_en = now(), actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_incidencia AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;INCIDENCIA_ACTIVO_RESUELTA&#x27;,
+    &#x27;mensaje&#x27;, &#x27;La incidencia fue resuelta correctamente&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(&#x27;id_incidencia&#x27;, p_id_incidencia, &#x27;estado&#x27;, &#x27;RESUELTA&#x27;)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INCIDENCIA_ACTIVO_RESOLUCION_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al resolver la incidencia&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+
 
     </div>
   </div>
@@ -2910,10 +4887,10 @@ $$;</pre>
   <div class="wrap">
     <p class="eyebrow">Procedimientos de lectura</p>
     <h2>Listados y detalle · paginación por cursor</h2>
-    <p class="lead">Las <b>16 funciones de lectura</b> de las 2 capacidades. Mismo molde JSONB y multi-tenant que los comandos, pero con <b>paginación por cursor (keyset)</b> — sin OFFSET — y cada listado apoyado en su <b>índice estrella</b>. Clic en un cuadrito para ver el código.</p>
+    <p class="lead">Las <b>26 funciones de lectura</b> de las 2 capacidades. Mismo molde JSONB y multi-tenant que los comandos, pero con <b>paginación por cursor (keyset)</b> — sin OFFSET — y cada listado apoyado en su <b>índice estrella</b>. Clic en un cuadrito para ver el código.</p>
     <div class="sp-intro">
-      <span class="item"><b>16</b> de lectura</span>
-      <span class="item"><span class="sp-cap ai">activos-e-inversion</span> 12</span>
+      <span class="item"><b>26</b> de lectura</span>
+      <span class="item"><span class="sp-cap ai">activos-e-inversion</span> 22</span>
       <span class="item"><span class="sp-cap cm">cierre-mensual</span> 4</span>
       <span class="item" style="margin-left:auto">Return <span class="mono">{items, paginacion:{limite, hay_mas, cursor_siguiente}}</span></span>
     </div>
@@ -4159,6 +6136,740 @@ END;
 $;</pre>
         </div>
       </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_ajustes_recuperacion</div>
+          <div class="spcaso">Lista ajuste de recuperación de inversión con filtros.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Listado paginado por cursor (keyset, sin OFFSET) con filtros de estado y búsqueda; retorna {items, paginacion}.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> filtra por empresa; no expone datos de otras.</li>
+            <li><b>Lectura:</b> paginación por cursor; retorno JSONB; sin escritura.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_ajustes_recuperacion(
+  p_id_empresa UUID,
+  p_id_activo UUID DEFAULT NULL,
+  p_estado STRING DEFAULT NULL,
+  p_texto_busqueda STRING DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_limite_pagina INT;
+  v_pagina JSONB;
+  v_hay_mas BOOL;
+  v_cantidad INT;
+  v_cursor_siguiente JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  IF p_id_activo IS NOT NULL AND NOT EXISTS (SELECT 1 FROM activo WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;ACTIVO_NO_VALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El activo no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  WITH ajustes_ordenados AS (
+    SELECT aj.id, aj.id_activo, a.codigo AS activo_codigo, a.descripcion AS activo_descripcion,
+           aj.id_contrato, aj.id_periodo, aj.fecha, aj.monto_ajuste, aj.motivo, aj.estado, aj.fecha_resolucion, aj.creado_en,
+           row_number() OVER (ORDER BY aj.creado_en DESC, aj.id DESC) AS orden_en_pagina
+    FROM recuperacion_ajuste aj
+    JOIN activo a ON a.id = aj.id_activo
+    WHERE aj.id_empresa = p_id_empresa
+      AND aj.eliminado_en IS NULL
+      AND (p_id_activo IS NULL OR aj.id_activo = p_id_activo)
+      AND (p_estado IS NULL OR aj.estado = p_estado)
+      AND (p_texto_busqueda IS NULL OR aj.motivo ILIKE &#x27;%&#x27; || p_texto_busqueda || &#x27;%&#x27; OR a.codigo ILIKE &#x27;%&#x27; || p_texto_busqueda || &#x27;%&#x27; OR a.descripcion ILIKE &#x27;%&#x27; || p_texto_busqueda || &#x27;%&#x27;)
+      AND (p_cursor_creado_en IS NULL OR (aj.creado_en, aj.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY aj.creado_en DESC, aj.id DESC
+    LIMIT v_limite_pagina + 1
+  )
+  SELECT
+    COALESCE(
+      jsonb_agg(to_jsonb(ajustes_ordenados) - &#x27;orden_en_pagina&#x27; ORDER BY ajustes_ordenados.orden_en_pagina)
+      FILTER (WHERE ajustes_ordenados.orden_en_pagina &lt;= v_limite_pagina),
+      &#x27;[]&#x27;::jsonb
+    ),
+    count(*) &gt; v_limite_pagina
+  INTO v_pagina, v_hay_mas
+  FROM ajustes_ordenados;
+
+  v_cantidad := jsonb_array_length(v_pagina);
+  IF v_hay_mas AND v_cantidad &gt; 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      &#x27;creado_en&#x27;, v_pagina -&gt; (v_cantidad - 1) -&gt; &#x27;creado_en&#x27;,
+      &#x27;id&#x27;, v_pagina -&gt; (v_cantidad - 1) -&gt; &#x27;id&#x27;
+    );
+  ELSE
+    v_cursor_siguiente := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;AJUSTES_RECUPERACION_LISTADOS&#x27;,
+    &#x27;mensaje&#x27;, &#x27;Listado de ajustes de recuperacion obtenido&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(
+      &#x27;items&#x27;, v_pagina,
+      &#x27;paginacion&#x27;, jsonb_build_object(&#x27;limite&#x27;, v_limite_pagina, &#x27;hay_mas&#x27;, v_hay_mas, &#x27;cursor_siguiente&#x27;, v_cursor_siguiente)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;AJUSTES_RECUPERACION_LISTADO_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al listar los ajustes de recuperacion&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_incidencias_activo</div>
+          <div class="spcaso">Lista incidencia de activo con filtros.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Listado paginado por cursor (keyset, sin OFFSET) con filtros de estado y búsqueda; retorna {items, paginacion}.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> filtra por empresa; no expone datos de otras.</li>
+            <li><b>Lectura:</b> paginación por cursor; retorno JSONB; sin escritura.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_incidencias_activo(
+  p_id_empresa UUID,
+  p_id_activo UUID DEFAULT NULL,
+  p_estado STRING DEFAULT NULL,
+  p_severidad STRING DEFAULT NULL,
+  p_texto_busqueda STRING DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_limite_pagina INT;
+  v_pagina JSONB;
+  v_hay_mas BOOL;
+  v_cantidad INT;
+  v_cursor_siguiente JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  IF p_id_activo IS NOT NULL AND NOT EXISTS (SELECT 1 FROM activo WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;ACTIVO_NO_VALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El activo no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  WITH incidencias_ordenadas AS (
+    SELECT i.id, i.id_activo, a.codigo AS activo_codigo, a.descripcion AS activo_descripcion,
+           i.fecha_reporte, i.titulo, i.descripcion, i.severidad, i.estado, i.fecha_resolucion, i.solucion, i.creado_en,
+           row_number() OVER (ORDER BY i.creado_en DESC, i.id DESC) AS orden_en_pagina
+    FROM activo_incidencia i
+    JOIN activo a ON a.id = i.id_activo
+    WHERE i.id_empresa = p_id_empresa
+      AND i.eliminado_en IS NULL
+      AND (p_id_activo IS NULL OR i.id_activo = p_id_activo)
+      AND (p_estado IS NULL OR i.estado = p_estado)
+      AND (p_severidad IS NULL OR i.severidad = p_severidad)
+      AND (p_texto_busqueda IS NULL OR i.titulo ILIKE &#x27;%&#x27; || p_texto_busqueda || &#x27;%&#x27; OR i.descripcion ILIKE &#x27;%&#x27; || p_texto_busqueda || &#x27;%&#x27; OR a.codigo ILIKE &#x27;%&#x27; || p_texto_busqueda || &#x27;%&#x27; OR a.descripcion ILIKE &#x27;%&#x27; || p_texto_busqueda || &#x27;%&#x27;)
+      AND (p_cursor_creado_en IS NULL OR (i.creado_en, i.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY i.creado_en DESC, i.id DESC
+    LIMIT v_limite_pagina + 1
+  )
+  SELECT
+    COALESCE(
+      jsonb_agg(to_jsonb(incidencias_ordenadas) - &#x27;orden_en_pagina&#x27; ORDER BY incidencias_ordenadas.orden_en_pagina)
+      FILTER (WHERE incidencias_ordenadas.orden_en_pagina &lt;= v_limite_pagina),
+      &#x27;[]&#x27;::jsonb
+    ),
+    count(*) &gt; v_limite_pagina
+  INTO v_pagina, v_hay_mas
+  FROM incidencias_ordenadas;
+
+  v_cantidad := jsonb_array_length(v_pagina);
+  IF v_hay_mas AND v_cantidad &gt; 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      &#x27;creado_en&#x27;, v_pagina -&gt; (v_cantidad - 1) -&gt; &#x27;creado_en&#x27;,
+      &#x27;id&#x27;, v_pagina -&gt; (v_cantidad - 1) -&gt; &#x27;id&#x27;
+    );
+  ELSE
+    v_cursor_siguiente := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;INCIDENCIAS_ACTIVO_LISTADAS&#x27;,
+    &#x27;mensaje&#x27;, &#x27;Listado de incidencias obtenido&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(
+      &#x27;items&#x27;, v_pagina,
+      &#x27;paginacion&#x27;, jsonb_build_object(&#x27;limite&#x27;, v_limite_pagina, &#x27;hay_mas&#x27;, v_hay_mas, &#x27;cursor_siguiente&#x27;, v_cursor_siguiente)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INCIDENCIAS_ACTIVO_LISTADO_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al listar las incidencias&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_intervenciones_herramienta</div>
+          <div class="spcaso">Lista intervención de herramienta con filtros.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Listado paginado por cursor (keyset, sin OFFSET) con filtros de estado y búsqueda; retorna {items, paginacion}.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> filtra por empresa; no expone datos de otras.</li>
+            <li><b>Lectura:</b> paginación por cursor; retorno JSONB; sin escritura.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_intervenciones_herramienta(
+  p_id_empresa UUID,
+  p_id_herramienta UUID DEFAULT NULL,
+  p_estado STRING DEFAULT NULL,
+  p_tipo STRING DEFAULT NULL,
+  p_texto_busqueda STRING DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_limite_pagina INT;
+  v_pagina JSONB;
+  v_hay_mas BOOL;
+  v_cantidad INT;
+  v_cursor_siguiente JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  IF p_id_herramienta IS NOT NULL AND NOT EXISTS (SELECT 1 FROM herramienta WHERE id = p_id_herramienta AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;HERRAMIENTA_NO_VALIDA&#x27;, &#x27;mensaje&#x27;, &#x27;La herramienta no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  WITH intervenciones_ordenadas AS (
+    SELECT iv.id, iv.id_herramienta, h.codigo AS herramienta_codigo, h.descripcion AS herramienta_descripcion,
+           iv.tipo, iv.fecha, iv.descripcion, iv.costo, iv.id_responsable, iv.estado, iv.creado_en,
+           row_number() OVER (ORDER BY iv.creado_en DESC, iv.id DESC) AS orden_en_pagina
+    FROM herramienta_intervencion iv
+    JOIN herramienta h ON h.id = iv.id_herramienta
+    WHERE iv.id_empresa = p_id_empresa
+      AND iv.eliminado_en IS NULL
+      AND (p_id_herramienta IS NULL OR iv.id_herramienta = p_id_herramienta)
+      AND (p_estado IS NULL OR iv.estado = p_estado)
+      AND (p_tipo IS NULL OR iv.tipo = p_tipo)
+      AND (p_texto_busqueda IS NULL OR iv.descripcion ILIKE &#x27;%&#x27; || p_texto_busqueda || &#x27;%&#x27; OR h.codigo ILIKE &#x27;%&#x27; || p_texto_busqueda || &#x27;%&#x27; OR h.descripcion ILIKE &#x27;%&#x27; || p_texto_busqueda || &#x27;%&#x27;)
+      AND (p_cursor_creado_en IS NULL OR (iv.creado_en, iv.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY iv.creado_en DESC, iv.id DESC
+    LIMIT v_limite_pagina + 1
+  )
+  SELECT
+    COALESCE(
+      jsonb_agg(to_jsonb(intervenciones_ordenadas) - &#x27;orden_en_pagina&#x27; ORDER BY intervenciones_ordenadas.orden_en_pagina)
+      FILTER (WHERE intervenciones_ordenadas.orden_en_pagina &lt;= v_limite_pagina),
+      &#x27;[]&#x27;::jsonb
+    ),
+    count(*) &gt; v_limite_pagina
+  INTO v_pagina, v_hay_mas
+  FROM intervenciones_ordenadas;
+
+  v_cantidad := jsonb_array_length(v_pagina);
+  IF v_hay_mas AND v_cantidad &gt; 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      &#x27;creado_en&#x27;, v_pagina -&gt; (v_cantidad - 1) -&gt; &#x27;creado_en&#x27;,
+      &#x27;id&#x27;, v_pagina -&gt; (v_cantidad - 1) -&gt; &#x27;id&#x27;
+    );
+  ELSE
+    v_cursor_siguiente := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;INTERVENCIONES_HERRAMIENTA_LISTADAS&#x27;,
+    &#x27;mensaje&#x27;, &#x27;Listado de intervenciones obtenido&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(
+      &#x27;items&#x27;, v_pagina,
+      &#x27;paginacion&#x27;, jsonb_build_object(&#x27;limite&#x27;, v_limite_pagina, &#x27;hay_mas&#x27;, v_hay_mas, &#x27;cursor_siguiente&#x27;, v_cursor_siguiente)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INTERVENCIONES_HERRAMIENTA_LISTADO_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al listar las intervenciones&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_mantenimientos_activo</div>
+          <div class="spcaso">Lista mantenimiento de activo con filtros.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Listado paginado por cursor (keyset, sin OFFSET) con filtros de estado y búsqueda; retorna {items, paginacion}.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> filtra por empresa; no expone datos de otras.</li>
+            <li><b>Lectura:</b> paginación por cursor; retorno JSONB; sin escritura.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_mantenimientos_activo(
+  p_id_empresa UUID,
+  p_id_activo UUID DEFAULT NULL,
+  p_estado STRING DEFAULT NULL,
+  p_tipo STRING DEFAULT NULL,
+  p_texto_busqueda STRING DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_limite_pagina INT;
+  v_pagina JSONB;
+  v_hay_mas BOOL;
+  v_cantidad INT;
+  v_cursor_siguiente JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  IF p_id_activo IS NOT NULL AND NOT EXISTS (SELECT 1 FROM activo WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;ACTIVO_NO_VALIDO&#x27;, &#x27;mensaje&#x27;, &#x27;El activo no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  WITH mantenimientos_ordenados AS (
+    SELECT m.id, m.id_activo, a.codigo AS activo_codigo, a.descripcion AS activo_descripcion,
+           m.tipo, m.fecha_programada, m.fecha_ejecucion, m.descripcion, m.costo, m.id_responsable, m.estado, m.creado_en,
+           row_number() OVER (ORDER BY m.creado_en DESC, m.id DESC) AS orden_en_pagina
+    FROM activo_mantenimiento m
+    JOIN activo a ON a.id = m.id_activo
+    WHERE m.id_empresa = p_id_empresa
+      AND m.eliminado_en IS NULL
+      AND (p_id_activo IS NULL OR m.id_activo = p_id_activo)
+      AND (p_estado IS NULL OR m.estado = p_estado)
+      AND (p_tipo IS NULL OR m.tipo = p_tipo)
+      AND (p_texto_busqueda IS NULL OR m.descripcion ILIKE &#x27;%&#x27; || p_texto_busqueda || &#x27;%&#x27; OR a.codigo ILIKE &#x27;%&#x27; || p_texto_busqueda || &#x27;%&#x27; OR a.descripcion ILIKE &#x27;%&#x27; || p_texto_busqueda || &#x27;%&#x27;)
+      AND (p_cursor_creado_en IS NULL OR (m.creado_en, m.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY m.creado_en DESC, m.id DESC
+    LIMIT v_limite_pagina + 1
+  )
+  SELECT
+    COALESCE(
+      jsonb_agg(to_jsonb(mantenimientos_ordenados) - &#x27;orden_en_pagina&#x27; ORDER BY mantenimientos_ordenados.orden_en_pagina)
+      FILTER (WHERE mantenimientos_ordenados.orden_en_pagina &lt;= v_limite_pagina),
+      &#x27;[]&#x27;::jsonb
+    ),
+    count(*) &gt; v_limite_pagina
+  INTO v_pagina, v_hay_mas
+  FROM mantenimientos_ordenados;
+
+  v_cantidad := jsonb_array_length(v_pagina);
+  IF v_hay_mas AND v_cantidad &gt; 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      &#x27;creado_en&#x27;, v_pagina -&gt; (v_cantidad - 1) -&gt; &#x27;creado_en&#x27;,
+      &#x27;id&#x27;, v_pagina -&gt; (v_cantidad - 1) -&gt; &#x27;id&#x27;
+    );
+  ELSE
+    v_cursor_siguiente := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;MANTENIMIENTOS_ACTIVO_LISTADOS&#x27;,
+    &#x27;mensaje&#x27;, &#x27;Listado de mantenimientos obtenido&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(
+      &#x27;items&#x27;, v_pagina,
+      &#x27;paginacion&#x27;, jsonb_build_object(&#x27;limite&#x27;, v_limite_pagina, &#x27;hay_mas&#x27;, v_hay_mas, &#x27;cursor_siguiente&#x27;, v_cursor_siguiente)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;MANTENIMIENTOS_ACTIVO_LISTADO_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al listar los mantenimientos&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_listar_parametros_activos_inversion</div>
+          <div class="spcaso">Lista parámetro de activos e inversión con filtros.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Listado paginado por cursor (keyset, sin OFFSET) con filtros de estado y búsqueda; retorna {items, paginacion}.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> filtra por empresa; no expone datos de otras.</li>
+            <li><b>Lectura:</b> paginación por cursor; retorno JSONB; sin escritura.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_listar_parametros_activos_inversion(
+  p_id_empresa UUID,
+  p_categoria STRING DEFAULT NULL,
+  p_estado STRING DEFAULT NULL,
+  p_texto_busqueda STRING DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_limite_pagina INT;
+  v_pagina JSONB;
+  v_hay_mas BOOL;
+  v_cantidad INT;
+  v_cursor_siguiente JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 50), 1), 200);
+
+  WITH parametros_ordenados AS (
+    SELECT p.id, p.categoria, p.clave, p.valor, p.descripcion, p.estado, p.creado_en,
+           row_number() OVER (ORDER BY p.creado_en DESC, p.id DESC) AS orden_en_pagina
+    FROM parametro_activos_inversion p
+    WHERE p.id_empresa = p_id_empresa
+      AND p.eliminado_en IS NULL
+      AND (p_categoria IS NULL OR p.categoria = p_categoria)
+      AND (p_estado IS NULL OR p.estado = p_estado)
+      AND (p_texto_busqueda IS NULL OR p.clave ILIKE &#x27;%&#x27; || p_texto_busqueda || &#x27;%&#x27; OR p.valor ILIKE &#x27;%&#x27; || p_texto_busqueda || &#x27;%&#x27; OR p.descripcion ILIKE &#x27;%&#x27; || p_texto_busqueda || &#x27;%&#x27;)
+      AND (p_cursor_creado_en IS NULL OR (p.creado_en, p.id) &lt; (p_cursor_creado_en, p_cursor_id))
+    ORDER BY p.creado_en DESC, p.id DESC
+    LIMIT v_limite_pagina + 1
+  )
+  SELECT
+    COALESCE(
+      jsonb_agg(to_jsonb(parametros_ordenados) - &#x27;orden_en_pagina&#x27; ORDER BY parametros_ordenados.orden_en_pagina)
+      FILTER (WHERE parametros_ordenados.orden_en_pagina &lt;= v_limite_pagina),
+      &#x27;[]&#x27;::jsonb
+    ),
+    count(*) &gt; v_limite_pagina
+  INTO v_pagina, v_hay_mas
+  FROM parametros_ordenados;
+
+  v_cantidad := jsonb_array_length(v_pagina);
+  IF v_hay_mas AND v_cantidad &gt; 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      &#x27;creado_en&#x27;, v_pagina -&gt; (v_cantidad - 1) -&gt; &#x27;creado_en&#x27;,
+      &#x27;id&#x27;, v_pagina -&gt; (v_cantidad - 1) -&gt; &#x27;id&#x27;
+    );
+  ELSE
+    v_cursor_siguiente := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;PARAMETROS_LISTADOS&#x27;,
+    &#x27;mensaje&#x27;, &#x27;Listado de parametros obtenido&#x27;,
+    &#x27;datos&#x27;, jsonb_build_object(
+      &#x27;items&#x27;, v_pagina,
+      &#x27;paginacion&#x27;, jsonb_build_object(&#x27;limite&#x27;, v_limite_pagina, &#x27;hay_mas&#x27;, v_hay_mas, &#x27;cursor_siguiente&#x27;, v_cursor_siguiente)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;PARAMETROS_LISTADO_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al listar los parametros&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_obtener_detalle_ajuste_recuperacion</div>
+          <div class="spcaso">Detalle de ajuste de recuperación de inversión.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Devuelve el detalle completo de ajuste de recuperación de inversión por id, validando que pertenece al tenant.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> filtra por empresa; no expone datos de otras.</li>
+            <li><b>Lectura:</b> paginación por cursor; retorno JSONB; sin escritura.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_obtener_detalle_ajuste_recuperacion(
+  p_id_empresa UUID,
+  p_id_ajuste UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_detalle JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT to_jsonb(d) INTO v_detalle
+  FROM (
+    SELECT aj.id, aj.id_activo, a.codigo AS activo_codigo, a.descripcion AS activo_descripcion,
+           aj.id_contrato, aj.id_periodo, aj.fecha, aj.monto_ajuste, aj.motivo, aj.estado, aj.fecha_resolucion,
+           aj.creado_en, aj.creado_por_usuario_id, aj.actualizado_en, aj.actualizado_por_usuario_id
+    FROM recuperacion_ajuste aj
+    JOIN activo a ON a.id = aj.id_activo
+    WHERE aj.id = p_id_ajuste AND aj.id_empresa = p_id_empresa AND aj.eliminado_en IS NULL
+  ) d;
+
+  IF v_detalle IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;AJUSTE_RECUPERACION_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El ajuste no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;AJUSTE_RECUPERACION_DETALLE&#x27;,
+    &#x27;mensaje&#x27;, &#x27;Detalle del ajuste obtenido&#x27;,
+    &#x27;datos&#x27;, v_detalle
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;AJUSTE_RECUPERACION_DETALLE_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al obtener el detalle del ajuste&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_obtener_detalle_incidencia_activo</div>
+          <div class="spcaso">Detalle de incidencia de activo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Devuelve el detalle completo de incidencia de activo por id, validando que pertenece al tenant.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> filtra por empresa; no expone datos de otras.</li>
+            <li><b>Lectura:</b> paginación por cursor; retorno JSONB; sin escritura.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_obtener_detalle_incidencia_activo(
+  p_id_empresa UUID,
+  p_id_incidencia UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_detalle JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT to_jsonb(d) INTO v_detalle
+  FROM (
+    SELECT i.id, i.id_activo, a.codigo AS activo_codigo, a.descripcion AS activo_descripcion,
+           i.fecha_reporte, i.titulo, i.descripcion, i.severidad, i.estado, i.fecha_resolucion, i.solucion,
+           i.creado_en, i.creado_por_usuario_id, i.actualizado_en, i.actualizado_por_usuario_id
+    FROM activo_incidencia i
+    JOIN activo a ON a.id = i.id_activo
+    WHERE i.id = p_id_incidencia AND i.id_empresa = p_id_empresa AND i.eliminado_en IS NULL
+  ) d;
+
+  IF v_detalle IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INCIDENCIA_ACTIVO_NO_ENCONTRADA&#x27;, &#x27;mensaje&#x27;, &#x27;La incidencia no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;INCIDENCIA_ACTIVO_DETALLE&#x27;,
+    &#x27;mensaje&#x27;, &#x27;Detalle de la incidencia obtenido&#x27;,
+    &#x27;datos&#x27;, v_detalle
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INCIDENCIA_ACTIVO_DETALLE_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al obtener el detalle de la incidencia&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_obtener_detalle_intervencion_herramienta</div>
+          <div class="spcaso">Detalle de intervención de herramienta.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Devuelve el detalle completo de intervención de herramienta por id, validando que pertenece al tenant.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> filtra por empresa; no expone datos de otras.</li>
+            <li><b>Lectura:</b> paginación por cursor; retorno JSONB; sin escritura.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_obtener_detalle_intervencion_herramienta(
+  p_id_empresa UUID,
+  p_id_intervencion UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_detalle JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT to_jsonb(d) INTO v_detalle
+  FROM (
+    SELECT iv.id, iv.id_herramienta, h.codigo AS herramienta_codigo, h.descripcion AS herramienta_descripcion,
+           iv.tipo, iv.fecha, iv.descripcion, iv.costo, iv.id_responsable, iv.estado,
+           iv.creado_en, iv.creado_por_usuario_id, iv.actualizado_en, iv.actualizado_por_usuario_id
+    FROM herramienta_intervencion iv
+    JOIN herramienta h ON h.id = iv.id_herramienta
+    WHERE iv.id = p_id_intervencion AND iv.id_empresa = p_id_empresa AND iv.eliminado_en IS NULL
+  ) d;
+
+  IF v_detalle IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INTERVENCION_HERRAMIENTA_NO_ENCONTRADA&#x27;, &#x27;mensaje&#x27;, &#x27;La intervencion no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;INTERVENCION_HERRAMIENTA_DETALLE&#x27;,
+    &#x27;mensaje&#x27;, &#x27;Detalle de la intervencion obtenido&#x27;,
+    &#x27;datos&#x27;, v_detalle
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;INTERVENCION_HERRAMIENTA_DETALLE_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al obtener el detalle de la intervencion&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_obtener_detalle_mantenimiento_activo</div>
+          <div class="spcaso">Detalle de mantenimiento de activo.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Devuelve el detalle completo de mantenimiento de activo por id, validando que pertenece al tenant.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> filtra por empresa; no expone datos de otras.</li>
+            <li><b>Lectura:</b> paginación por cursor; retorno JSONB; sin escritura.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_obtener_detalle_mantenimiento_activo(
+  p_id_empresa UUID,
+  p_id_mantenimiento UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_detalle JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT to_jsonb(d) INTO v_detalle
+  FROM (
+    SELECT m.id, m.id_activo, a.codigo AS activo_codigo, a.descripcion AS activo_descripcion,
+           m.tipo, m.fecha_programada, m.fecha_ejecucion, m.descripcion, m.costo, m.id_responsable, m.estado,
+           m.creado_en, m.creado_por_usuario_id, m.actualizado_en, m.actualizado_por_usuario_id
+    FROM activo_mantenimiento m
+    JOIN activo a ON a.id = m.id_activo
+    WHERE m.id = p_id_mantenimiento AND m.id_empresa = p_id_empresa AND m.eliminado_en IS NULL
+  ) d;
+
+  IF v_detalle IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;MANTENIMIENTO_ACTIVO_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El mantenimiento no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;MANTENIMIENTO_ACTIVO_DETALLE&#x27;,
+    &#x27;mensaje&#x27;, &#x27;Detalle del mantenimiento obtenido&#x27;,
+    &#x27;datos&#x27;, v_detalle
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;MANTENIMIENTO_ACTIVO_DETALLE_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al obtener el detalle del mantenimiento&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+      <details class="spcard">
+        <summary>
+          <div class="sp-top"><span class="sp-cap ai">activos-e-inversion</span><span class="sp-ver">ver código</span></div>
+          <div class="spname">fn_obtener_detalle_parametro_activos_inversion</div>
+          <div class="spcaso">Detalle de parámetro de activos e inversión.</div>
+        </summary>
+        <div class="sp-body">
+          <p class="h">Por qué</p>
+          <p>Devuelve el detalle completo de parámetro de activos e inversión por id, validando que pertenece al tenant.</p>
+          <p class="h">Reglas</p>
+          <ul>
+            <li><b>Tenant:</b> filtra por empresa; no expone datos de otras.</li>
+            <li><b>Lectura:</b> paginación por cursor; retorno JSONB; sin escritura.</li>
+          </ul>
+          <pre class="sql">CREATE OR REPLACE FUNCTION fn_obtener_detalle_parametro_activos_inversion(
+  p_id_empresa UUID,
+  p_id_parametro UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_detalle JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = &#x27;ACTIVO&#x27; AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;EMPRESA_NO_VIGENTE&#x27;, &#x27;mensaje&#x27;, &#x27;La empresa no existe o no esta vigente&#x27;);
+  END IF;
+
+  SELECT to_jsonb(d) INTO v_detalle
+  FROM (
+    SELECT p.id, p.categoria, p.clave, p.valor, p.descripcion, p.estado,
+           p.creado_en, p.creado_por_usuario_id, p.actualizado_en, p.actualizado_por_usuario_id
+    FROM parametro_activos_inversion p
+    WHERE p.id = p_id_parametro AND p.id_empresa = p_id_empresa AND p.eliminado_en IS NULL
+  ) d;
+
+  IF v_detalle IS NULL THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;PARAMETRO_NO_ENCONTRADO&#x27;, &#x27;mensaje&#x27;, &#x27;El parametro no existe o no pertenece a la empresa&#x27;);
+  END IF;
+
+  RETURN jsonb_build_object(
+    &#x27;exito&#x27;, true,
+    &#x27;codigo&#x27;, &#x27;PARAMETRO_DETALLE&#x27;,
+    &#x27;mensaje&#x27;, &#x27;Detalle del parametro obtenido&#x27;,
+    &#x27;datos&#x27;, v_detalle
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(&#x27;exito&#x27;, false, &#x27;codigo_error&#x27;, &#x27;PARAMETRO_DETALLE_ERROR_NO_CONTROLADO&#x27;, &#x27;mensaje&#x27;, &#x27;Ocurrio un error no controlado al obtener el detalle del parametro&#x27;);
+END;
+$$;</pre>
+        </div>
+      </details>
+
 
     </div>
   </div>
