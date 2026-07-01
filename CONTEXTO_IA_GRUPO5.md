@@ -12,9 +12,9 @@
 - **Multiempresa (multi-tenant):** todo cuelga de una `empresa`; cada request lleva la empresa en una cabecera HTTP.
 - **Dividido en capacidades** (módulos de dominio). Las 9 del sistema: `gobierno_central`, `contratos`, `costeo_directo`, `gastos_compartidos`, `produccion`, `facturacion`/`valorizacion`, `activos_e_inversion`, `cierre_mensual`, `reportes`.
 - **El Grupo 5 es dueño de 2 capacidades:**
-  - **`activos_e_inversion`** — activos fijos, herramientas, su asignación a contratos, traslados, trabajos, recuperación de inversión. **31 endpoints.**
+  - **`activos_e_inversion`** — activos fijos, herramientas, su asignación a contratos, traslados, trabajos, recuperación de inversión, mantenimiento, incidencias, intervenciones de herramienta, ajustes de recuperación y parámetros de la capacidad. **72 endpoints.**
   - **`cierre_mensual`** — estado de resultados por contrato/período, penalidades, provisiones. **10 endpoints.**
-  - **Total Grupo 5: 41 endpoints.**
+  - **Total Grupo 5: 82 endpoints.**
 - **Repos:**
   - Código del producto: `CODEPLEX-SAC/plataforma-sesga-reyser` (local: `C:/Users/user/Desktop/CSRAYSER/plataforma-sesga-reyser`).
   - Páginas/descargables de documentación (Vercel): `roberto3101/gerson-compartido` (local: `C:/Users/user/Desktop/gerson-compartido`).
@@ -96,7 +96,7 @@ powershell -ExecutionPolicy Bypass -File .\herramientas\componibilidad\generar_f
 
 Base de URL: `http://localhost:8080/api/v1/<capacidad>/<operacion>`. Cabecera obligatoria `X-Empresa-Id`; las acciones piden además `X-Usuario-Id`.
 
-### activos_e_inversion — 27 (12 GET + 12 POST + 2 PUT + 1 DELETE)
+### activos_e_inversion — 72 (26 GET + 30 POST + 10 PUT + 6 DELETE)
 - **GET (lectura):** `listar_activos`, `obtener_detalle_activo`, `listar_herramientas`, `obtener_detalle_herramienta`, `listar_movimientos_herramienta`, `listar_asignaciones_activo`, `listar_traslados_activo`, `listar_trabajos_activo`, `listar_recuperaciones_inversion`, `listar_clasificaciones_activo`, `listar_tipos_adquisicion_activo`, `listar_tipos_herramienta`, `obtener_resumen_activos_inversion`, `listar_periodos_disponibles`, `listar_alertas_activos`, `listar_activos_detalle`
 - **POST:** `registrar_activo`, `registrar_herramienta`, `asignar_activo_a_contrato`, `mover_herramienta`, `registrar_trabajo_activo`, `registrar_traslado_activo`, `ejecutar_recuperacion_mensual`, `registrar_clasificacion_activo`, `registrar_tipo_adquisicion_activo`, `registrar_tipo_herramienta`, `reactivar_activo`, `finalizar_asignacion_activo`
 - **PUT:** `actualizar_activo`, `actualizar_herramienta`
@@ -108,7 +108,7 @@ Base de URL: `http://localhost:8080/api/v1/<capacidad>/<operacion>`. Cabecera ob
 
 > **Gotcha:** `consultar_resultado_contrato` es semánticamente una lectura, pero se publica como **POST** porque el prefijo `consultar_` no está en la lista GET del generador (cae en default=POST). Para que fuera GET habría que renombrarlo a `obtener_`/`listar_` o ampliar el switch.
 
-## 7. Modelo de datos (13 tablas) e índices
+## 7. Modelo de datos (18 tablas) e índices
 
 ### activos_e_inversion (10 tablas)
 - **Raíces:** `activo` (estados `ACTIVO/PARADO/EN_TRASLADO/BAJA`; `costo_adquisicion>0`), `herramienta` (estados `ACTIVO/BAJA`).
@@ -178,7 +178,7 @@ curl.exe -s -X PUT "http://localhost:8080/api/v1/activos_e_inversion/actualizar_
   -H "Content-Type: application/json" -d "@body.json"
 ```
 
-- **Postman:** colecciones por capacidad en `aplicaciones/api/postman/colecciones/`, o la combinada del Vercel `coleccion-postman-grupo5.json` (37 requests). Postman Web no alcanza `localhost` → usar el "Desktop Agent".
+- **Postman:** colecciones por capacidad en `aplicaciones/api/postman/colecciones/`, o la combinada del Vercel `coleccion-postman-grupo5.json` (82 requests). Postman Web no alcanza `localhost` → usar el "Desktop Agent".
 - **Pruebas SQL:** `& $CR sql --insecure --host=localhost:26260 --database=sesga_test --file infraestructura\base-de-datos\pruebas\<capacidad>\NNN_test_*.sql` (cada archivo imprime PASS/FAIL; `fail=0` = OK).
 - **UUIDs demo fijos** (requieren el seed cargado): empresa `1111…`, usuario `2222…`, clasificación `a1a1…`, tipo_adquisicion `a2a2…`, tipo_herramienta `a3a3…`, activo `b1b1…b1`, herramienta `b2b2…`, contrato `cc000000…`, periodo `33333333…0001`, zona `4444…`, asignación `d1d1…`.
 
@@ -198,7 +198,7 @@ utilidad_final = utilidad_neta − penalidades
 
 ## 11. Estado actual y lo que falta
 
-**Cerrado y verificado (2026-06-23):** 41 endpoints, todos generados desde SQL, `go build`/`go vet` limpios, probados (lógica + HTTP). En GitHub: `capacidad/activos-e-inversion` (31) y `capacidad/cierre-mensual` (10). El ciclo de vida de activos quedó completo con 4 SP nuevos: `fn_actualizar_activo`, `fn_reactivar_activo`, `fn_actualizar_herramienta`, `fn_finalizar_asignacion_activo` (esta cierra la asignación y desbloquea la baja de un activo con saldo pendiente).
+**Cerrado y verificado (2026-06-23):** 82 endpoints, todos generados desde SQL, `go build`/`go vet` limpios, probados (lógica + HTTP). En GitHub: `capacidad/activos-e-inversion` (72) y `capacidad/cierre-mensual` (10). El ciclo de vida de activos quedó completo con 4 SP nuevos: `fn_actualizar_activo`, `fn_reactivar_activo`, `fn_actualizar_herramienta`, `fn_finalizar_asignacion_activo` (esta cierra la asignación y desbloquea la baja de un activo con saldo pendiente).
 
 **Gaps pendientes (NO bloquean el frontend):**
 - **Media** (consistencia; el cliente/PDF no los pide): CRUD completo de los 3 catálogos — `actualizar_/dar_de_baja_/reactivar_` para `clasificacion_activo`, `tipo_adquisicion_activo`, `tipo_herramienta` (9 SP); más `reactivar_herramienta`.
@@ -286,4 +286,4 @@ plataforma-sesga-reyser/
 
 ---
 
-*Documento generado el 2026-06-23. Refleja el estado del Grupo 5 con 41 endpoints (31 activos_e_inversion + 10 cierre_mensual). Si algo aquí contradice el código, el código manda: re-verifica contra `infraestructura/base-de-datos/procedimientos/` y `aplicaciones/api/interno/servidor/operaciones_generadas_*.go`.*
+*Documento generado el 2026-06-23. Refleja el estado del Grupo 5 con 82 endpoints (72 activos_e_inversion + 10 cierre_mensual). Si algo aquí contradice el código, el código manda: re-verifica contra `infraestructura/base-de-datos/procedimientos/` y `aplicaciones/api/interno/servidor/operaciones_generadas_*.go`.*

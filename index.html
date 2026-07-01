@@ -191,8 +191,8 @@
     <div class="chips">
       <span class="chip">Grupo 5 · Jose &amp; Gerson</span>
       <span class="chip">CockroachDB</span>
-      <span class="chip">13 tablas · 2 capacidades</span>
-      <span class="chip">41 procedimientos · 21 comando + 16 lectura</span>
+      <span class="chip">18 tablas · 2 capacidades</span>
+      <span class="chip">82 procedimientos · Grupo 5 completo</span>
       <a href="#seccion-lecturas" class="chip" style="background:#fff;color:#312e81;font-weight:800;text-decoration:none;border-color:#fff;cursor:pointer">Listados (lectura) →</a>
       <a href="#seccion-indices" class="chip" style="background:#fff;color:#312e81;font-weight:800;text-decoration:none;border-color:#fff;cursor:pointer">Índices: por qué y para qué →</a>
       <a href="#pagina-cierre" class="chip" style="background:#fff;color:#312e81;font-weight:800;text-decoration:none;border-color:#fff;cursor:pointer">Cierre mensual: código y fórmulas explicados →</a>
@@ -230,11 +230,11 @@
         <div class="grp"><span class="lbl">Raíz de Agregado</span>
           <div class="ents"><span class="ent t-raiz">activo</span><span class="ent t-raiz">herramienta</span></div></div>
         <div class="grp"><span class="lbl">Entidad</span>
-          <div class="ents"><span class="ent t-entidad">activo_asignacion_contrato</span><span class="ent t-entidad">activo_registro_trabajo</span></div></div>
+          <div class="ents"><span class="ent t-entidad">activo_asignacion_contrato</span><span class="ent t-entidad">activo_registro_trabajo</span><span class="ent t-entidad">activo_mantenimiento</span><span class="ent t-entidad">activo_incidencia</span><span class="ent t-entidad">herramienta_intervencion</span><span class="ent t-entidad">recuperacion_ajuste</span></div></div>
         <div class="grp"><span class="lbl">Evento (inmutable)</span>
           <div class="ents"><span class="ent t-evento">activo_traslado</span><span class="ent t-evento">recuperacion_inversion_mensual</span><span class="ent t-evento">herramienta_movimiento</span></div></div>
         <div class="grp"><span class="lbl">Catálogo</span>
-          <div class="ents"><span class="ent t-catalogo">tipo_adquisicion_activo</span><span class="ent t-catalogo">clasificacion_activo</span><span class="ent t-catalogo">tipo_herramienta</span></div></div>
+          <div class="ents"><span class="ent t-catalogo">tipo_adquisicion_activo</span><span class="ent t-catalogo">clasificacion_activo</span><span class="ent t-catalogo">tipo_herramienta</span><span class="ent t-catalogo">parametro_activos_inversion</span></div></div>
       </div>
 
       <div class="cap">
@@ -286,7 +286,7 @@
   <div class="wrap">
     <p class="eyebrow">Modelo de datos</p>
     <h2>Diagrama de nuestras capacidades</h2>
-    <p class="lead">Estructura y relaciones de las 13 tablas del Grupo 5, coloreadas por tipo DDD. Las cajas en gris punteado pertenecen a otras capacidades: las consumimos por FK, no las tocamos. Usa los controles para ampliar, reducir o ver en pantalla completa.</p>
+    <p class="lead">Estructura y relaciones de las 18 tablas del Grupo 5, coloreadas por tipo DDD. Las cajas en gris punteado pertenecen a otras capacidades: las consumimos por FK, no las tocamos. Usa los controles para ampliar, reducir o ver en pantalla completa.</p>
     <div class="legend" style="margin-bottom:18px">
       <span class="item"><span class="dot d-raiz"></span>Raíz de Agregado</span>
       <span class="item"><span class="dot d-entidad"></span>Entidad</span>
@@ -297,7 +297,7 @@
 
     <div class="dgrm">
       <div class="dgrm-bar">
-        <span class="ttl">activos-e-inversion</span><span class="cap">10 tablas propias</span>
+        <span class="ttl">activos-e-inversion</span><span class="cap">15 tablas propias</span>
         <span class="ctrls">
           <button data-z="out" title="Reducir">−</button>
           <button data-z="in" title="Ampliar">+</button>
@@ -322,6 +322,11 @@ trab["activo_registro_trabajo"]:::entidad
 tras["activo_traslado"]:::evento
 recup["recuperacion_inversion_mensual"]:::evento
 hmov["herramienta_movimiento"]:::evento
+mant["activo_mantenimiento"]:::entidad
+inci["activo_incidencia"]:::entidad
+hint["herramienta_intervencion"]:::entidad
+raju["recuperacion_ajuste"]:::entidad
+param["parametro_activos_inversion"]:::catalogo
 clas --> activo
 tadq --> activo
 thrr --> herr
@@ -330,6 +335,10 @@ activo --> trab
 activo --> tras
 activo --> recup
 herr --> hmov
+activo --> mant
+activo --> inci
+herr --> hint
+recup --> raju
 </pre></div></div>
     </div>
 
@@ -988,6 +997,108 @@ ALTER TABLE cierre_mensual ADD CONSTRAINT fk_cierre_mensual_creado_por FOREIGN K
 ALTER TABLE cierre_mensual ADD CONSTRAINT fk_cierre_mensual_actualizado_por FOREIGN KEY (actualizado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
 ALTER TABLE cierre_mensual ADD CONSTRAINT fk_cierre_mensual_eliminado_por FOREIGN KEY (eliminado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;</pre>
     </details>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <p class="eyebrow">Ampliación 2026 · lo más nuevo</p>
+    <h2>Módulos nuevos · mantenimiento, incidencias, intervenciones, ajustes y parámetros</h2>
+    <p class="lead">Cinco módulos incorporados después del mapeo inicial, con el mismo molde del grupo (tenant + 6 campos de auditoría + retorno JSONB). Suman <b>5 entidades</b>, <b>41 procedimientos</b> y <b>2 pantallas senior</b>. Con esto la capacidad pasa de 41 a <b>82 procedimientos</b> y de 13 a <b>18 tablas</b>. El código PL/pgSQL completo de cada uno está en los SQL descargables (arriba).</p>
+
+    <style>
+      .mods{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin:22px 0}
+      .modcard{border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;background:#fbfcfe}
+      .modcard h3{margin:0 0 4px;font-size:16px;color:#1e293b}
+      .modcard .ent{margin:0 0 12px;font-size:12.5px;color:#64748b}
+      .modcard .ent b{color:#7c3aed;font-weight:700}
+      .modcard ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+      .modcard li{display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;font-family:ui-monospace,Menlo,Consolas,monospace}
+      .mtag{font-size:10px;font-weight:800;letter-spacing:.03em;border-radius:6px;padding:2px 6px;color:#fff;min-width:52px;text-align:center;font-family:system-ui,sans-serif}
+      .m-get{background:#0d9488}.m-post{background:#7c3aed}.m-put{background:#b45309}.m-del{background:#dc2626}
+    </style>
+
+    <div class="mods">
+      <div class="modcard">
+        <h3>Mantenimiento de activos</h3>
+        <p class="ent">entidad: <b>activo_mantenimiento</b> · preventivo/correctivo con costo</p>
+        <ul>
+          <li><span class="mtag m-post">POST</span> registrar_mantenimiento_activo</li>
+          <li><span class="mtag m-put">PUT</span> actualizar_mantenimiento_activo</li>
+          <li><span class="mtag m-post">POST</span> ejecutar_mantenimiento_activo</li>
+          <li><span class="mtag m-post">POST</span> anular_mantenimiento_activo</li>
+          <li><span class="mtag m-get">GET</span> listar_mantenimientos_activo</li>
+          <li><span class="mtag m-get">GET</span> obtener_detalle_mantenimiento_activo</li>
+        </ul>
+      </div>
+      <div class="modcard">
+        <h3>Incidencias de activos</h3>
+        <p class="ent">entidad: <b>activo_incidencia</b> · severidad + ciclo abierta→resuelta</p>
+        <ul>
+          <li><span class="mtag m-post">POST</span> registrar_incidencia_activo</li>
+          <li><span class="mtag m-put">PUT</span> actualizar_incidencia_activo</li>
+          <li><span class="mtag m-post">POST</span> resolver_incidencia_activo</li>
+          <li><span class="mtag m-post">POST</span> anular_incidencia_activo</li>
+          <li><span class="mtag m-get">GET</span> listar_incidencias_activo</li>
+          <li><span class="mtag m-get">GET</span> obtener_detalle_incidencia_activo</li>
+        </ul>
+      </div>
+      <div class="modcard">
+        <h3>Intervenciones de herramienta</h3>
+        <p class="ent">entidad: <b>herramienta_intervencion</b> · ciclo con finalización</p>
+        <ul>
+          <li><span class="mtag m-post">POST</span> registrar_intervencion_herramienta</li>
+          <li><span class="mtag m-put">PUT</span> actualizar_intervencion_herramienta</li>
+          <li><span class="mtag m-post">POST</span> finalizar_intervencion_herramienta</li>
+          <li><span class="mtag m-post">POST</span> anular_intervencion_herramienta</li>
+          <li><span class="mtag m-get">GET</span> listar_intervenciones_herramienta</li>
+          <li><span class="mtag m-get">GET</span> obtener_detalle_intervencion_herramienta</li>
+        </ul>
+      </div>
+      <div class="modcard">
+        <h3>Ajustes de recuperación</h3>
+        <p class="ent">entidad: <b>recuperacion_ajuste</b> · pendiente→aprobado/rechazado</p>
+        <ul>
+          <li><span class="mtag m-post">POST</span> registrar_ajuste_recuperacion</li>
+          <li><span class="mtag m-put">PUT</span> actualizar_ajuste_recuperacion</li>
+          <li><span class="mtag m-post">POST</span> aprobar_ajuste_recuperacion</li>
+          <li><span class="mtag m-post">POST</span> rechazar_ajuste_recuperacion</li>
+          <li><span class="mtag m-get">GET</span> listar_ajustes_recuperacion</li>
+          <li><span class="mtag m-get">GET</span> obtener_detalle_ajuste_recuperacion</li>
+        </ul>
+      </div>
+      <div class="modcard">
+        <h3>Parámetros de la capacidad</h3>
+        <p class="ent">catálogo: <b>parametro_activos_inversion</b> · reglas maestras por empresa</p>
+        <ul>
+          <li><span class="mtag m-post">POST</span> registrar_parametro_activos_inversion</li>
+          <li><span class="mtag m-put">PUT</span> actualizar_parametro_activos_inversion</li>
+          <li><span class="mtag m-del">DELETE</span> dar_de_baja_parametro_activos_inversion</li>
+          <li><span class="mtag m-post">POST</span> reactivar_parametro_activos_inversion</li>
+          <li><span class="mtag m-get">GET</span> listar_parametros_activos_inversion</li>
+          <li><span class="mtag m-get">GET</span> obtener_detalle_parametro_activos_inversion</li>
+        </ul>
+      </div>
+      <div class="modcard">
+        <h3>Catálogos: ciclo de vida completo</h3>
+        <p class="ent">clasificacion_activo · tipo_adquisicion_activo · tipo_herramienta · herramienta</p>
+        <ul>
+          <li><span class="mtag m-put">PUT</span> actualizar_clasificacion_activo</li>
+          <li><span class="mtag m-del">DELETE</span> dar_de_baja_clasificacion_activo</li>
+          <li><span class="mtag m-post">POST</span> reactivar_clasificacion_activo</li>
+          <li><span class="mtag m-put">PUT</span> actualizar_tipo_adquisicion_activo</li>
+          <li><span class="mtag m-del">DELETE</span> dar_de_baja_tipo_adquisicion_activo</li>
+          <li><span class="mtag m-post">POST</span> reactivar_tipo_adquisicion_activo</li>
+          <li><span class="mtag m-put">PUT</span> actualizar_tipo_herramienta</li>
+          <li><span class="mtag m-del">DELETE</span> dar_de_baja_tipo_herramienta</li>
+          <li><span class="mtag m-post">POST</span> reactivar_tipo_herramienta</li>
+          <li><span class="mtag m-del">DELETE</span> dar_de_baja_herramienta</li>
+          <li><span class="mtag m-post">POST</span> reactivar_herramienta</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="lead"><b>Pantallas nuevas (frontend):</b> <b>Estado del activo</b> — tablero operativo con distribución por estado (operativos/parados/en traslado/de baja) y drill-down; y <b>Datos económicos del activo</b> — inversión total, depreciación mensual y base recuperable por clasificación, con exportación (Excel/PDF/PNG). Ambas consumen endpoints ya existentes; no crean SP.</p>
   </div>
 </section>
 
