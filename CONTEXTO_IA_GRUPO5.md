@@ -1,6 +1,6 @@
 # CONTEXTO MAESTRO — Plataforma SESGA REYSER · Grupo 5
 
-> **Para qué sirve este documento.** Es el contexto completo del trabajo del Grupo 5 (capacidades **activos-e-inversion** y **cierre-mensual**) dentro de la plataforma SESGA REYSER. Está escrito para que **una IA (o una persona nueva) pueda leerlo y saber exactamente qué hacer y cómo, sin margen de error**: qué es el proyecto, cómo está construido, qué reglas son innegociables, cómo se agrega un endpoint, cómo se corre y se prueba, qué existe hoy y qué falta. Todo lo afirmado aquí está verificado contra el repositorio real al 2026-06-23.
+> **Para qué sirve este documento.** Es el contexto completo del trabajo del Grupo 5 (capacidades **activos-e-inversion** y **cierre-mensual**) dentro de la plataforma SESGA REYSER. Está escrito para que **una IA (o una persona nueva) pueda leerlo y saber exactamente qué hacer y cómo, sin margen de error**: qué es el proyecto, cómo está construido, qué reglas son innegociables, cómo se agrega un endpoint, cómo se corre y se prueba, qué existe hoy y qué falta. Todo lo afirmado aquí está verificado contra el repositorio real al 2026-07-03.
 >
 > Si vas a hacer un cambio: **lee primero las secciones 3 (Reglas) y 4 (Flujo de trabajo). No improvises fuera de ese flujo.**
 
@@ -92,7 +92,7 @@ powershell -ExecutionPolicy Bypass -File .\herramientas\componibilidad\generar_f
 
 > **Gotcha:** `activos_e_inversion` y `cierre_mensual` son 100% generadas. Solo `contratos`, `gobierno_central` y `produccion` tienen handlers personalizados (`$codigosPersonalizados`).
 
-## 6. Inventario de endpoints (41) — la superficie completa
+## 6. Inventario de endpoints (82) — la superficie completa
 
 Base de URL: `http://localhost:8080/api/v1/<capacidad>/<operacion>`. Cabecera obligatoria `X-Empresa-Id`; las acciones piden además `X-Usuario-Id`.
 
@@ -161,7 +161,7 @@ $CR = "C:\cockroachdb26\cockroach-v26.2.1.windows-6.2-amd64\cockroach.exe"
 & $CR sql --insecure --host=localhost:26260 --file sesga_global_completo.sql
 ```
 
-> **Dos bases distintas, no las confundas:** la API local apunta a **`sesga_test`** (solo Grupo 5, base de trabajo). **`sesga_global`** es la descarga unificada de demostración (todas las capacidades + semillas; el script hace DROP/CREATE de esa base). El `sesga_global_completo.sql` deja **las 48 tablas pobladas** con datos demo, listo de una sola corrida.
+> **Dos bases distintas, no las confundas:** la API local apunta a **`sesga_test`** (solo Grupo 5, base de trabajo). **`sesga_global`** es la descarga unificada de demostración (todas las capacidades + semillas; el script hace DROP/CREATE de esa base). El `sesga_global_completo.sql` deja la base **poblada con datos demo en todas las capacidades**, en una sola corrida (DROP/CREATE + esquema + índices + los 82 SP del Grupo 5 + semillas).
 
 ## 9. Cómo probar
 
@@ -198,10 +198,11 @@ utilidad_final = utilidad_neta − penalidades
 
 ## 11. Estado actual y lo que falta
 
-**Cerrado y verificado (2026-06-23):** 82 endpoints, todos generados desde SQL, `go build`/`go vet` limpios, probados (lógica + HTTP). En GitHub: `capacidad/activos-e-inversion` (72) y `capacidad/cierre-mensual` (10). El ciclo de vida de activos quedó completo con 4 SP nuevos: `fn_actualizar_activo`, `fn_reactivar_activo`, `fn_actualizar_herramienta`, `fn_finalizar_asignacion_activo` (esta cierra la asignación y desbloquea la baja de un activo con saldo pendiente).
+**Cerrado y verificado (2026-07-03):** 82 endpoints, todos generados desde SQL, `go build`/`go vet` limpios, probados (lógica + HTTP). En GitHub: `capacidad/activos-e-inversion` (72) y `capacidad/cierre-mensual` (10). El ciclo de vida de activos está completo, **incluido el CRUD de los 3 catálogos** (`actualizar_/dar_de_baja_/reactivar_` de `clasificacion_activo`, `tipo_adquisicion_activo`, `tipo_herramienta`) y `reactivar_herramienta` — todos ya dentro de los 72. Los listados operativos aceptan filtros transversales (por contrato, zona y responsable) y devuelven el `total` para la paginación por cursor.
 
-**Gaps pendientes (NO bloquean el frontend):**
-- **Media** (consistencia; el cliente/PDF no los pide): CRUD completo de los 3 catálogos — `actualizar_/dar_de_baja_/reactivar_` para `clasificacion_activo`, `tipo_adquisicion_activo`, `tipo_herramienta` (9 SP); más `reactivar_herramienta`.
+**Frontend (`activos_e_inversion`):** completo a nivel producción — CRUD de activos/herramientas/catálogos; asignaciones (asignar/finalizar/retirar); traslados; trabajos; movimientos de herramienta; recuperación mensual; mantenimiento/incidencias/intervenciones/ajustes/parámetros; y las vistas operativas (uso operativo, control de disponibilidad, asignaciones por responsable, trazabilidad, resumen con exportación Excel/PDF/PNG). Cada tabla tiene "ver detalle" con toda la información del registro, y los buscadores resuelven nombres reales (contrato/zona/usuario/operario).
+
+**Gaps pendientes (NO bloquean):**
 - **Requiere confirmación de Fidel** (cierre no se toca sin él): editar/anular `penalidad` y `provision`. El "reabrir cierre" NO aplica (ya lo cubre recalcular).
 
 ## 12. Gotchas y matices (léelos antes de afirmar cosas)
@@ -286,4 +287,4 @@ plataforma-sesga-reyser/
 
 ---
 
-*Documento generado el 2026-06-23. Refleja el estado del Grupo 5 con 82 endpoints (72 activos_e_inversion + 10 cierre_mensual). Si algo aquí contradice el código, el código manda: re-verifica contra `infraestructura/base-de-datos/procedimientos/` y `aplicaciones/api/interno/servidor/operaciones_generadas_*.go`.*
+*Documento generado el 2026-06-23, actualizado el 2026-07-03. Refleja el estado del Grupo 5 con 82 endpoints (72 activos_e_inversion + 10 cierre_mensual) y el frontend de ambas capacidades completo. Si algo aquí contradice el código, el código manda: re-verifica contra `infraestructura/base-de-datos/procedimientos/` y `aplicaciones/api/interno/servidor/operaciones_generadas_*.go`.*
