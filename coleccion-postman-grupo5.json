@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "SESGA REYSER - Grupo 5 (activos-e-inversion + cierre-mensual)",
-    "description": "29 endpoints generados del Grupo 5. Variables de coleccion: baseUrl, empresaId, usuarioId. Para datos reales, carga el seed demo en sesga_test. GET con valores demo precargados; los opcionales van deshabilitados.",
+    "description": "85 endpoints generados del Grupo 5. Variables de coleccion: baseUrl, empresaId, usuarioId. Para datos reales, carga el seed demo en sesga_test. GET con valores demo precargados; los opcionales van deshabilitados.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -2787,6 +2787,124 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_incidencia\": \"11111111-1111-1111-1111-111111111111\",\n  \"solucion\": \"texto\",\n  \"fecha_resolucion\": \"2026-07-01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET  obtener_resumen_recuperacion",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Empresa-Id",
+                "value": "{{empresaId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activos_e_inversion/obtener_resumen_recuperacion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activos_e_inversion",
+                "obtener_resumen_recuperacion"
+              ],
+              "query": [
+                {
+                  "key": "id_periodo",
+                  "value": "33333333-3333-3333-3333-333333333333",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET  listar_recuperaciones_pendientes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Empresa-Id",
+                "value": "{{empresaId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activos_e_inversion/listar_recuperaciones_pendientes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activos_e_inversion",
+                "listar_recuperaciones_pendientes"
+              ],
+              "query": [
+                {
+                  "key": "id_periodo",
+                  "value": "33333333-3333-3333-3333-333333333333",
+                  "disabled": false
+                },
+                {
+                  "key": "id_contrato",
+                  "value": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+                  "disabled": true
+                },
+                {
+                  "key": "busqueda",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limite",
+                  "value": "100",
+                  "disabled": false
+                },
+                {
+                  "key": "cursor_creado_en",
+                  "value": "2999-01-01T00:00:00Z",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor_id",
+                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST  recalcular_recuperacion_periodo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Empresa-Id",
+                "value": "{{empresaId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activos_e_inversion/recalcular_recuperacion_periodo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activos_e_inversion",
+                "recalcular_recuperacion_periodo"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_periodo\": \"33333333-3333-3333-3333-333333333333\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

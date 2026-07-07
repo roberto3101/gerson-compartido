@@ -12,9 +12,9 @@
 - **Multiempresa (multi-tenant):** todo cuelga de una `empresa`; cada request lleva la empresa en una cabecera HTTP.
 - **Dividido en capacidades** (módulos de dominio). Las 9 del sistema: `gobierno_central`, `contratos`, `costeo_directo`, `gastos_compartidos`, `produccion`, `facturacion`/`valorizacion`, `activos_e_inversion`, `cierre_mensual`, `reportes`.
 - **El Grupo 5 es dueño de 2 capacidades:**
-  - **`activos_e_inversion`** — activos fijos, herramientas, su asignación a contratos, traslados, trabajos, recuperación de inversión, mantenimiento, incidencias, intervenciones de herramienta, ajustes de recuperación y parámetros de la capacidad. **72 endpoints.**
+  - **`activos_e_inversion`** — activos fijos, herramientas, su asignación a contratos, traslados, trabajos, recuperación de inversión, mantenimiento, incidencias, intervenciones de herramienta, ajustes de recuperación y parámetros de la capacidad. **75 endpoints.**
   - **`cierre_mensual`** — estado de resultados por contrato/período, penalidades, provisiones. **10 endpoints.**
-  - **Total Grupo 5: 82 endpoints.**
+  - **Total Grupo 5: 85 endpoints.**
 - **Repos:**
   - Código del producto: `CODEPLEX-SAC/plataforma-sesga-reyser` (local: `C:/Users/user/Desktop/CSRAYSER/plataforma-sesga-reyser`).
   - Páginas/descargables de documentación (Vercel): `roberto3101/gerson-compartido` (local: `C:/Users/user/Desktop/gerson-compartido`).
@@ -161,7 +161,7 @@ $CR = "C:\cockroachdb26\cockroach-v26.2.1.windows-6.2-amd64\cockroach.exe"
 & $CR sql --insecure --host=localhost:26260 --file sesga_global_completo.sql
 ```
 
-> **Dos bases distintas, no las confundas:** la API local apunta a **`sesga_test`** (solo Grupo 5, base de trabajo). **`sesga_global`** es la descarga unificada de demostración (todas las capacidades + semillas; el script hace DROP/CREATE de esa base). El `sesga_global_completo.sql` deja la base **poblada con datos demo en todas las capacidades**, en una sola corrida (DROP/CREATE + esquema + índices + los 82 SP del Grupo 5 + semillas).
+> **Dos bases distintas, no las confundas:** la API local apunta a **`sesga_test`** (solo Grupo 5, base de trabajo). **`sesga_global`** es la descarga unificada de demostración (todas las capacidades + semillas; el script hace DROP/CREATE de esa base). El `sesga_global_completo.sql` deja la base **poblada con datos demo en todas las capacidades**, en una sola corrida (DROP/CREATE + esquema + índices + los 85 SP del Grupo 5 + semillas).
 
 ## 9. Cómo probar
 
@@ -198,7 +198,7 @@ utilidad_final = utilidad_neta − penalidades
 
 ## 11. Estado actual y lo que falta
 
-**Cerrado y verificado (2026-07-03):** 82 endpoints, todos generados desde SQL, `go build`/`go vet` limpios, probados (lógica + HTTP). En GitHub: `capacidad/activos-e-inversion` (72) y `capacidad/cierre-mensual` (10). El ciclo de vida de activos está completo, **incluido el CRUD de los 3 catálogos** (`actualizar_/dar_de_baja_/reactivar_` de `clasificacion_activo`, `tipo_adquisicion_activo`, `tipo_herramienta`) y `reactivar_herramienta` — todos ya dentro de los 72. Los listados operativos aceptan filtros transversales (por contrato, zona y responsable) y devuelven el `total` para la paginación por cursor.
+**Cerrado y verificado (2026-07-03):** 85 endpoints, todos generados desde SQL, `go build`/`go vet` limpios, probados (lógica + HTTP). En GitHub: `capacidad/activos-e-inversion` (75) y `capacidad/cierre-mensual` (10). El ciclo de vida de activos está completo, **incluido el CRUD de los 3 catálogos** (`actualizar_/dar_de_baja_/reactivar_` de `clasificacion_activo`, `tipo_adquisicion_activo`, `tipo_herramienta`) y `reactivar_herramienta` — todos ya dentro de los 75. Los listados operativos aceptan filtros transversales (por contrato, zona y responsable) y devuelven el `total` para la paginación por cursor.
 
 **Frontend (`activos_e_inversion`):** completo a nivel producción — CRUD de activos/herramientas/catálogos; asignaciones (asignar/finalizar/retirar); traslados; trabajos; movimientos de herramienta; recuperación mensual; mantenimiento/incidencias/intervenciones/ajustes/parámetros; y las vistas operativas (uso operativo, control de disponibilidad, asignaciones por responsable, trazabilidad, resumen con exportación Excel/PDF/PNG). Cada tabla tiene "ver detalle" con toda la información del registro, y los buscadores resuelven nombres reales (contrato/zona/usuario/operario).
 
@@ -287,4 +287,4 @@ plataforma-sesga-reyser/
 
 ---
 
-*Documento generado el 2026-06-23, actualizado el 2026-07-03. Refleja el estado del Grupo 5 con 82 endpoints (72 activos_e_inversion + 10 cierre_mensual) y el frontend de ambas capacidades completo. Si algo aquí contradice el código, el código manda: re-verifica contra `infraestructura/base-de-datos/procedimientos/` y `aplicaciones/api/interno/servidor/operaciones_generadas_*.go`.*
+*Documento generado el 2026-06-23, actualizado el 2026-07-03. Refleja el estado del Grupo 5 con 85 endpoints (75 activos_e_inversion + 10 cierre_mensual) y el frontend de ambas capacidades completo. Si algo aquí contradice el código, el código manda: re-verifica contra `infraestructura/base-de-datos/procedimientos/` y `aplicaciones/api/interno/servidor/operaciones_generadas_*.go`.*

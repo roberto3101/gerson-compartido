@@ -1,7 +1,7 @@
 -- ====================================================================
 -- sesga_global_completo.sql  -  BD GLOBAL: todas las capacidades de todos los grupos
 -- Generada desde codeplexMaster para pruebas locales (CockroachDB v26).
--- Contenido: 52 tablas + 1 stub (+5 modulos nuevos 2026-07-01) + todos los indices + 82 funciones del Grupo 5 (41 nuevas) que compilan
+-- Contenido: 52 tablas + 1 stub (+5 modulos nuevos 2026-07-01) + todos los indices + 85 funciones del Grupo 5 (44 nuevas) que compilan
 --            + SEMILLAS DEMO al final que pueblan las 48 tablas (TODAS las entidades):
 --              empresa vigente, usuario, usuario_empresa, 2 periodos, roles/permisos;
 --              catalogos completos (estado/tipo de contrato, grupo de actividad, zona,
@@ -14,6 +14,12 @@
 --              herramienta, asignacion, trabajo, traslado, movimiento de herramienta,
 --              recuperacion de inversion, penalidad, provision, cierre mensual y usuario_rol.
 --              Verificado: las 48 tablas quedan pobladas y el script carga sin errores en v26.
+--            + CARGA MASIVA (al final): ~5000 activos, ~5000 herramientas, ~10000 asignaciones,
+--              ~3000 traslados, ~15000 trabajos, ~10000 recuperaciones (2 periodos), ~4000
+--              mantenimientos, ~2500 incidencias, ~1250 ajustes, ~15000 movimientos de herramienta,
+--              ~2500 intervenciones (codigos con prefijo 'SEED-'). Deja la capacidad activos_e_inversion
+--              lista para probar a escala (paginacion, busqueda, tableros) al correrla por separado.
+--              Verificado en v26: carga en una sola ejecucion, 0 errores (~5002 activos, 89 funciones).
 --
 -- USO (Gerson): ejecutar UNA sola vez en CockroachDB v26 y queda lista para usar:
 --   cockroach sql --insecure --host=localhost:26260 --file sesga_global_completo.sql
@@ -2313,6 +2319,25 @@ WHERE eliminado_en IS NULL;
 
 -- ==================== FUNCIONES (30: 17 base + 13 de lectura del Grupo 5) ====================
 -- >>> procedimientos/gobierno_central/fn_crear_rol.sql
+-- ===== TABLA parametro_activos_inversion (reubicada: la leen funciones de configuracion) =====
+CREATE TABLE parametro_activos_inversion (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_empresa UUID NOT NULL,
+  categoria STRING NOT NULL,
+  clave STRING NOT NULL,
+  valor STRING NOT NULL,
+  descripcion STRING,
+  estado STRING NOT NULL DEFAULT 'ACTIVO',
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+  creado_por_usuario_id UUID,
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+  actualizado_por_usuario_id UUID,
+  eliminado_en TIMESTAMPTZ,
+  eliminado_por_usuario_id UUID,
+  CONSTRAINT ck_parametro_activos_inversion_categoria CHECK (categoria IN ('PARAMETRO_ACTIVO', 'REGLA_RECUPERACION', 'REGLA_MAESTRA', 'BASE_RECUPERACION', 'DISTRIBUCION')),
+  CONSTRAINT ck_parametro_activos_inversion_estado CHECK (estado IN ('ACTIVO', 'INACTIVO'))
+);
+
 CREATE OR REPLACE FUNCTION fn_crear_rol(
     p_id_empresa UUID,
     p_nombre STRING,
@@ -2915,6 +2940,7 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_id_activo UUID;
+  v_anio_minimo INT;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
@@ -2926,6 +2952,18 @@ BEGIN
 
   IF p_costo_adquisicion IS NULL OR p_costo_adquisicion <= 0 THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'COSTO_INVALIDO', 'mensaje', 'El costo de adquisicion debe ser mayor a 0');
+  END IF;
+
+  v_anio_minimo := 1980;
+  SELECT NULLIF(regexp_replace(valor, '[^0-9]', '', 'g'), '')::INT INTO v_anio_minimo
+  FROM parametro_activos_inversion
+  WHERE id_empresa = p_id_empresa AND categoria = 'PARAMETRO_ACTIVO' AND clave = 'ANIO_FABRICACION_MINIMO'
+    AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  LIMIT 1;
+  v_anio_minimo := COALESCE(v_anio_minimo, 1980);
+
+  IF p_anio_fabricacion IS NOT NULL AND p_anio_fabricacion < v_anio_minimo THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ANIO_FABRICACION_INVALIDO', 'mensaje', 'El anio de fabricacion es menor al minimo permitido por la configuracion');
   END IF;
 
   IF NOT EXISTS (
@@ -4332,6 +4370,7 @@ CREATE OR REPLACE FUNCTION fn_listar_movimientos_herramienta(
   p_id_herramienta UUID DEFAULT NULL,
   p_id_periodo UUID DEFAULT NULL,
   p_tipo_movimiento STRING DEFAULT NULL,
+  p_busqueda STRING DEFAULT NULL,
   p_limite INT DEFAULT NULL,
   p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
   p_cursor_id UUID DEFAULT NULL
@@ -4339,6 +4378,7 @@ CREATE OR REPLACE FUNCTION fn_listar_movimientos_herramienta(
 LANGUAGE plpgsql
 AS $$
 DECLARE
+  v_busqueda STRING;
   v_limite_pagina INT;
   v_movimientos_herramienta_pagina JSONB;
   v_existen_mas_movimientos BOOL;
@@ -4350,29 +4390,35 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM herramienta WHERE id = p_id_herramienta AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+  IF p_id_herramienta IS NOT NULL AND NOT EXISTS (SELECT 1 FROM herramienta WHERE id = p_id_herramienta AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'HERRAMIENTA_NO_VALIDA', 'mensaje', 'La herramienta no existe o no pertenece a la empresa');
   END IF;
 
   v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
 
+  v_busqueda := NULLIF(btrim(p_busqueda), '');
+
   SELECT count(*) INTO v_total
   FROM herramienta_movimiento m
   WHERE m.id_empresa = p_id_empresa
-    AND m.id_herramienta = p_id_herramienta
+    AND (v_busqueda IS NULL OR EXISTS (SELECT 1 FROM herramienta h WHERE h.id = m.id_herramienta AND (h.codigo ILIKE '%' || v_busqueda || '%' OR h.descripcion ILIKE '%' || v_busqueda || '%')))
+    AND (p_id_herramienta IS NULL OR m.id_herramienta = p_id_herramienta)
     AND (p_id_periodo IS NULL OR m.id_periodo = p_id_periodo)
     AND (p_tipo_movimiento IS NULL OR m.tipo_movimiento = p_tipo_movimiento);
 
   WITH movimientos_herramienta_ordenados_para_listado AS (
-    SELECT m.id, m.tipo_movimiento, m.fecha, m.id_periodo,
+    SELECT m.id, m.id_herramienta, h.codigo AS herramienta_codigo, h.descripcion AS herramienta_descripcion,
+           m.tipo_movimiento, m.fecha, m.id_periodo,
            m.id_contrato_origen, m.id_zona_origen, m.id_contrato_destino, m.id_zona_destino,
            m.cantidad, m.costo, m.valorizacion, m.motivo, m.creado_en, m.creado_por_usuario_id,
            row_number() OVER (ORDER BY m.creado_en DESC, m.id DESC) AS orden_en_pagina
     FROM herramienta_movimiento m
+    LEFT JOIN herramienta h ON h.id = m.id_herramienta
     WHERE m.id_empresa = p_id_empresa
-      AND m.id_herramienta = p_id_herramienta
+      AND (p_id_herramienta IS NULL OR m.id_herramienta = p_id_herramienta)
       AND (p_id_periodo IS NULL OR m.id_periodo = p_id_periodo)
       AND (p_tipo_movimiento IS NULL OR m.tipo_movimiento = p_tipo_movimiento)
+      AND (v_busqueda IS NULL OR h.codigo ILIKE '%' || v_busqueda || '%' OR h.descripcion ILIKE '%' || v_busqueda || '%')
       AND (p_cursor_creado_en IS NULL OR (m.creado_en, m.id) < (p_cursor_creado_en, p_cursor_id))
     ORDER BY m.creado_en DESC, m.id DESC
     LIMIT v_limite_pagina + 1
@@ -4416,6 +4462,7 @@ CREATE OR REPLACE FUNCTION fn_listar_asignaciones_activo(
   p_id_activo UUID DEFAULT NULL,
   p_estado STRING DEFAULT NULL,
   p_creado_por UUID DEFAULT NULL,
+  p_busqueda STRING DEFAULT NULL,
   p_limite INT DEFAULT NULL,
   p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
   p_cursor_id UUID DEFAULT NULL
@@ -4423,6 +4470,7 @@ CREATE OR REPLACE FUNCTION fn_listar_asignaciones_activo(
 LANGUAGE plpgsql
 AS $$
 DECLARE
+  v_busqueda STRING;
   v_limite_pagina INT;
   v_asignaciones_activo_pagina JSONB;
   v_existen_mas_asignaciones BOOL;
@@ -4440,25 +4488,31 @@ BEGIN
 
   v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
 
+  v_busqueda := NULLIF(btrim(p_busqueda), '');
+
   SELECT count(*) INTO v_total
   FROM activo_asignacion_contrato ac
   WHERE ac.id_empresa = p_id_empresa
+    AND (v_busqueda IS NULL OR EXISTS (SELECT 1 FROM activo a WHERE a.id = ac.id_activo AND (a.codigo ILIKE '%' || v_busqueda || '%' OR a.descripcion ILIKE '%' || v_busqueda || '%')))
     AND (p_id_activo IS NULL OR ac.id_activo = p_id_activo)
     AND ac.eliminado_en IS NULL
     AND (p_estado IS NULL OR ac.estado = p_estado)
     AND (p_creado_por IS NULL OR ac.creado_por_usuario_id = p_creado_por);
 
   WITH asignaciones_activo_ordenadas_para_listado AS (
-    SELECT ac.id, ac.id_contrato, ac.id_zona, ac.inversion_asignada, ac.saldo_inversion_pendiente,
+    SELECT ac.id, ac.id_activo, a.codigo AS activo_codigo, a.descripcion AS activo_descripcion,
+           ac.id_contrato, ac.id_zona, ac.inversion_asignada, ac.saldo_inversion_pendiente,
            ac.cuota_recuperacion_mensual, ac.fecha_inicio, ac.fecha_fin, ac.estado, ac.creado_en,
            ac.creado_por_usuario_id,
            row_number() OVER (ORDER BY ac.creado_en DESC, ac.id DESC) AS _rn
     FROM activo_asignacion_contrato ac
+    LEFT JOIN activo a ON a.id = ac.id_activo
     WHERE ac.id_empresa = p_id_empresa
       AND (p_id_activo IS NULL OR ac.id_activo = p_id_activo)
       AND ac.eliminado_en IS NULL
       AND (p_estado IS NULL OR ac.estado = p_estado)
       AND (p_creado_por IS NULL OR ac.creado_por_usuario_id = p_creado_por)
+      AND (v_busqueda IS NULL OR a.codigo ILIKE '%' || v_busqueda || '%' OR a.descripcion ILIKE '%' || v_busqueda || '%')
       AND (p_cursor_creado_en IS NULL OR (ac.creado_en, ac.id) < (p_cursor_creado_en, p_cursor_id))
     ORDER BY ac.creado_en DESC, ac.id DESC
     LIMIT v_limite_pagina + 1
@@ -4497,6 +4551,7 @@ CREATE OR REPLACE FUNCTION fn_listar_trabajos_activo(
   p_id_contrato UUID DEFAULT NULL,
   p_id_periodo UUID DEFAULT NULL,
   p_id_zona UUID DEFAULT NULL,
+  p_busqueda STRING DEFAULT NULL,
   p_limite INT DEFAULT NULL,
   p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
   p_cursor_id UUID DEFAULT NULL
@@ -4504,6 +4559,7 @@ CREATE OR REPLACE FUNCTION fn_listar_trabajos_activo(
 LANGUAGE plpgsql
 AS $$
 DECLARE
+  v_busqueda STRING;
   v_limite_pagina INT;
   v_trabajos_activo_pagina JSONB;
   v_existen_mas_trabajos BOOL;
@@ -4521,9 +4577,12 @@ BEGIN
 
   v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
 
+  v_busqueda := NULLIF(btrim(p_busqueda), '');
+
   SELECT count(*) INTO v_total
   FROM activo_registro_trabajo t
   WHERE t.id_empresa = p_id_empresa
+    AND (v_busqueda IS NULL OR EXISTS (SELECT 1 FROM activo a WHERE a.id = t.id_activo AND (a.codigo ILIKE '%' || v_busqueda || '%' OR a.descripcion ILIKE '%' || v_busqueda || '%')))
     AND (p_id_activo IS NULL OR t.id_activo = p_id_activo)
     AND t.eliminado_en IS NULL
     AND (p_id_contrato IS NULL OR t.id_contrato = p_id_contrato)
@@ -4531,17 +4590,20 @@ BEGIN
     AND (p_id_zona IS NULL OR t.id_zona = p_id_zona);
 
   WITH trabajos_activo_ordenados_para_listado AS (
-    SELECT t.id, t.id_contrato, t.id_zona, t.id_operario, t.id_periodo, t.fecha,
+    SELECT t.id, t.id_activo, a.codigo AS activo_codigo, a.descripcion AS activo_descripcion,
+           t.id_contrato, t.id_zona, t.id_operario, t.id_periodo, t.fecha,
            t.horas_trabajadas, t.descripcion_trabajo, t.valorizacion_trabajo, t.dias_depreciados,
            t.kilometraje_inicio, t.kilometraje_fin, t.creado_en,
            row_number() OVER (ORDER BY t.creado_en DESC, t.id DESC) AS orden_en_pagina
     FROM activo_registro_trabajo t
+    LEFT JOIN activo a ON a.id = t.id_activo
     WHERE t.id_empresa = p_id_empresa
       AND (p_id_activo IS NULL OR t.id_activo = p_id_activo)
       AND t.eliminado_en IS NULL
       AND (p_id_contrato IS NULL OR t.id_contrato = p_id_contrato)
       AND (p_id_periodo IS NULL OR t.id_periodo = p_id_periodo)
       AND (p_id_zona IS NULL OR t.id_zona = p_id_zona)
+      AND (v_busqueda IS NULL OR a.codigo ILIKE '%' || v_busqueda || '%' OR a.descripcion ILIKE '%' || v_busqueda || '%')
       AND (p_cursor_creado_en IS NULL OR (t.creado_en, t.id) < (p_cursor_creado_en, p_cursor_id))
     ORDER BY t.creado_en DESC, t.id DESC
     LIMIT v_limite_pagina + 1
@@ -4584,6 +4646,7 @@ $$;
 CREATE OR REPLACE FUNCTION fn_listar_traslados_activo(
   p_id_empresa UUID,
   p_id_activo UUID DEFAULT NULL,
+  p_busqueda STRING DEFAULT NULL,
   p_limite INT DEFAULT NULL,
   p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
   p_cursor_id UUID DEFAULT NULL
@@ -4591,6 +4654,7 @@ CREATE OR REPLACE FUNCTION fn_listar_traslados_activo(
 LANGUAGE plpgsql
 AS $$
 DECLARE
+  v_busqueda STRING;
   v_limite_pagina INT;
   v_traslados_activo_pagina JSONB;
   v_existen_mas_traslados BOOL;
@@ -4602,25 +4666,31 @@ BEGIN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM activo WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
+  IF p_id_activo IS NOT NULL AND NOT EXISTS (SELECT 1 FROM activo WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_VALIDO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
   END IF;
 
   v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
 
+  v_busqueda := NULLIF(btrim(p_busqueda), '');
+
   SELECT count(*) INTO v_total
   FROM activo_traslado t
   WHERE t.id_empresa = p_id_empresa
-    AND t.id_activo = p_id_activo;
+    AND (v_busqueda IS NULL OR EXISTS (SELECT 1 FROM activo a WHERE a.id = t.id_activo AND (a.codigo ILIKE '%' || v_busqueda || '%' OR a.descripcion ILIKE '%' || v_busqueda || '%')))
+    AND (p_id_activo IS NULL OR t.id_activo = p_id_activo);
 
   WITH traslados_activo_ordenados_para_listado AS (
-    SELECT t.id, t.id_contrato_origen, t.id_zona_origen, t.id_contrato_destino, t.id_zona_destino,
+    SELECT t.id, t.id_activo, a.codigo AS activo_codigo, a.descripcion AS activo_descripcion,
+           t.id_contrato_origen, t.id_zona_origen, t.id_contrato_destino, t.id_zona_destino,
            t.fecha_traslado, t.saldo_trasladado, t.motivo, t.creado_en,
            t.creado_por_usuario_id,
            row_number() OVER (ORDER BY t.creado_en DESC, t.id DESC) AS orden_en_pagina
     FROM activo_traslado t
+    LEFT JOIN activo a ON a.id = t.id_activo
     WHERE t.id_empresa = p_id_empresa
-      AND t.id_activo = p_id_activo
+      AND (p_id_activo IS NULL OR t.id_activo = p_id_activo)
+      AND (v_busqueda IS NULL OR a.codigo ILIKE '%' || v_busqueda || '%' OR a.descripcion ILIKE '%' || v_busqueda || '%')
       AND (p_cursor_creado_en IS NULL OR (t.creado_en, t.id) < (p_cursor_creado_en, p_cursor_id))
     ORDER BY t.creado_en DESC, t.id DESC
     LIMIT v_limite_pagina + 1
@@ -4666,6 +4736,8 @@ CREATE OR REPLACE FUNCTION fn_listar_recuperaciones_inversion(
   p_id_activo UUID DEFAULT NULL,
   p_id_contrato UUID DEFAULT NULL,
   p_id_periodo UUID DEFAULT NULL,
+  p_estado STRING DEFAULT NULL,
+  p_busqueda STRING DEFAULT NULL,
   p_limite INT DEFAULT NULL,
   p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
   p_cursor_id UUID DEFAULT NULL
@@ -4674,16 +4746,29 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_limite_pagina INT;
+  v_busqueda STRING;
   v_recuperaciones_inversion_pagina JSONB;
   v_existen_mas_recuperaciones BOOL;
   v_cantidad_recuperaciones_pagina INT;
   v_cursor_siguiente JSONB;
+  v_total INT;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
   END IF;
 
   v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+  v_busqueda := NULLIF(btrim(p_busqueda), '');
+
+  SELECT count(*) INTO v_total
+  FROM recuperacion_inversion_mensual r
+  LEFT JOIN activo a ON a.id = r.id_activo
+  WHERE r.id_empresa = p_id_empresa
+    AND (p_id_activo IS NULL OR r.id_activo = p_id_activo)
+    AND (p_id_contrato IS NULL OR r.id_contrato = p_id_contrato)
+    AND (p_id_periodo IS NULL OR r.id_periodo = p_id_periodo)
+    AND (p_estado IS NULL OR (p_estado = 'OBSERVADA' AND r.parado) OR (p_estado = 'EJECUTADA' AND NOT r.parado))
+    AND (v_busqueda IS NULL OR a.codigo ILIKE '%' || v_busqueda || '%' OR a.descripcion ILIKE '%' || v_busqueda || '%');
 
   WITH recuperaciones_inversion_ordenadas_para_listado AS (
     SELECT r.id, r.id_activo, a.codigo AS activo_codigo, a.descripcion AS activo_descripcion,
@@ -4696,6 +4781,8 @@ BEGIN
       AND (p_id_activo IS NULL OR r.id_activo = p_id_activo)
       AND (p_id_contrato IS NULL OR r.id_contrato = p_id_contrato)
       AND (p_id_periodo IS NULL OR r.id_periodo = p_id_periodo)
+      AND (p_estado IS NULL OR (p_estado = 'OBSERVADA' AND r.parado) OR (p_estado = 'EJECUTADA' AND NOT r.parado))
+      AND (v_busqueda IS NULL OR a.codigo ILIKE '%' || v_busqueda || '%' OR a.descripcion ILIKE '%' || v_busqueda || '%')
       AND (p_cursor_creado_en IS NULL OR (r.creado_en, r.id) < (p_cursor_creado_en, p_cursor_id))
     ORDER BY r.creado_en DESC, r.id DESC
     LIMIT v_limite_pagina + 1
@@ -4726,7 +4813,7 @@ BEGIN
     'mensaje', 'Listado de recuperaciones de inversion obtenido',
     'datos', jsonb_build_object(
       'items', v_recuperaciones_inversion_pagina,
-      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas_recuperaciones, 'cursor_siguiente', v_cursor_siguiente)
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas_recuperaciones, 'cursor_siguiente', v_cursor_siguiente, 'total', v_total)
     )
   );
 EXCEPTION
@@ -5829,10 +5916,19 @@ DECLARE
   v_herramientas_totales JSONB;
   v_herramientas_por_estado JSONB;
   v_herramientas_por_tipo JSONB;
+  v_umbral_dias INT;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
   END IF;
+
+  v_umbral_dias := 180;
+  SELECT NULLIF(regexp_replace(valor, '[^0-9]', '', 'g'), '')::INT INTO v_umbral_dias
+  FROM parametro_activos_inversion
+  WHERE id_empresa = p_id_empresa AND categoria = 'PARAMETRO_ACTIVO' AND clave = 'UMBRAL_ALERTA_VIDA_UTIL_DIAS'
+    AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  LIMIT 1;
+  v_umbral_dias := COALESCE(v_umbral_dias, 180);
 
   SELECT COALESCE(SUM(aac.inversion_asignada), 0), COALESCE(SUM(aac.saldo_inversion_pendiente), 0)
   INTO v_inversion_colocada, v_saldo_por_recuperar
@@ -5950,7 +6046,7 @@ BEGIN
       AND a.eliminado_en IS NULL
       AND a.estado <> 'BAJA'
       AND a.fecha_fin_depreciacion IS NOT NULL
-      AND a.fecha_fin_depreciacion <= current_date + INTERVAL '180 days'
+      AND a.fecha_fin_depreciacion <= current_date + v_umbral_dias
       AND (p_estado IS NULL OR a.estado = p_estado)
       AND (p_id_clasificacion_activo IS NULL OR a.id_clasificacion_activo = p_id_clasificacion_activo)
     ORDER BY a.fecha_fin_depreciacion
@@ -6051,6 +6147,7 @@ CREATE OR REPLACE FUNCTION fn_listar_alertas_activos(
   p_id_empresa UUID,
   p_tipo STRING,
   p_busqueda STRING DEFAULT NULL,
+  p_estado_vida STRING DEFAULT NULL,
   p_limite INT DEFAULT NULL,
   p_desplazamiento INT DEFAULT NULL
 ) RETURNS JSONB
@@ -6061,6 +6158,7 @@ DECLARE
   v_desplazamiento INT;
   v_items JSONB;
   v_total INT;
+  v_umbral_dias INT;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
@@ -6069,6 +6167,14 @@ BEGIN
   IF p_tipo NOT IN ('VIDA_UTIL', 'SIN_RECUPERAR') THEN
     RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_ALERTA_NO_VALIDO', 'mensaje', 'El tipo de alerta no es valido');
   END IF;
+
+  v_umbral_dias := 180;
+  SELECT NULLIF(regexp_replace(valor, '[^0-9]', '', 'g'), '')::INT INTO v_umbral_dias
+  FROM parametro_activos_inversion
+  WHERE id_empresa = p_id_empresa AND categoria = 'PARAMETRO_ACTIVO' AND clave = 'UMBRAL_ALERTA_VIDA_UTIL_DIAS'
+    AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  LIMIT 1;
+  v_umbral_dias := COALESCE(v_umbral_dias, 180);
 
   v_limite := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
   v_desplazamiento := GREATEST(COALESCE(p_desplazamiento, 0), 0);
@@ -6080,7 +6186,10 @@ BEGIN
       AND a.eliminado_en IS NULL
       AND a.estado <> 'BAJA'
       AND a.fecha_fin_depreciacion IS NOT NULL
-      AND a.fecha_fin_depreciacion <= current_date + INTERVAL '180 days'
+      AND a.fecha_fin_depreciacion <= current_date + v_umbral_dias
+      AND (p_estado_vida IS NULL
+           OR (p_estado_vida = 'VENCIDO' AND a.fecha_fin_depreciacion < current_date)
+           OR (p_estado_vida = 'POR_VENCER' AND a.fecha_fin_depreciacion >= current_date))
       AND (p_busqueda IS NULL OR a.codigo ILIKE '%' || p_busqueda || '%' OR a.descripcion ILIKE '%' || p_busqueda || '%');
 
     SELECT COALESCE(jsonb_agg(sub.fila ORDER BY sub.fila_fecha, sub.fila_id), '[]'::jsonb)
@@ -6093,7 +6202,8 @@ BEGIN
                'estado', a.estado,
                'clasificacion', COALESCE(c.descripcion, 'Sin clasificar'),
                'fecha_fin_depreciacion', a.fecha_fin_depreciacion,
-               'dias_restantes', (a.fecha_fin_depreciacion - current_date)
+               'dias_restantes', (a.fecha_fin_depreciacion - current_date),
+               'vencido', (a.fecha_fin_depreciacion < current_date)
              ) AS fila,
              a.fecha_fin_depreciacion AS fila_fecha,
              a.id AS fila_id
@@ -6103,7 +6213,10 @@ BEGIN
         AND a.eliminado_en IS NULL
         AND a.estado <> 'BAJA'
         AND a.fecha_fin_depreciacion IS NOT NULL
-        AND a.fecha_fin_depreciacion <= current_date + INTERVAL '180 days'
+        AND a.fecha_fin_depreciacion <= current_date + v_umbral_dias
+        AND (p_estado_vida IS NULL
+             OR (p_estado_vida = 'VENCIDO' AND a.fecha_fin_depreciacion < current_date)
+             OR (p_estado_vida = 'POR_VENCER' AND a.fecha_fin_depreciacion >= current_date))
         AND (p_busqueda IS NULL OR a.codigo ILIKE '%' || p_busqueda || '%' OR a.descripcion ILIKE '%' || p_busqueda || '%')
       ORDER BY a.fecha_fin_depreciacion, a.id
       LIMIT v_limite OFFSET v_desplazamiento
@@ -6230,7 +6343,7 @@ BEGIN
 
   v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 200), 1), 500);
 
-  WITH detalle_ordenado AS (
+  WITH pagina_activos AS (
     SELECT a.codigo,
            a.descripcion,
            a.estado,
@@ -6262,6 +6375,28 @@ BEGIN
       AND (p_cursor_creado_en IS NULL OR (a.creado_en, a.id) < (p_cursor_creado_en, p_cursor_id))
     ORDER BY a.creado_en DESC, a.id DESC
     LIMIT v_limite_pagina + 1
+  ),
+  detalle_ordenado AS (
+    SELECT pa.*,
+           inv.inversion_asignada_total,
+           inv.recuperado_total,
+           inv.saldo_pendiente_total,
+           rec.meses_con_recuperacion,
+           rec.meses_parado
+    FROM pagina_activos pa
+    LEFT JOIN LATERAL (
+      SELECT COALESCE(SUM(x.inversion_asignada), 0) AS inversion_asignada_total,
+             COALESCE(SUM(x.inversion_asignada - x.saldo_inversion_pendiente), 0) AS recuperado_total,
+             COALESCE(SUM(x.saldo_inversion_pendiente), 0) AS saldo_pendiente_total
+      FROM activo_asignacion_contrato x
+      WHERE x.id_activo = pa.id AND x.eliminado_en IS NULL
+    ) inv ON true
+    LEFT JOIN LATERAL (
+      SELECT count(*) FILTER (WHERE r.importe_recuperado > 0) AS meses_con_recuperacion,
+             count(*) FILTER (WHERE r.parado) AS meses_parado
+      FROM recuperacion_inversion_mensual r
+      WHERE r.id_activo = pa.id
+    ) rec ON true
   )
   SELECT
     COALESCE(
@@ -6309,23 +6444,6 @@ $$;
 
 -- ---- TABLAS NUEVAS (5) ----
 -- >>> entidad_parametro_activos_inversion.sql
-CREATE TABLE parametro_activos_inversion (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  id_empresa UUID NOT NULL,
-  categoria STRING NOT NULL,
-  clave STRING NOT NULL,
-  valor STRING NOT NULL,
-  descripcion STRING,
-  estado STRING NOT NULL DEFAULT 'ACTIVO',
-  creado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
-  creado_por_usuario_id UUID,
-  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
-  actualizado_por_usuario_id UUID,
-  eliminado_en TIMESTAMPTZ,
-  eliminado_por_usuario_id UUID,
-  CONSTRAINT ck_parametro_activos_inversion_categoria CHECK (categoria IN ('PARAMETRO_ACTIVO', 'REGLA_RECUPERACION', 'REGLA_MAESTRA', 'BASE_RECUPERACION', 'DISTRIBUCION')),
-  CONSTRAINT ck_parametro_activos_inversion_estado CHECK (estado IN ('ACTIVO', 'INACTIVO'))
-);
 
 ALTER TABLE parametro_activos_inversion ADD CONSTRAINT fk_parametro_activos_inversion_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id) ON DELETE RESTRICT;
 ALTER TABLE parametro_activos_inversion ADD CONSTRAINT fk_parametro_activos_inversion_creado_por FOREIGN KEY (creado_por_usuario_id) REFERENCES usuario (id) ON DELETE RESTRICT;
@@ -8619,3 +8737,846 @@ EXCEPTION
 END;
 $$;
 
+
+-- ====================================================================
+-- RECUPERACION MENSUAL: resumen, pendientes y recalculo (2026-07-03)
+-- ====================================================================
+
+CREATE OR REPLACE FUNCTION fn_obtener_resumen_recuperacion(
+  p_id_empresa UUID,
+  p_id_periodo UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_periodo UUID;
+  v_etiqueta_periodo STRING;
+  v_totales JSONB;
+  v_periodo_actual JSONB;
+  v_por_periodo JSONB;
+  v_por_contrato JSONB;
+  v_por_zona JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_id_periodo IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM periodo WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PERIODO_NO_VALIDO', 'mensaje', 'El periodo no existe o no pertenece a la empresa');
+  END IF;
+
+  IF p_id_periodo IS NOT NULL THEN
+    v_id_periodo := p_id_periodo;
+  ELSE
+    SELECT p.id INTO v_id_periodo
+    FROM recuperacion_inversion_mensual rim
+    JOIN periodo p ON p.id = rim.id_periodo
+    WHERE rim.id_empresa = p_id_empresa
+    GROUP BY p.id, p.anio, p.mes
+    ORDER BY p.anio DESC, p.mes DESC
+    LIMIT 1;
+  END IF;
+
+  IF v_id_periodo IS NOT NULL THEN
+    SELECT lpad(p.mes::STRING, 2, '0') || '/' || p.anio::STRING INTO v_etiqueta_periodo
+    FROM periodo p
+    WHERE p.id = v_id_periodo;
+  END IF;
+
+  SELECT jsonb_build_object(
+    'base_total', COALESCE(SUM(aac.inversion_asignada), 0),
+    'recuperado_total', COALESCE(SUM(aac.inversion_asignada - aac.saldo_inversion_pendiente), 0),
+    'saldo_total', COALESCE(SUM(aac.saldo_inversion_pendiente), 0),
+    'cuota_mensual_vigente', COALESCE(SUM(aac.cuota_recuperacion_mensual) FILTER (WHERE aac.estado = 'ACTIVO'), 0),
+    'asignaciones_vigentes', count(*) FILTER (WHERE aac.estado = 'ACTIVO'),
+    'asignaciones_completadas', count(*) FILTER (WHERE aac.saldo_inversion_pendiente = 0 AND aac.inversion_asignada > 0),
+    'activos_en_recuperacion', count(DISTINCT aac.id_activo) FILTER (WHERE aac.saldo_inversion_pendiente > 0)
+  )
+  INTO v_totales
+  FROM activo_asignacion_contrato aac
+  JOIN activo a ON a.id = aac.id_activo
+  WHERE aac.id_empresa = p_id_empresa
+    AND aac.eliminado_en IS NULL
+    AND a.eliminado_en IS NULL
+    AND a.estado <> 'BAJA';
+
+  SELECT jsonb_build_object(
+    'id_periodo', v_id_periodo,
+    'periodo', v_etiqueta_periodo,
+    'recuperado', COALESCE(SUM(rim.importe_recuperado), 0),
+    'registros', count(*),
+    'paradas', count(*) FILTER (WHERE rim.parado)
+  )
+  INTO v_periodo_actual
+  FROM recuperacion_inversion_mensual rim
+  JOIN activo a ON a.id = rim.id_activo
+  WHERE rim.id_empresa = p_id_empresa
+    AND a.eliminado_en IS NULL
+    AND v_id_periodo IS NOT NULL
+    AND rim.id_periodo = v_id_periodo;
+
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+    'id_periodo', t.id_periodo,
+    'periodo', t.etiqueta,
+    'anio', t.anio,
+    'mes', t.mes,
+    'recuperado', t.recuperado,
+    'registros', t.registros,
+    'paradas', t.paradas
+  ) ORDER BY t.anio, t.mes), '[]'::jsonb)
+  INTO v_por_periodo
+  FROM (
+    SELECT p.id AS id_periodo,
+           p.anio AS anio,
+           p.mes AS mes,
+           lpad(p.mes::STRING, 2, '0') || '/' || p.anio::STRING AS etiqueta,
+           SUM(rim.importe_recuperado) AS recuperado,
+           count(*) AS registros,
+           count(*) FILTER (WHERE rim.parado) AS paradas
+    FROM recuperacion_inversion_mensual rim
+    JOIN periodo p ON p.id = rim.id_periodo
+    JOIN activo a ON a.id = rim.id_activo
+    WHERE rim.id_empresa = p_id_empresa
+      AND a.eliminado_en IS NULL
+    GROUP BY p.id, p.anio, p.mes
+  ) t;
+
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+    'id_contrato', t.id_contrato,
+    'base', t.base,
+    'recuperado', t.recuperado,
+    'saldo', t.saldo,
+    'activos', t.activos,
+    'asignaciones', t.asignaciones
+  ) ORDER BY t.base DESC), '[]'::jsonb)
+  INTO v_por_contrato
+  FROM (
+    SELECT aac.id_contrato AS id_contrato,
+           SUM(aac.inversion_asignada) AS base,
+           SUM(aac.inversion_asignada - aac.saldo_inversion_pendiente) AS recuperado,
+           SUM(aac.saldo_inversion_pendiente) AS saldo,
+           count(DISTINCT aac.id_activo) AS activos,
+           count(*) AS asignaciones
+    FROM activo_asignacion_contrato aac
+    JOIN activo a ON a.id = aac.id_activo
+    WHERE aac.id_empresa = p_id_empresa
+      AND aac.eliminado_en IS NULL
+      AND a.eliminado_en IS NULL
+      AND a.estado <> 'BAJA'
+    GROUP BY aac.id_contrato
+    ORDER BY SUM(aac.inversion_asignada) DESC
+    LIMIT 24
+  ) t;
+
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+    'id_zona', t.id_zona,
+    'base', t.base,
+    'recuperado', t.recuperado,
+    'saldo', t.saldo,
+    'activos', t.activos
+  ) ORDER BY t.base DESC), '[]'::jsonb)
+  INTO v_por_zona
+  FROM (
+    SELECT aac.id_zona AS id_zona,
+           SUM(aac.inversion_asignada) AS base,
+           SUM(aac.inversion_asignada - aac.saldo_inversion_pendiente) AS recuperado,
+           SUM(aac.saldo_inversion_pendiente) AS saldo,
+           count(DISTINCT aac.id_activo) AS activos
+    FROM activo_asignacion_contrato aac
+    JOIN activo a ON a.id = aac.id_activo
+    WHERE aac.id_empresa = p_id_empresa
+      AND aac.eliminado_en IS NULL
+      AND a.eliminado_en IS NULL
+      AND a.estado <> 'BAJA'
+    GROUP BY aac.id_zona
+    ORDER BY SUM(aac.inversion_asignada) DESC
+    LIMIT 24
+  ) t;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'RESUMEN_RECUPERACION_OBTENIDO',
+    'mensaje', 'Resumen de recuperacion de inversion obtenido',
+    'datos', jsonb_build_object(
+      'totales', v_totales,
+      'periodo_actual', v_periodo_actual,
+      'por_periodo', v_por_periodo,
+      'por_contrato', v_por_contrato,
+      'por_zona', v_por_zona
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'RESUMEN_RECUPERACION_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al obtener el resumen de recuperacion');
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION fn_listar_recuperaciones_pendientes(
+  p_id_empresa UUID,
+  p_id_periodo UUID,
+  p_id_contrato UUID DEFAULT NULL,
+  p_busqueda STRING DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_limite_pagina INT;
+  v_busqueda STRING;
+  v_pagina JSONB;
+  v_existen_mas BOOL;
+  v_cantidad INT;
+  v_cursor_siguiente JSONB;
+  v_total INT;
+  v_total_proyectado DECIMAL(18,2);
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_id_periodo IS NULL OR NOT EXISTS (
+    SELECT 1 FROM periodo WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PERIODO_NO_VALIDO', 'mensaje', 'Debe seleccionar un periodo valido para ver las recuperaciones pendientes');
+  END IF;
+
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+  v_busqueda := NULLIF(btrim(p_busqueda), '');
+
+  SELECT count(*), COALESCE(SUM(LEAST(aac.cuota_recuperacion_mensual, aac.saldo_inversion_pendiente)), 0)
+  INTO v_total, v_total_proyectado
+  FROM activo_asignacion_contrato aac
+  JOIN activo a ON a.id = aac.id_activo
+  WHERE aac.id_empresa = p_id_empresa
+    AND aac.eliminado_en IS NULL
+    AND aac.estado = 'ACTIVO'
+    AND aac.saldo_inversion_pendiente > 0
+    AND a.eliminado_en IS NULL
+    AND a.estado <> 'BAJA'
+    AND (p_id_contrato IS NULL OR aac.id_contrato = p_id_contrato)
+    AND (v_busqueda IS NULL OR a.codigo ILIKE '%' || v_busqueda || '%' OR a.descripcion ILIKE '%' || v_busqueda || '%')
+    AND NOT EXISTS (
+      SELECT 1 FROM recuperacion_inversion_mensual r
+      WHERE r.id_activo = aac.id_activo AND r.id_contrato = aac.id_contrato AND r.id_periodo = p_id_periodo
+    );
+
+  WITH pendientes AS (
+    SELECT aac.id, aac.id_activo, a.codigo AS activo_codigo, a.descripcion AS activo_descripcion,
+           aac.id_contrato, aac.id_zona,
+           aac.inversion_asignada, aac.saldo_inversion_pendiente,
+           aac.cuota_recuperacion_mensual,
+           LEAST(aac.cuota_recuperacion_mensual, aac.saldo_inversion_pendiente) AS cuota_proyectada,
+           aac.creado_en,
+           row_number() OVER (ORDER BY aac.creado_en DESC, aac.id DESC) AS orden_en_pagina
+    FROM activo_asignacion_contrato aac
+    JOIN activo a ON a.id = aac.id_activo
+    WHERE aac.id_empresa = p_id_empresa
+      AND aac.eliminado_en IS NULL
+      AND aac.estado = 'ACTIVO'
+      AND aac.saldo_inversion_pendiente > 0
+      AND a.eliminado_en IS NULL
+      AND a.estado <> 'BAJA'
+      AND (p_id_contrato IS NULL OR aac.id_contrato = p_id_contrato)
+      AND (v_busqueda IS NULL OR a.codigo ILIKE '%' || v_busqueda || '%' OR a.descripcion ILIKE '%' || v_busqueda || '%')
+      AND NOT EXISTS (
+        SELECT 1 FROM recuperacion_inversion_mensual r
+        WHERE r.id_activo = aac.id_activo AND r.id_contrato = aac.id_contrato AND r.id_periodo = p_id_periodo
+      )
+      AND (p_cursor_creado_en IS NULL OR (aac.creado_en, aac.id) < (p_cursor_creado_en, p_cursor_id))
+    ORDER BY aac.creado_en DESC, aac.id DESC
+    LIMIT v_limite_pagina + 1
+  )
+  SELECT
+    COALESCE(
+      jsonb_agg(to_jsonb(pendientes) - 'orden_en_pagina' ORDER BY pendientes.orden_en_pagina)
+      FILTER (WHERE pendientes.orden_en_pagina <= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) > v_limite_pagina
+  INTO v_pagina, v_existen_mas
+  FROM pendientes;
+
+  v_cantidad := jsonb_array_length(v_pagina);
+  IF v_existen_mas AND v_cantidad > 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_pagina -> (v_cantidad - 1) -> 'creado_en',
+      'id', v_pagina -> (v_cantidad - 1) -> 'id'
+    );
+  ELSE
+    v_cursor_siguiente := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'RECUPERACIONES_PENDIENTES_LISTADAS',
+    'mensaje', 'Listado de recuperaciones pendientes obtenido',
+    'datos', jsonb_build_object(
+      'items', v_pagina,
+      'total_proyectado', v_total_proyectado,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas, 'cursor_siguiente', v_cursor_siguiente, 'total', v_total)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'RECUPERACIONES_PENDIENTES_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar las recuperaciones pendientes');
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION fn_recalcular_recuperacion_periodo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_periodo UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_procesadas INT := 0;
+  v_total_recuperado DECIMAL(18,2) := 0;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM periodo WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PERIODO_NO_VALIDO', 'mensaje', 'El periodo no existe o no pertenece a la empresa');
+  END IF;
+
+  WITH insertadas AS (
+    INSERT INTO recuperacion_inversion_mensual (
+      id_empresa, id_activo, id_contrato, id_periodo,
+      importe_recuperado, saldo_antes, saldo_despues, parado, creado_por_usuario_id
+    )
+    SELECT
+      aac.id_empresa, aac.id_activo, aac.id_contrato, p_id_periodo,
+      LEAST(aac.cuota_recuperacion_mensual, aac.saldo_inversion_pendiente),
+      aac.saldo_inversion_pendiente,
+      aac.saldo_inversion_pendiente - LEAST(aac.cuota_recuperacion_mensual, aac.saldo_inversion_pendiente),
+      false, p_id_usuario_accion
+    FROM activo_asignacion_contrato aac
+    JOIN activo a ON a.id = aac.id_activo
+    WHERE aac.id_empresa = p_id_empresa
+      AND aac.eliminado_en IS NULL
+      AND aac.estado = 'ACTIVO'
+      AND aac.saldo_inversion_pendiente > 0
+      AND a.eliminado_en IS NULL
+      AND a.estado <> 'BAJA'
+      AND NOT EXISTS (
+        SELECT 1 FROM recuperacion_inversion_mensual r
+        WHERE r.id_activo = aac.id_activo AND r.id_contrato = aac.id_contrato AND r.id_periodo = p_id_periodo
+      )
+    ON CONFLICT (id_activo, id_contrato, id_periodo) DO NOTHING
+    RETURNING importe_recuperado
+  )
+  SELECT count(*), COALESCE(SUM(importe_recuperado), 0) INTO v_procesadas, v_total_recuperado FROM insertadas;
+
+  UPDATE activo_asignacion_contrato aac
+    SET saldo_inversion_pendiente = r.saldo_despues,
+        actualizado_en = now(),
+        actualizado_por_usuario_id = p_id_usuario_accion
+  FROM recuperacion_inversion_mensual r
+  WHERE r.id_periodo = p_id_periodo
+    AND r.id_activo = aac.id_activo
+    AND r.id_contrato = aac.id_contrato
+    AND aac.id_empresa = p_id_empresa
+    AND aac.eliminado_en IS NULL
+    AND aac.estado = 'ACTIVO'
+    AND aac.saldo_inversion_pendiente = r.saldo_antes
+    AND r.saldo_despues < r.saldo_antes;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'RECUPERACION_PERIODO_RECALCULADA',
+    'mensaje', 'Se proceso la recuperacion pendiente del periodo',
+    'datos', jsonb_build_object(
+      'asignaciones_procesadas', v_procesadas,
+      'total_recuperado', v_total_recuperado
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'RECUPERACION_PERIODO_RECALCULO_ERROR', 'mensaje', 'Ocurrio un error no controlado al recalcular la recuperacion del periodo');
+END;
+$$;
+
+
+-- ==================== INDICES ESTRELLA POR ACTIVO (2026-07-03) ====================
+CREATE INDEX IF NOT EXISTS idx_star_activo_asignacion_contrato_por_activo ON activo_asignacion_contrato (id_activo) STORING (inversion_asignada, saldo_inversion_pendiente) WHERE eliminado_en IS NULL;
+CREATE INDEX IF NOT EXISTS idx_star_recuperacion_inversion_mensual_por_activo ON recuperacion_inversion_mensual (id_activo) STORING (importe_recuperado, parado);
+
+
+-- ===== ACTIVOS: parametros de negocio (semilla 006) =====
+WITH parametros AS (
+  SELECT '11111111-1111-1111-1111-111111111111'::UUID AS id_empresa
+),
+datos(categoria, clave, valor, descripcion) AS (
+  VALUES
+    ('PARAMETRO_ACTIVO', 'MONEDA', 'PEN', 'Moneda en la que se expresan los importes del modulo'),
+    ('PARAMETRO_ACTIVO', 'VIDA_UTIL_DEFECTO_MESES', '60', 'Vida util sugerida en meses cuando el activo se registra sin ese dato'),
+    ('PARAMETRO_ACTIVO', 'UMBRAL_ALERTA_VIDA_UTIL_DIAS', '180', 'Dias de anticipacion con que se alerta el fin de la vida util del activo'),
+    ('PARAMETRO_ACTIVO', 'ANIO_FABRICACION_MINIMO', '1980', 'Anio de fabricacion minimo aceptado al registrar un activo'),
+    ('PARAMETRO_ACTIVO', 'REQUIERE_PLACA_VEHICULO', 'SI', 'Los activos vehiculares se registran con placa para su trazabilidad'),
+    ('REGLA_RECUPERACION', 'METODO_RECUPERACION', 'CUOTA_PLANA', 'La inversion se recupera en cuotas mensuales iguales (depreciacion lineal)'),
+    ('REGLA_RECUPERACION', 'RECUPERA_MES_PARADO', 'NO', 'El mes en que el activo esta parado no recupera: la depreciacion es por uso'),
+    ('REGLA_RECUPERACION', 'TOPE_CUOTA', 'SALDO_PENDIENTE', 'La cuota del mes no puede exceder el saldo pendiente de la asignacion'),
+    ('REGLA_RECUPERACION', 'UNICIDAD_REGISTRO', 'ACTIVO_CONTRATO_PERIODO', 'Solo se registra una recuperacion por activo, contrato y periodo'),
+    ('BASE_RECUPERACION', 'FUENTE_BASE', 'INVERSION_ASIGNADA', 'La base de recuperacion es la inversion asignada del activo al contrato'),
+    ('BASE_RECUPERACION', 'FORMULA_CUOTA', 'BASE_ENTRE_MESES_VIDA', 'Cuota mensual = importe base recuperable dividido entre los meses de vida util'),
+    ('BASE_RECUPERACION', 'BASE_EXCLUYE_BAJA', 'SI', 'Los activos dados de baja se excluyen de la base y de los indicadores'),
+    ('DISTRIBUCION', 'CRITERIO_REPARTO', 'ZONA_UUNN', 'La inversion de un activo se reparte entre las zonas o unidades de negocio del contrato'),
+    ('DISTRIBUCION', 'PERMITE_MULTIZONA', 'SI', 'Un activo puede repartir su inversion entre varias zonas o contratos a la vez'),
+    ('DISTRIBUCION', 'TRASLADO_ARRASTRA_SALDO', 'SI', 'El traslado del activo mueve el saldo pendiente hacia el contrato y zona destino'),
+    ('REGLA_MAESTRA', 'AUDITORIA_COMPLETA', 'SI', 'Toda operacion registra quien la creo, quien la actualizo y cuando'),
+    ('REGLA_MAESTRA', 'BAJA_LOGICA', 'SI', 'Las bajas son logicas: se marca la fecha de eliminacion, nunca se borra fisicamente'),
+    ('REGLA_MAESTRA', 'PERIODO_COHERENTE', 'SI', 'La fecha de la operacion debe pertenecer al mes y anio del periodo contable'),
+    ('REGLA_MAESTRA', 'CONTRATO_VIGENTE', 'SI', 'Solo se opera contra contratos existentes y en estado vigente'),
+    ('REGLA_MAESTRA', 'MONTOS_NO_NEGATIVOS', 'SI', 'Inversion, saldo, cuota y costos estan protegidos contra valores negativos')
+)
+INSERT INTO parametro_activos_inversion (
+  id_empresa,
+  categoria,
+  clave,
+  valor,
+  descripcion,
+  estado
+)
+SELECT
+  p.id_empresa,
+  d.categoria,
+  d.clave,
+  d.valor,
+  d.descripcion,
+  'ACTIVO'
+FROM parametros p
+CROSS JOIN datos d
+WHERE EXISTS (
+  SELECT 1
+  FROM empresa e
+  WHERE e.id = p.id_empresa
+)
+AND NOT EXISTS (
+  SELECT 1
+  FROM parametro_activos_inversion pai
+  WHERE pai.id_empresa = p.id_empresa
+    AND pai.categoria = d.categoria
+    AND pai.clave = d.clave
+    AND pai.eliminado_en IS NULL
+);
+
+
+-- ====================================================================
+-- CARGA MASIVA DE DEMO (miles de filas) para activos_e_inversion + herramientas.
+-- Se ejecuta al final, cuando ya existen tablas, funciones y dimensiones
+-- (empresa, usuario, contrato, zona, operario, periodos). Todos los codigos
+-- llevan prefijo 'SEED-' para distinguirlos. Genera con generate_series:
+--   ~5000 activos, ~5000 herramientas, ~10000 asignaciones, ~3000 traslados,
+--   ~15000 trabajos, ~10000 recuperaciones (2 periodos), ~4000 mantenimientos,
+--   ~2500 incidencias, ~1250 ajustes, ~15000 movimientos, ~2500 intervenciones.
+-- Deja la capacidad activos_e_inversion lista para probar a escala (paginacion,
+-- busqueda, tableros) al correr la capacidad por separado.
+-- ====================================================================
+-- ---- ETAPA 1: catalogos (+24/+24/+24/+25) ----
+
+INSERT INTO clasificacion_activo (id_empresa, codigo, descripcion, es_capitalizable, estado, creado_por_usuario_id, actualizado_por_usuario_id)
+SELECT
+  (SELECT id FROM empresa LIMIT 1),
+  'SEED-CLA-' || lpad(i::text, 3, '0'),
+  (ARRAY['Vehículos livianos','Vehículos pesados','Maquinaria pesada','Maquinaria liviana','Equipos de izaje','Equipos de perforación','Equipos de transporte','Equipos eléctricos','Mobiliario y enseres','Equipos de cómputo','Equipos de seguridad','Equipos de medición','Contenedores','Cisternas','Plantas de generación','Equipos hidráulicos','Equipos neumáticos','Estructuras móviles','Equipos de soldadura','Equipos de bombeo','Equipos de refrigeración','Equipos topográficos','Equipos de comunicación','Otros activos fijos'])[1 + ((i - 1) % 24)],
+  (i % 5 != 0),
+  CASE WHEN i % 8 = 0 THEN 'INACTIVO' ELSE 'ACTIVO' END,
+  (SELECT id FROM usuario LIMIT 1), (SELECT id FROM usuario LIMIT 1)
+FROM generate_series(1, 24) AS s(i);
+
+INSERT INTO tipo_adquisicion_activo (id_empresa, codigo, descripcion, estado, creado_por_usuario_id, actualizado_por_usuario_id)
+SELECT
+  (SELECT id FROM empresa LIMIT 1),
+  'SEED-TAD-' || lpad(i::text, 3, '0'),
+  (ARRAY['Compra directa','Leasing financiero','Leasing operativo','Donación','Transferencia interna','Compra de importación','Compra local','Adjudicación de licitación','Remate público','Compra usada','Aporte de socio','Permuta','Comodato','Arrendamiento con opción de compra','Fabricación propia','Compra al crédito','Compra al contado','Reposición por siniestro','Compra corporativa','Compra por convenio marco','Adquisición por fusión','Traspaso entre sedes','Compra de emergencia','Otro tipo de adquisición'])[1 + ((i - 1) % 24)],
+  CASE WHEN i % 9 = 0 THEN 'INACTIVO' ELSE 'ACTIVO' END,
+  (SELECT id FROM usuario LIMIT 1), (SELECT id FROM usuario LIMIT 1)
+FROM generate_series(1, 24) AS s(i);
+
+INSERT INTO tipo_herramienta (id_empresa, codigo, descripcion, estado, creado_por_usuario_id, actualizado_por_usuario_id)
+SELECT
+  (SELECT id FROM empresa LIMIT 1),
+  'SEED-THE-' || lpad(i::text, 3, '0'),
+  (ARRAY['Herramienta manual','Herramienta eléctrica','Herramienta neumática','Herramienta hidráulica','Equipo de medición','Equipo de soldadura','Equipo de corte','Equipo de izaje menor','Equipo de seguridad','Instrumento de calibración','Herramienta de banco','Herramienta especializada','Equipo de diagnóstico','Herramienta de impacto','Equipo de perforación menor','Herramienta de acabado','Equipo de bombeo menor','Herramienta a batería','Equipo de iluminación','Herramienta de jardinería','Equipo topográfico menor','Herramienta multiusos','Equipo de limpieza industrial','Otra herramienta'])[1 + ((i - 1) % 24)],
+  CASE WHEN i % 7 = 0 THEN 'INACTIVO' ELSE 'ACTIVO' END,
+  (SELECT id FROM usuario LIMIT 1), (SELECT id FROM usuario LIMIT 1)
+FROM generate_series(1, 24) AS s(i);
+
+INSERT INTO parametro_activos_inversion (id_empresa, categoria, clave, valor, descripcion, estado, creado_por_usuario_id, actualizado_por_usuario_id)
+SELECT
+  (SELECT id FROM empresa LIMIT 1),
+  (ARRAY['PARAMETRO_ACTIVO','REGLA_RECUPERACION','REGLA_MAESTRA','BASE_RECUPERACION','DISTRIBUCION'])[1 + ((i - 1) % 5)],
+  'SEED_PARAM_' || lpad(i::text, 3, '0'),
+  ((100 + i * 7))::text,
+  'Parámetro de prueba masiva #' || i,
+  CASE WHEN i % 9 = 0 THEN 'INACTIVO' ELSE 'ACTIVO' END,
+  (SELECT id FROM usuario LIMIT 1), (SELECT id FROM usuario LIMIT 1)
+FROM generate_series(1, 25) AS s(i);
+
+-- ---- ETAPA 2: activo (+5000) ----
+
+WITH parametros AS (
+  SELECT (SELECT id FROM empresa LIMIT 1) AS id_empresa,
+         (SELECT id FROM usuario LIMIT 1) AS id_usuario,
+         (SELECT array_agg(id) FROM clasificacion_activo) AS clasif_ids,
+         (SELECT array_agg(id) FROM tipo_adquisicion_activo) AS tadq_ids
+),
+base AS (
+  SELECT
+    i,
+    p.id_empresa, p.id_usuario,
+    p.clasif_ids[1 + (i % array_length(p.clasif_ids, 1))] AS id_clasif,
+    CASE WHEN i % 20 = 0 THEN NULL ELSE p.tadq_ids[1 + (i % array_length(p.tadq_ids, 1))] END AS id_tadq,
+    2010 + (i % 16) AS anio,
+    round((5000 + random() * 795000)::numeric, 2) AS costo,
+    (24 + (i % 97))::int AS vida,
+    (date '2015-01-01' + ((i * 37) % 3650))::date AS fecha_ini
+  FROM generate_series(1, 5000) AS s(i)
+  CROSS JOIN parametros p
+)
+INSERT INTO activo (
+  id_empresa, id_clasificacion_activo, id_tipo_adquisicion_activo, codigo, descripcion,
+  placa, marca, modelo, numero_serie, anio_fabricacion, costo_adquisicion, tiempo_vida_meses,
+  depreciacion_mensual, importe_base_recuperable, fecha_inicio_depreciacion, fecha_fin_depreciacion,
+  estado, creado_por_usuario_id, actualizado_por_usuario_id
+)
+SELECT
+  id_empresa, id_clasif, id_tadq,
+  'SEED-ACT-' || lpad(i::text, 6, '0'),
+  (ARRAY['Camioneta','Volquete','Excavadora','Cargador frontal','Retroexcavadora','Minicargador','Compactadora','Grúa','Cisterna','Motoniveladora','Tractor agrícola','Montacargas','Generador','Compresora','Plataforma elevadora'])[1 + (i % 15)],
+  'P' || lpad(((1000 + i) % 9999)::text, 4, '0') || '-' || chr(65 + (i % 26)) || chr(65 + ((i * 3 + 7) % 26)),
+  (ARRAY['Toyota','Volvo','Caterpillar','Komatsu','Hyundai','JCB','Bobcat','Case','John Deere','Mitsubishi','Nissan','Isuzu','Scania','Ford','Chevrolet'])[1 + (i % 15)],
+  (ARRAY['Hilux','FMX','320D','PC200','HL740','3CX','S650','580N','310L','Fuso','Frontier','NPR','P360','F-150','NHR'])[1 + ((i + 5) % 15)],
+  'SN-' || upper(substring(md5(i || '-act-serie'), 1, 10)),
+  anio, costo, vida,
+  round((costo / vida)::numeric, 2),
+  round((costo * (0.6 + (i % 40)::numeric / 100))::numeric, 2),
+  fecha_ini,
+  (fecha_ini + (vida || ' months')::interval)::date,
+  (ARRAY['ACTIVO','ACTIVO','ACTIVO','ACTIVO','ACTIVO','ACTIVO','PARADO','PARADO','EN_TRASLADO','BAJA'])[1 + (i % 10)],
+  id_usuario, id_usuario
+FROM base;
+
+-- ---- ETAPA 3: herramienta (+5000) ----
+
+WITH parametros AS (
+  SELECT (SELECT id FROM empresa LIMIT 1) AS id_empresa,
+         (SELECT id FROM usuario LIMIT 1) AS id_usuario,
+         (SELECT array_agg(id) FROM tipo_herramienta) AS tipo_ids
+),
+base AS (
+  SELECT
+    i, p.id_empresa, p.id_usuario,
+    CASE WHEN i % 25 = 0 THEN NULL ELSE p.tipo_ids[1 + (i % array_length(p.tipo_ids, 1))] END AS id_tipo,
+    round((200 + random() * 29800)::numeric, 2) AS costo,
+    (12 + (i % 60))::int AS vida,
+    (date '2016-01-01' + ((i * 53) % 3400))::date AS fecha_ini
+  FROM generate_series(1, 5000) AS s(i)
+  CROSS JOIN parametros p
+)
+INSERT INTO herramienta (
+  id_empresa, id_tipo_herramienta, codigo, descripcion, marca, modelo, numero_serie,
+  costo_adquisicion, tiempo_vida_meses, fecha_inicio_depreciacion, fecha_fin_depreciacion,
+  estado, creado_por_usuario_id, actualizado_por_usuario_id
+)
+SELECT
+  id_empresa, id_tipo,
+  'SEED-HER-' || lpad(i::text, 6, '0'),
+  (ARRAY['Taladro percutor','Amoladora angular','Soldadora inverter','Compresora portátil','Generador eléctrico','Rotomartillo','Sierra circular','Multímetro digital','Nivel láser','Llave de impacto','Bomba sumergible','Extractor de aire','Pulidora orbital','Atornillador eléctrico','Cortadora de disco'])[1 + (i % 15)],
+  (ARRAY['Bosch','Dewalt','Makita','Milwaukee','Stanley','Truper','Black+Decker','Hilti','Ingco','Total'])[1 + (i % 10)],
+  'M-' || (1000 + (i % 900)),
+  'SN-' || upper(substring(md5(i || '-her-serie'), 1, 10)),
+  costo, vida, fecha_ini, (fecha_ini + (vida || ' months')::interval)::date,
+  (ARRAY['ACTIVO','ACTIVO','ACTIVO','ACTIVO','ACTIVO','ACTIVO','ACTIVO','ACTIVO','BAJA','BAJA'])[1 + (i % 10)],
+  id_usuario, id_usuario
+FROM base;
+
+-- ---- ETAPA 4: activo_asignacion_contrato (~10000, 2 por activo) ----
+
+WITH parametros AS (
+  SELECT (SELECT id FROM empresa LIMIT 1) AS id_empresa,
+         (SELECT id FROM usuario LIMIT 1) AS id_usuario,
+         (SELECT id FROM contrato LIMIT 1) AS id_contrato,
+         (SELECT id FROM zona LIMIT 1) AS id_zona
+),
+activos_seed AS (
+  SELECT id, row_number() OVER (ORDER BY codigo) AS rn FROM activo WHERE codigo LIKE 'SEED-ACT-%'
+),
+base AS (
+  SELECT
+    a.id, a.rn, n,
+    (date '2018-01-01' + ((a.rn * 17 + n * 131) % 2800))::date AS f_ini,
+    (ARRAY['ACTIVO','ACTIVO','CERRADO','TRASLADADO'])[1 + ((a.rn + n) % 4)] AS estado
+  FROM activos_seed a CROSS JOIN generate_series(1, 2) AS n
+)
+INSERT INTO activo_asignacion_contrato (
+  id_empresa, id_activo, id_contrato, id_zona, inversion_asignada, saldo_inversion_pendiente,
+  cuota_recuperacion_mensual, fecha_inicio, fecha_fin, estado, creado_por_usuario_id, actualizado_por_usuario_id
+)
+SELECT
+  p.id_empresa, b.id, p.id_contrato, p.id_zona,
+  round((5000 + random() * 500000)::numeric, 2),
+  round((random() * 300000)::numeric, 2),
+  round((100 + random() * 5000)::numeric, 2),
+  b.f_ini,
+  CASE WHEN b.estado != 'ACTIVO' THEN b.f_ini + (60 + (b.rn % 400)) ELSE NULL END,
+  b.estado,
+  p.id_usuario, p.id_usuario
+FROM base b CROSS JOIN parametros p;
+
+-- ---- ETAPA 5a: activo_traslado (~3000, 60% de los activos) ----
+
+WITH parametros AS (
+  SELECT (SELECT id FROM empresa LIMIT 1) AS id_empresa,
+         (SELECT id FROM usuario LIMIT 1) AS id_usuario,
+         (SELECT id FROM contrato LIMIT 1) AS id_contrato,
+         (SELECT id FROM zona LIMIT 1) AS id_zona
+),
+activos_seed AS (
+  SELECT id, row_number() OVER (ORDER BY codigo) AS rn FROM activo WHERE codigo LIKE 'SEED-ACT-%'
+)
+INSERT INTO activo_traslado (
+  id_empresa, id_activo, id_contrato_origen, id_zona_origen, id_contrato_destino, id_zona_destino,
+  fecha_traslado, saldo_trasladado, motivo, creado_por_usuario_id
+)
+SELECT
+  p.id_empresa, a.id,
+  CASE WHEN a.rn % 4 = 0 THEN NULL ELSE p.id_contrato END,
+  CASE WHEN a.rn % 4 = 0 THEN NULL ELSE p.id_zona END,
+  p.id_contrato, p.id_zona,
+  (date '2019-01-01' + ((a.rn * 41) % 2400))::date,
+  round((random() * 250000)::numeric, 2),
+  (ARRAY['Reasignación operativa','Cierre de frente de trabajo','Optimización de flota','Solicitud de gerencia de obra','Fin de contrato en zona origen','Mantenimiento en taller central','Redistribución de recursos','Apertura de nuevo frente'])[1 + (a.rn % 8)],
+  p.id_usuario
+FROM activos_seed a CROSS JOIN parametros p
+WHERE a.rn % 5 IN (1, 2, 3);
+
+-- ---- ETAPA 5b: activo_registro_trabajo (~15000, 3 por activo) ----
+
+WITH parametros AS (
+  SELECT (SELECT id FROM empresa LIMIT 1) AS id_empresa,
+         (SELECT id FROM usuario LIMIT 1) AS id_usuario,
+         (SELECT id FROM contrato LIMIT 1) AS id_contrato,
+         (SELECT id FROM zona LIMIT 1) AS id_zona,
+         (SELECT id FROM operario LIMIT 1) AS id_operario,
+         (SELECT array_agg(id) FROM periodo) AS periodo_ids
+),
+activos_seed AS (
+  SELECT id, row_number() OVER (ORDER BY codigo) AS rn FROM activo WHERE codigo LIKE 'SEED-ACT-%'
+),
+base AS (
+  SELECT
+    a.id, a.rn, n,
+    (date '2024-01-01' + (((a.rn * 7) + (n * 3)) % 700))::date AS f
+  FROM activos_seed a CROSS JOIN generate_series(1, 3) AS n
+)
+INSERT INTO activo_registro_trabajo (
+  id_empresa, id_activo, id_contrato, id_zona, id_operario, id_periodo, fecha,
+  fecha_hora_inicio, fecha_hora_fin, horas_trabajadas, descripcion_trabajo, valorizacion_trabajo,
+  dias_depreciados, kilometraje_inicio, kilometraje_fin, creado_por_usuario_id, actualizado_por_usuario_id
+)
+SELECT
+  p.id_empresa, b.id, p.id_contrato,
+  CASE WHEN (b.rn + b.n) % 6 = 0 THEN NULL ELSE p.id_zona END,
+  CASE WHEN (b.rn + b.n) % 5 = 0 THEN NULL ELSE p.id_operario END,
+  p.periodo_ids[1 + ((b.rn + b.n) % array_length(p.periodo_ids, 1))],
+  b.f,
+  (b.f::timestamptz + interval '7 hours'),
+  (b.f::timestamptz + interval '17 hours'),
+  round((4 + random() * 8)::numeric, 2),
+  (ARRAY['Movimiento de tierras','Transporte de material','Nivelación de terreno','Carguío de agregados','Traslado de insumos','Compactación de vía','Apoyo en excavación','Acarreo interno'])[1 + ((b.rn + b.n) % 8)],
+  round((200 + random() * 4800)::numeric, 2),
+  round((0.5 + random() * 0.5)::numeric, 2),
+  1000 + (b.rn * 10) + (b.n * 80),
+  1000 + (b.rn * 10) + (b.n * 80) + (50 + ((b.n * 37) % 450)),
+  p.id_usuario, p.id_usuario
+FROM base b CROSS JOIN parametros p;
+
+-- ---- ETAPA 6a: recuperacion_inversion_mensual (~10000, 2 periodos x activo) ----
+
+WITH parametros AS (
+  SELECT (SELECT id FROM empresa LIMIT 1) AS id_empresa,
+         (SELECT id FROM usuario LIMIT 1) AS id_usuario,
+         (SELECT id FROM contrato LIMIT 1) AS id_contrato
+),
+activos_seed AS (
+  SELECT id, row_number() OVER (ORDER BY codigo) AS rn FROM activo WHERE codigo LIKE 'SEED-ACT-%'
+),
+periodos AS (
+  SELECT id, row_number() OVER (ORDER BY anio, mes) AS pn FROM periodo
+),
+base AS (
+  SELECT
+    a.id AS id_activo, per.id AS id_periodo,
+    (a.rn + per.pn) % 9 = 0 AS parado,
+    round((10000 + random() * 400000)::numeric, 2) AS saldo_antes,
+    CASE WHEN (a.rn + per.pn) % 9 = 0 THEN 0 ELSE round((300 + random() * 8000)::numeric, 2) END AS importe
+  FROM activos_seed a CROSS JOIN periodos per
+)
+INSERT INTO recuperacion_inversion_mensual (
+  id_empresa, id_activo, id_contrato, id_periodo, importe_recuperado, saldo_antes, saldo_despues, parado, creado_por_usuario_id
+)
+SELECT
+  p.id_empresa, b.id_activo, p.id_contrato, b.id_periodo, b.importe, b.saldo_antes,
+  GREATEST(0, b.saldo_antes - b.importe), b.parado, p.id_usuario
+FROM base b CROSS JOIN parametros p;
+
+-- ---- ETAPA 6b: activo_mantenimiento (~4000, 80% de los activos) ----
+
+WITH parametros AS (
+  SELECT (SELECT id FROM empresa LIMIT 1) AS id_empresa,
+         (SELECT id FROM usuario LIMIT 1) AS id_usuario
+),
+activos_seed AS (
+  SELECT id, row_number() OVER (ORDER BY codigo) AS rn FROM activo WHERE codigo LIKE 'SEED-ACT-%'
+),
+base AS (
+  SELECT
+    a.id, a.rn,
+    (ARRAY['PREVENTIVO','CORRECTIVO'])[1 + (a.rn % 2)] AS tipo,
+    (ARRAY['PROGRAMADO','EJECUTADO','EJECUTADO','ANULADO'])[1 + (a.rn % 4)] AS estado,
+    (date '2023-06-01' + ((a.rn * 19) % 900))::date AS f_prog
+  FROM activos_seed a WHERE a.rn % 5 != 0
+)
+INSERT INTO activo_mantenimiento (
+  id_empresa, id_activo, tipo, fecha_programada, fecha_ejecucion, descripcion, costo, id_responsable, estado, creado_por_usuario_id, actualizado_por_usuario_id
+)
+SELECT
+  p.id_empresa, b.id, b.tipo, b.f_prog,
+  CASE WHEN b.estado = 'EJECUTADO' THEN b.f_prog + ((b.rn % 15) + 1) ELSE NULL END,
+  b.tipo || ' programado — ' || (ARRAY['revisión de motor','cambio de aceite','revisión de frenos','inspección estructural','calibración general','cambio de filtros','revisión hidráulica','mantenimiento eléctrico'])[1 + (b.rn % 8)],
+  round((80 + random() * 4500)::numeric, 2),
+  p.id_usuario, b.estado,
+  p.id_usuario, p.id_usuario
+FROM base b CROSS JOIN parametros p;
+
+-- ---- ETAPA 6c: activo_incidencia (~2500, 50% de los activos) ----
+
+WITH parametros AS (
+  SELECT (SELECT id FROM empresa LIMIT 1) AS id_empresa,
+         (SELECT id FROM usuario LIMIT 1) AS id_usuario
+),
+activos_seed AS (
+  SELECT id, row_number() OVER (ORDER BY codigo) AS rn FROM activo WHERE codigo LIKE 'SEED-ACT-%'
+),
+base AS (
+  SELECT
+    a.id, a.rn,
+    (ARRAY['BAJA','MEDIA','ALTA','CRITICA'])[1 + (a.rn % 4)] AS severidad,
+    (ARRAY['ABIERTA','EN_PROCESO','RESUELTA','RESUELTA','ANULADA'])[1 + (a.rn % 5)] AS estado,
+    (date '2023-01-01' + ((a.rn * 23) % 1200))::date AS f_reporte
+  FROM activos_seed a WHERE a.rn % 2 = 0
+)
+INSERT INTO activo_incidencia (
+  id_empresa, id_activo, fecha_reporte, titulo, descripcion, severidad, estado, fecha_resolucion, solucion, creado_por_usuario_id, actualizado_por_usuario_id
+)
+SELECT
+  p.id_empresa, b.id, b.f_reporte,
+  (ARRAY['Falla de motor','Fuga de aceite','Ruido anormal','Sobrecalentamiento','Falla eléctrica','Desgaste de neumáticos','Falla de frenos','Falla hidráulica'])[1 + (b.rn % 8)],
+  'Reportado durante operación en campo. Requiere evaluación técnica.',
+  b.severidad, b.estado,
+  CASE WHEN b.estado IN ('RESUELTA', 'ANULADA') THEN b.f_reporte + ((b.rn % 20) + 1) ELSE NULL END,
+  CASE WHEN b.estado = 'RESUELTA' THEN 'Se realizó reparación en taller y se validó funcionamiento correcto.'
+       WHEN b.estado = 'ANULADA' THEN 'Incidencia anulada: reporte duplicado o no procede.'
+       ELSE NULL END,
+  p.id_usuario, p.id_usuario
+FROM base b CROSS JOIN parametros p;
+
+-- ---- ETAPA 6d: recuperacion_ajuste (~1250, 25% de los activos) ----
+
+WITH parametros AS (
+  SELECT (SELECT id FROM empresa LIMIT 1) AS id_empresa,
+         (SELECT id FROM usuario LIMIT 1) AS id_usuario,
+         (SELECT id FROM contrato LIMIT 1) AS id_contrato,
+         (SELECT array_agg(id) FROM periodo) AS periodo_ids
+),
+activos_seed AS (
+  SELECT id, row_number() OVER (ORDER BY codigo) AS rn FROM activo WHERE codigo LIKE 'SEED-ACT-%'
+),
+base AS (
+  SELECT
+    a.id, a.rn,
+    (ARRAY['PENDIENTE','APROBADO','APROBADO','RECHAZADO'])[1 + ((a.rn / 4)::INT % 4)] AS estado,
+    (date '2024-01-01' + ((a.rn * 13) % 700))::date AS f
+  FROM activos_seed a WHERE a.rn % 4 = 0
+)
+INSERT INTO recuperacion_ajuste (
+  id_empresa, id_activo, id_contrato, id_periodo, fecha, monto_ajuste, motivo, estado, fecha_resolucion, creado_por_usuario_id, actualizado_por_usuario_id
+)
+SELECT
+  p.id_empresa, b.id,
+  CASE WHEN b.rn % 8 = 0 THEN NULL ELSE p.id_contrato END,
+  CASE WHEN b.rn % 8 = 0 THEN NULL ELSE p.periodo_ids[1 + (b.rn % array_length(p.periodo_ids, 1))] END,
+  b.f,
+  round((CASE WHEN b.rn % 3 = 0 THEN -(50 + random() * 3000) ELSE (50 + random() * 3000) END)::numeric, 2),
+  (ARRAY['Corrección por error de cálculo','Ajuste por cambio de tarifa','Reclamo del cliente aprobado','Corrección de periodo cerrado','Ajuste por reclasificación','Corrección de saldo inicial'])[1 + (b.rn % 6)],
+  b.estado,
+  CASE WHEN b.estado != 'PENDIENTE' THEN b.f + ((b.rn % 10) + 1) ELSE NULL END,
+  p.id_usuario, p.id_usuario
+FROM base b CROSS JOIN parametros p;
+
+-- ---- ETAPA 7a: herramienta_movimiento (~15000, 3 por herramienta) ----
+
+WITH parametros AS (
+  SELECT (SELECT id FROM empresa LIMIT 1) AS id_empresa,
+         (SELECT id FROM usuario LIMIT 1) AS id_usuario,
+         (SELECT id FROM contrato LIMIT 1) AS id_contrato,
+         (SELECT id FROM zona LIMIT 1) AS id_zona,
+         (SELECT array_agg(id) FROM periodo) AS periodo_ids
+),
+herramientas_seed AS (
+  SELECT id, row_number() OVER (ORDER BY codigo) AS rn FROM herramienta WHERE codigo LIKE 'SEED-HER-%'
+)
+INSERT INTO herramienta_movimiento (
+  id_empresa, id_herramienta, id_periodo, tipo_movimiento, fecha,
+  id_contrato_origen, id_zona_origen, id_contrato_destino, id_zona_destino,
+  cantidad, costo, valorizacion, motivo, creado_por_usuario_id
+)
+SELECT
+  p.id_empresa, h.id,
+  p.periodo_ids[1 + ((h.rn + n) % array_length(p.periodo_ids, 1))],
+  (ARRAY['ENTRADA','SALIDA','TRASLADO','TRASLADO'])[1 + ((h.rn + n) % 4)],
+  (date '2024-01-01' + (((h.rn * 11) + (n * 29)) % 700))::date,
+  CASE WHEN ((h.rn + n) % 4) = 0 THEN NULL ELSE p.id_contrato END,
+  CASE WHEN ((h.rn + n) % 4) = 0 THEN NULL ELSE p.id_zona END,
+  p.id_contrato, p.id_zona,
+  round((1 + random() * 4)::numeric, 2),
+  round((50 + random() * 2000)::numeric, 2),
+  round((50 + random() * 3500)::numeric, 2),
+  (ARRAY['Traslado a nuevo frente','Ingreso a almacén','Salida para mantenimiento','Reasignación de zona','Préstamo entre cuadrillas','Devolución a almacén central'])[1 + ((h.rn + n) % 6)],
+  p.id_usuario
+FROM herramientas_seed h CROSS JOIN generate_series(1, 3) AS n CROSS JOIN parametros p;
+
+-- ---- ETAPA 7b: herramienta_intervencion (~2500, 50% de las herramientas) ----
+
+WITH parametros AS (
+  SELECT (SELECT id FROM empresa LIMIT 1) AS id_empresa,
+         (SELECT id FROM usuario LIMIT 1) AS id_usuario
+),
+herramientas_seed AS (
+  SELECT id, row_number() OVER (ORDER BY codigo) AS rn FROM herramienta WHERE codigo LIKE 'SEED-HER-%'
+),
+base AS (
+  SELECT id, rn FROM herramientas_seed WHERE rn % 2 = 0
+)
+INSERT INTO herramienta_intervencion (
+  id_empresa, id_herramienta, tipo, fecha, descripcion, costo, id_responsable, estado, creado_por_usuario_id, actualizado_por_usuario_id
+)
+SELECT
+  p.id_empresa, b.id,
+  (ARRAY['REPARACION','CALIBRACION','REVISION'])[1 + (b.rn % 3)],
+  (date '2023-09-01' + ((b.rn * 17) % 900))::date,
+  'Intervención técnica programada sobre la herramienta.',
+  round((20 + random() * 900)::numeric, 2),
+  p.id_usuario,
+  (ARRAY['REGISTRADA','EN_PROCESO','FINALIZADA','FINALIZADA','ANULADA'])[1 + (b.rn % 5)],
+  p.id_usuario, p.id_usuario
+FROM base b CROSS JOIN parametros p;

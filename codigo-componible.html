@@ -254,7 +254,7 @@
         <p class="fc-prop"><b>Propósito:</b> archivo generado que no contiene operaciones, solo las <b>agrega</b>. Llama a la función de cada capacidad (que vive en su propio archivo <span class="mono">operaciones_generadas_&lt;cap&gt;.go</span>) y junta todo en una sola lista.</p>
         <pre><span class="kw">func</span> <span class="t" data-tip="Devuelve la lista completa de operaciones generadas. El runtime (registrarRutasGeneradas) la recorre para montar las rutas.">operacionesGeneradas</span>() []definicionOperacionGenerada {
 	operaciones := []definicionOperacionGenerada{}
-	operaciones = append(operaciones, <span class="t" data-tip="Trae los 72 endpoints de activos, definidos en operaciones_generadas_activos_e_inversion.go.">operacionesGeneradasActivosEInversion()</span>...)
+	operaciones = append(operaciones, <span class="t" data-tip="Trae los 75 endpoints de activos, definidos en operaciones_generadas_activos_e_inversion.go.">operacionesGeneradasActivosEInversion()</span>...)
 	operaciones = append(operaciones, <span class="t" data-tip="Trae los 10 endpoints de cierre. Cada capacidad generada aporta su función aquí.">operacionesGeneradasCierreMensual()</span>...)
 	<span class="kw">return</span> operaciones
 }</pre>
@@ -263,10 +263,10 @@
     </details>
 
     <details class="fc">
-      <summary><span class="fc-cap">Go · generado</span><span class="fc-path">aplicaciones/api/interno/servidor/operaciones_generadas_activos_e_inversion.go</span><span class="fc-1l">La tabla de los 72 endpoints de activos (generada desde el SQL).</span></summary>
+      <summary><span class="fc-cap">Go · generado</span><span class="fc-path">aplicaciones/api/interno/servidor/operaciones_generadas_activos_e_inversion.go</span><span class="fc-1l">La tabla de los 75 endpoints de activos (generada desde el SQL).</span></summary>
       <div class="fc-body">
         <p class="fc-prop"><b>Propósito:</b> archivo <b>generado</b> por <span class="mono">generar_esqueletos_api.ps1</span> (1083 líneas). Devuelve la lista de las <b>72 operaciones</b> de activos — una entrada por cada <span class="mono">fn_*</span>. NO se edita a mano: se regenera cuando cambia el SQL. El agregador lo llama; el ejecutor lo recorre.</p>
-        <pre><span class="kw">func</span> <span class="t" data-tip="Función que el agregador (operaciones_generadas.go) llama para traer los 72 endpoints de activos.">operacionesGeneradasActivosEInversion</span>() []definicionOperacionGenerada {
+        <pre><span class="kw">func</span> <span class="t" data-tip="Función que el agregador (operaciones_generadas.go) llama para traer los 75 endpoints de activos.">operacionesGeneradasActivosEInversion</span>() []definicionOperacionGenerada {
   <span class="kw">return</span> []definicionOperacionGenerada{
     {
       CodigoCapacidad: <span class="t" data-tip="A qué capacidad pertenece. El runtime la usa para el gate de habilitación (envolverConCapacidad).">componibilidad.CodigoCapacidadActivosEInversion</span>,
@@ -279,7 +279,7 @@
         <span class="t" data-tip="...y un parámetro por cada argumento del SP (id_activo, id_contrato, etc.).">/* ... un parametro por argumento ... */</span>
       },
     },
-    <span class="t" data-tip="...y un bloque {} idéntico por cada uno de los 72 endpoints de activos: listar_activos, registrar_activo, listar_clasificaciones_activo, mover_herramienta, etc.">/* ... 71 endpoints mas ... */</span>
+    <span class="t" data-tip="...y un bloque {} idéntico por cada uno de los 75 endpoints de activos: listar_activos, registrar_activo, listar_clasificaciones_activo, mover_herramienta, etc.">/* ... 71 endpoints mas ... */</span>
   }
 }</pre>
         <p class="fc-prop">Aquí vive el <b>cableado real</b> de tus endpoints de activos. Cada <span class="mono">{}</span> es lo que el generador dedujo de un <span class="mono">.sql</span>; el ejecutor genérico (siguiente tarjeta) hace que respondan.</p>
