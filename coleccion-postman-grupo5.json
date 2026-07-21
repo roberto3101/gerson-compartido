@@ -2912,6 +2912,384 @@
               }
             }
           }
+        },
+        {
+          "name": "GET  listar_activos_sin_asignacion",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Empresa-Id",
+                "value": "{{empresaId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activos_e_inversion/listar_activos_sin_asignacion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activos_e_inversion",
+                "listar_activos_sin_asignacion"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "id_clasificacion_activo",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "busqueda",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limite",
+                  "value": "20",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor_creado_en",
+                  "value": "2999-01-01T00:00:00Z",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor_id",
+                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST  ejecutar_depreciacion_periodo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Empresa-Id",
+                "value": "{{empresaId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activos_e_inversion/ejecutar_depreciacion_periodo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activos_e_inversion",
+                "ejecutar_depreciacion_periodo"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_periodo\": \"REEMPLAZAR-UUID-PERIODO\",\n  \"id_contrato\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET  listar_depreciaciones_pendientes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Empresa-Id",
+                "value": "{{empresaId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activos_e_inversion/listar_depreciaciones_pendientes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activos_e_inversion",
+                "listar_depreciaciones_pendientes"
+              ],
+              "query": [
+                {
+                  "key": "id_periodo",
+                  "value": "REEMPLAZAR-UUID-PERIODO",
+                  "disabled": true
+                },
+                {
+                  "key": "id_contrato",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "busqueda",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limite",
+                  "value": "20",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor_creado_en",
+                  "value": "2999-01-01T00:00:00Z",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor_id",
+                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET  listar_depreciaciones_mensuales",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Empresa-Id",
+                "value": "{{empresaId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activos_e_inversion/listar_depreciaciones_mensuales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activos_e_inversion",
+                "listar_depreciaciones_mensuales"
+              ],
+              "query": [
+                {
+                  "key": "id_activo",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "id_contrato",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "id_periodo",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "busqueda",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limite",
+                  "value": "20",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor_creado_en",
+                  "value": "2999-01-01T00:00:00Z",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor_id",
+                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET  obtener_depreciacion_por_contrato",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Empresa-Id",
+                "value": "{{empresaId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activos_e_inversion/obtener_depreciacion_por_contrato",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activos_e_inversion",
+                "obtener_depreciacion_por_contrato"
+              ],
+              "query": [
+                {
+                  "key": "id_periodo",
+                  "value": "REEMPLAZAR-UUID-PERIODO",
+                  "disabled": true
+                },
+                {
+                  "key": "id_contrato",
+                  "value": "REEMPLAZAR-UUID-CONTRATO",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET  obtener_datos_economicos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Empresa-Id",
+                "value": "{{empresaId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activos_e_inversion/obtener_datos_economicos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activos_e_inversion",
+                "obtener_datos_economicos"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "POST  asignar_responsable_asignacion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Empresa-Id",
+                "value": "{{empresaId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activos_e_inversion/asignar_responsable_asignacion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activos_e_inversion",
+                "asignar_responsable_asignacion"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_asignacion\": \"REEMPLAZAR-UUID-ASIGNACION\",\n  \"id_usuario_responsable\": \"{{usuarioId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST  cambiar_responsable_asignacion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Empresa-Id",
+                "value": "{{empresaId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activos_e_inversion/cambiar_responsable_asignacion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activos_e_inversion",
+                "cambiar_responsable_asignacion"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_usuario_accion\": \"{{usuarioId}}\",\n  \"id_asignacion\": \"REEMPLAZAR-UUID-ASIGNACION\",\n  \"id_usuario_responsable\": \"{{usuarioId}}\",\n  \"motivo\": \"Cambio de responsable\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET  listar_historial_responsables",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Empresa-Id",
+                "value": "{{empresaId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activos_e_inversion/listar_historial_responsables",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activos_e_inversion",
+                "listar_historial_responsables"
+              ],
+              "query": [
+                {
+                  "key": "id_asignacion",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "id_usuario",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limite",
+                  "value": "20",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor_creado_en",
+                  "value": "2999-01-01T00:00:00Z",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor_id",
+                  "value": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+                  "disabled": true
+                }
+              ]
+            }
+          }
         }
       ]
     },

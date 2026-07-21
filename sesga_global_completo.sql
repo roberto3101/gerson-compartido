@@ -1,7 +1,7 @@
 -- ====================================================================
 -- sesga_global_completo.sql  -  BD GLOBAL: todas las capacidades de todos los grupos
 -- Generada desde codeplexMaster para pruebas locales (CockroachDB v26).
--- Contenido: 52 tablas + 1 stub (+5 modulos nuevos 2026-07-01) + todos los indices + 85 funciones del Grupo 5 (44 nuevas) que compilan
+-- Contenido: 54 tablas + 1 stub (+5 modulos nuevos 2026-07-01) + todos los indices + 95 funciones del Grupo 5 (10 nuevas 2026-07-20: depreciacion mensual/contrato, responsables, sin-asignar, datos economicos) que compilan
 --            + SEMILLAS DEMO al final que pueblan las 48 tablas (TODAS las entidades):
 --              empresa vigente, usuario, usuario_empresa, 2 periodos, roles/permisos;
 --              catalogos completos (estado/tipo de contrato, grupo de actividad, zona,
@@ -9580,3 +9580,1203 @@ SELECT
   (ARRAY['REGISTRADA','EN_PROCESO','FINALIZADA','FINALIZADA','ANULADA'])[1 + (b.rn % 5)],
   p.id_usuario, p.id_usuario
 FROM base b CROSS JOIN parametros p;
+
+-- ====================================================================
+-- ACTUALIZACION 2026-07-20: Depreciacion mensual (por uso) + Depreciacion
+-- por contrato + Responsables de asignacion + Activos sin asignar + Datos
+-- economicos + Muro de fechas de depreciacion (registrar/actualizar).
+-- ====================================================================
+
+-- ---- Enriquecer esquema previo al estado actual ----
+-- Columnas nuevas que usan los SP de esta actualizacion (idempotente).
+ALTER TABLE periodo ADD COLUMN IF NOT EXISTS fecha_inicio DATE;
+ALTER TABLE periodo ADD COLUMN IF NOT EXISTS fecha_fin DATE;
+ALTER TABLE periodo ADD COLUMN IF NOT EXISTS codigo_periodo STRING;
+ALTER TABLE periodo ADD COLUMN IF NOT EXISTS estado STRING NOT NULL DEFAULT 'ABIERTO';
+ALTER TABLE activo_asignacion_contrato ADD COLUMN IF NOT EXISTS id_usuario_responsable UUID;
+
+-- ---- Tablas nuevas (estilo bundle: sin FK duras; solo CHECK/UNIQUE) ----
+CREATE TABLE IF NOT EXISTS depreciacion_activo_mensual (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_empresa UUID NOT NULL,
+  id_activo UUID NOT NULL,
+  id_contrato UUID NOT NULL,
+  id_periodo UUID NOT NULL,
+  dias_asignados INT2 NOT NULL,
+  depreciacion_diaria DECIMAL(18,4) NOT NULL,
+  importe_depreciado DECIMAL(18,2) NOT NULL,
+  fecha_desde DATE NOT NULL,
+  fecha_hasta DATE NOT NULL,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+  creado_por_usuario_id UUID,
+  CONSTRAINT ck_depreciacion_activo_mensual_dias CHECK (dias_asignados > 0 AND dias_asignados <= 30),
+  CONSTRAINT ck_depreciacion_activo_mensual_diaria CHECK (depreciacion_diaria >= 0),
+  CONSTRAINT ck_depreciacion_activo_mensual_importe CHECK (importe_depreciado >= 0),
+  CONSTRAINT ck_depreciacion_activo_mensual_fechas CHECK (fecha_hasta >= fecha_desde),
+  CONSTRAINT uq_depreciacion_activo_mensual UNIQUE (id_activo, id_contrato, id_periodo)
+);
+
+CREATE TABLE IF NOT EXISTS asignacion_responsable_historial (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_empresa UUID NOT NULL,
+  id_asignacion UUID NOT NULL,
+  id_usuario_responsable_anterior UUID,
+  id_usuario_responsable_nuevo UUID NOT NULL,
+  motivo STRING,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+  creado_por_usuario_id UUID,
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+  actualizado_por_usuario_id UUID,
+  eliminado_en TIMESTAMPTZ,
+  eliminado_por_usuario_id UUID
+);
+
+-- ---- Indices (tablas nuevas) ----
+CREATE INDEX IF NOT EXISTS idx_depreciacion_activo_mensual_contrato ON depreciacion_activo_mensual (id_contrato, id_periodo);
+CREATE INDEX IF NOT EXISTS idx_depreciacion_activo_mensual_periodo ON depreciacion_activo_mensual (id_periodo, id_contrato);
+CREATE INDEX IF NOT EXISTS idx_star_depreciacion_activo_mensual_listado ON depreciacion_activo_mensual (id_empresa, creado_en DESC, id DESC) STORING (id_activo, id_contrato, id_periodo, dias_asignados, depreciacion_diaria, importe_depreciado, fecha_desde, fecha_hasta);
+CREATE INDEX IF NOT EXISTS idx_star_depreciacion_activo_mensual_por_activo ON depreciacion_activo_mensual (id_activo) STORING (id_periodo, importe_depreciado);
+CREATE INDEX IF NOT EXISTS idx_star_asignacion_responsable_historial_listado ON asignacion_responsable_historial (id_empresa, creado_en DESC, id DESC) STORING (id_asignacion, id_usuario_responsable_anterior, id_usuario_responsable_nuevo, motivo, creado_por_usuario_id) WHERE eliminado_en IS NULL;
+CREATE INDEX IF NOT EXISTS idx_asignacion_responsable_historial_asignacion ON asignacion_responsable_historial (id_asignacion, creado_en DESC) WHERE eliminado_en IS NULL;
+CREATE INDEX IF NOT EXISTS idx_asignacion_responsable_historial_responsable ON asignacion_responsable_historial (id_empresa, id_usuario_responsable_nuevo) WHERE eliminado_en IS NULL;
+
+-- ---- Procedimientos nuevos (10) + actualizados (registrar/actualizar con muro de fechas) ----
+
+-- ---- fn_ejecutar_depreciacion_periodo ----
+CREATE OR REPLACE FUNCTION fn_ejecutar_depreciacion_periodo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_periodo UUID,
+  p_id_contrato UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_procesadas INT := 0;
+  v_total_depreciado DECIMAL(18,2) := 0;
+  v_inicio_periodo DATE;
+  v_fin_periodo DATE;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_id_periodo IS NULL OR NOT EXISTS (
+    SELECT 1 FROM periodo WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PERIODO_NO_VALIDO', 'mensaje', 'El periodo no existe o no pertenece a la empresa');
+  END IF;
+
+  IF p_id_contrato IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM contrato WHERE id = p_id_contrato AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_NO_VALIDO', 'mensaje', 'El contrato no existe o no pertenece a la empresa');
+  END IF;
+
+  SELECT fecha_inicio, fecha_fin INTO v_inicio_periodo, v_fin_periodo
+  FROM periodo
+  WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  WITH insertadas AS (
+    INSERT INTO depreciacion_activo_mensual (
+      id_empresa, id_activo, id_contrato, id_periodo,
+      dias_asignados, depreciacion_diaria, importe_depreciado,
+      fecha_desde, fecha_hasta, creado_por_usuario_id
+    )
+    SELECT
+      g.id_empresa, g.id_activo, g.id_contrato, p_id_periodo,
+      g.dias_asignados,
+      g.depreciacion_diaria,
+      ROUND(g.depreciacion_diaria * g.dias_asignados, 2),
+      g.fecha_desde,
+      g.fecha_hasta,
+      p_id_usuario_accion
+    FROM (
+      SELECT aac.id_empresa, aac.id_activo, aac.id_contrato,
+             ROUND(max(COALESCE(a.depreciacion_mensual, a.costo_adquisicion / NULLIF(a.tiempo_vida_meses, 0))) / 30, 4) AS depreciacion_diaria,
+             LEAST(SUM(CASE WHEN v.desde = v_inicio_periodo AND v.hasta = v_fin_periodo THEN 30 ELSE LEAST(GREATEST(v.hasta - v.desde + 1, 0), 30) END), 30)::INT AS dias_asignados,
+             min(v.desde) AS fecha_desde,
+             max(v.hasta) AS fecha_hasta
+      FROM activo_asignacion_contrato aac
+      JOIN activo a ON a.id = aac.id_activo
+      JOIN contrato c ON c.id = aac.id_contrato AND c.eliminado_en IS NULL
+      JOIN estado_contrato ec ON ec.id = c.id_estado_contrato AND ec.eliminado_en IS NULL AND ec.es_vigente = true
+      , LATERAL (
+        SELECT
+          GREATEST(aac.fecha_inicio, v_inicio_periodo, COALESCE(a.fecha_inicio_depreciacion, aac.fecha_inicio)) AS desde,
+          LEAST(COALESCE(aac.fecha_fin, v_fin_periodo), v_fin_periodo, COALESCE(a.fecha_fin_depreciacion, v_fin_periodo)) AS hasta
+      ) v
+      WHERE aac.id_empresa = p_id_empresa
+        AND (p_id_contrato IS NULL OR aac.id_contrato = p_id_contrato)
+        AND aac.eliminado_en IS NULL
+        AND a.eliminado_en IS NULL
+        AND a.estado <> 'BAJA'
+        AND COALESCE(a.depreciacion_mensual, a.costo_adquisicion / NULLIF(a.tiempo_vida_meses, 0)) > 0
+        AND (a.fecha_inicio_depreciacion IS NULL OR a.fecha_inicio_depreciacion <= v_fin_periodo)
+        AND (a.fecha_fin_depreciacion IS NULL OR a.fecha_fin_depreciacion >= v_inicio_periodo)
+        AND aac.fecha_inicio <= v_fin_periodo
+        AND ((aac.fecha_fin IS NOT NULL AND aac.fecha_fin >= v_inicio_periodo) OR (aac.fecha_fin IS NULL AND aac.estado = 'ACTIVO'))
+        AND v.hasta >= v.desde
+        AND NOT EXISTS (
+          SELECT 1 FROM depreciacion_activo_mensual x
+          WHERE x.id_activo = aac.id_activo AND x.id_contrato = aac.id_contrato AND x.id_periodo = p_id_periodo
+        )
+      GROUP BY aac.id_empresa, aac.id_activo, aac.id_contrato
+    ) g
+    ON CONFLICT (id_activo, id_contrato, id_periodo) DO NOTHING
+    RETURNING importe_depreciado
+  )
+  SELECT count(*), COALESCE(SUM(importe_depreciado), 0) INTO v_procesadas, v_total_depreciado FROM insertadas;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'DEPRECIACION_PERIODO_EJECUTADA',
+    'mensaje', 'Se proceso la depreciacion pendiente del periodo',
+    'datos', jsonb_build_object(
+      'asignaciones_procesadas', v_procesadas,
+      'total_depreciado', v_total_depreciado
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'DEPRECIACION_PERIODO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al ejecutar la depreciacion del periodo');
+END;
+$$;
+
+-- ---- fn_listar_depreciaciones_pendientes ----
+CREATE OR REPLACE FUNCTION fn_listar_depreciaciones_pendientes(
+  p_id_empresa UUID,
+  p_id_periodo UUID,
+  p_id_contrato UUID DEFAULT NULL,
+  p_busqueda STRING DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_limite_pagina INT;
+  v_busqueda STRING;
+  v_pagina JSONB;
+  v_existen_mas BOOL;
+  v_cantidad INT;
+  v_cursor_siguiente JSONB;
+  v_total INT;
+  v_total_proyectado DECIMAL(18,2);
+  v_inicio_periodo DATE;
+  v_fin_periodo DATE;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_id_periodo IS NULL OR NOT EXISTS (
+    SELECT 1 FROM periodo WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PERIODO_NO_VALIDO', 'mensaje', 'Debe seleccionar un periodo valido para ver las depreciaciones pendientes');
+  END IF;
+
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+  v_busqueda := NULLIF(btrim(p_busqueda), '');
+
+  SELECT fecha_inicio, fecha_fin INTO v_inicio_periodo, v_fin_periodo
+  FROM periodo
+  WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  WITH candidatas AS (
+    SELECT aac.id_activo, aac.id_contrato,
+           max(a.codigo) AS activo_codigo,
+           max(a.descripcion) AS activo_descripcion,
+           max(aac.id_zona::STRING)::UUID AS id_zona,
+           ROUND(max(COALESCE(a.depreciacion_mensual, a.costo_adquisicion / NULLIF(a.tiempo_vida_meses, 0))) / 30, 4) AS depreciacion_diaria,
+           LEAST(SUM(CASE WHEN v.desde = v_inicio_periodo AND v.hasta = v_fin_periodo THEN 30 ELSE LEAST(GREATEST(v.hasta - v.desde + 1, 0), 30) END), 30)::INT AS dias_asignados,
+           min(v.desde) AS fecha_desde,
+           max(v.hasta) AS fecha_hasta,
+           max(a.fecha_inicio_depreciacion) AS fecha_inicio_depreciacion,
+           max(a.fecha_fin_depreciacion) AS fecha_fin_depreciacion,
+           max(aac.creado_en) AS creado_en,
+           max(aac.id) AS id
+    FROM activo_asignacion_contrato aac
+    JOIN activo a ON a.id = aac.id_activo
+    JOIN contrato c ON c.id = aac.id_contrato AND c.eliminado_en IS NULL
+    JOIN estado_contrato ec ON ec.id = c.id_estado_contrato AND ec.eliminado_en IS NULL AND ec.es_vigente = true
+    , LATERAL (
+      SELECT
+        GREATEST(aac.fecha_inicio, v_inicio_periodo, COALESCE(a.fecha_inicio_depreciacion, aac.fecha_inicio)) AS desde,
+        LEAST(COALESCE(aac.fecha_fin, v_fin_periodo), v_fin_periodo, COALESCE(a.fecha_fin_depreciacion, v_fin_periodo)) AS hasta
+    ) v
+    WHERE aac.id_empresa = p_id_empresa
+      AND aac.eliminado_en IS NULL
+      AND a.eliminado_en IS NULL
+      AND a.estado <> 'BAJA'
+      AND COALESCE(a.depreciacion_mensual, a.costo_adquisicion / NULLIF(a.tiempo_vida_meses, 0)) > 0
+      AND (a.fecha_inicio_depreciacion IS NULL OR a.fecha_inicio_depreciacion <= v_fin_periodo)
+      AND (a.fecha_fin_depreciacion IS NULL OR a.fecha_fin_depreciacion >= v_inicio_periodo)
+      AND aac.fecha_inicio <= v_fin_periodo
+      AND ((aac.fecha_fin IS NOT NULL AND aac.fecha_fin >= v_inicio_periodo) OR (aac.fecha_fin IS NULL AND aac.estado = 'ACTIVO'))
+      AND v.hasta >= v.desde
+      AND (p_id_contrato IS NULL OR aac.id_contrato = p_id_contrato)
+      AND (v_busqueda IS NULL OR a.codigo ILIKE '%' || v_busqueda || '%' OR a.descripcion ILIKE '%' || v_busqueda || '%')
+      AND NOT EXISTS (
+        SELECT 1 FROM depreciacion_activo_mensual x
+        WHERE x.id_activo = aac.id_activo AND x.id_contrato = aac.id_contrato AND x.id_periodo = p_id_periodo
+      )
+    GROUP BY aac.id_activo, aac.id_contrato
+  )
+  SELECT count(*), COALESCE(SUM(ROUND(depreciacion_diaria * dias_asignados, 2)), 0)
+  INTO v_total, v_total_proyectado
+  FROM candidatas;
+
+  WITH candidatas AS (
+    SELECT aac.id_activo, aac.id_contrato,
+           max(a.codigo) AS activo_codigo,
+           max(a.descripcion) AS activo_descripcion,
+           max(aac.id_zona::STRING)::UUID AS id_zona,
+           ROUND(max(COALESCE(a.depreciacion_mensual, a.costo_adquisicion / NULLIF(a.tiempo_vida_meses, 0))) / 30, 4) AS depreciacion_diaria,
+           LEAST(SUM(CASE WHEN v.desde = v_inicio_periodo AND v.hasta = v_fin_periodo THEN 30 ELSE LEAST(GREATEST(v.hasta - v.desde + 1, 0), 30) END), 30)::INT AS dias_asignados,
+           min(v.desde) AS fecha_desde,
+           max(v.hasta) AS fecha_hasta,
+           max(a.fecha_inicio_depreciacion) AS fecha_inicio_depreciacion,
+           max(a.fecha_fin_depreciacion) AS fecha_fin_depreciacion,
+           max(aac.creado_en) AS creado_en,
+           max(aac.id) AS id
+    FROM activo_asignacion_contrato aac
+    JOIN activo a ON a.id = aac.id_activo
+    JOIN contrato c ON c.id = aac.id_contrato AND c.eliminado_en IS NULL
+    JOIN estado_contrato ec ON ec.id = c.id_estado_contrato AND ec.eliminado_en IS NULL AND ec.es_vigente = true
+    , LATERAL (
+      SELECT
+        GREATEST(aac.fecha_inicio, v_inicio_periodo, COALESCE(a.fecha_inicio_depreciacion, aac.fecha_inicio)) AS desde,
+        LEAST(COALESCE(aac.fecha_fin, v_fin_periodo), v_fin_periodo, COALESCE(a.fecha_fin_depreciacion, v_fin_periodo)) AS hasta
+    ) v
+    WHERE aac.id_empresa = p_id_empresa
+      AND aac.eliminado_en IS NULL
+      AND a.eliminado_en IS NULL
+      AND a.estado <> 'BAJA'
+      AND COALESCE(a.depreciacion_mensual, a.costo_adquisicion / NULLIF(a.tiempo_vida_meses, 0)) > 0
+      AND (a.fecha_inicio_depreciacion IS NULL OR a.fecha_inicio_depreciacion <= v_fin_periodo)
+      AND (a.fecha_fin_depreciacion IS NULL OR a.fecha_fin_depreciacion >= v_inicio_periodo)
+      AND aac.fecha_inicio <= v_fin_periodo
+      AND ((aac.fecha_fin IS NOT NULL AND aac.fecha_fin >= v_inicio_periodo) OR (aac.fecha_fin IS NULL AND aac.estado = 'ACTIVO'))
+      AND v.hasta >= v.desde
+      AND (p_id_contrato IS NULL OR aac.id_contrato = p_id_contrato)
+      AND (v_busqueda IS NULL OR a.codigo ILIKE '%' || v_busqueda || '%' OR a.descripcion ILIKE '%' || v_busqueda || '%')
+      AND NOT EXISTS (
+        SELECT 1 FROM depreciacion_activo_mensual x
+        WHERE x.id_activo = aac.id_activo AND x.id_contrato = aac.id_contrato AND x.id_periodo = p_id_periodo
+      )
+    GROUP BY aac.id_activo, aac.id_contrato
+  ),
+  pendientes AS (
+    SELECT c.id, c.id_activo, c.activo_codigo, c.activo_descripcion,
+           c.id_contrato, c.id_zona,
+           c.dias_asignados,
+           c.depreciacion_diaria,
+           ROUND(c.depreciacion_diaria * c.dias_asignados, 2) AS importe_proyectado,
+           c.fecha_desde,
+           c.fecha_hasta,
+           c.fecha_inicio_depreciacion,
+           c.fecha_fin_depreciacion,
+           c.creado_en,
+           row_number() OVER (ORDER BY c.creado_en DESC, c.id DESC) AS orden_en_pagina
+    FROM candidatas c
+    WHERE (p_cursor_creado_en IS NULL OR (c.creado_en, c.id) < (p_cursor_creado_en, p_cursor_id))
+    ORDER BY c.creado_en DESC, c.id DESC
+    LIMIT v_limite_pagina + 1
+  )
+  SELECT
+    COALESCE(
+      jsonb_agg(to_jsonb(pendientes) - 'orden_en_pagina' ORDER BY pendientes.orden_en_pagina)
+      FILTER (WHERE pendientes.orden_en_pagina <= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) > v_limite_pagina
+  INTO v_pagina, v_existen_mas
+  FROM pendientes;
+
+  v_cantidad := jsonb_array_length(v_pagina);
+  IF v_existen_mas AND v_cantidad > 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_pagina -> (v_cantidad - 1) -> 'creado_en',
+      'id', v_pagina -> (v_cantidad - 1) -> 'id'
+    );
+  ELSE
+    v_cursor_siguiente := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'DEPRECIACIONES_PENDIENTES_LISTADAS',
+    'mensaje', 'Listado de depreciaciones pendientes obtenido',
+    'datos', jsonb_build_object(
+      'items', v_pagina,
+      'total_proyectado', v_total_proyectado,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas, 'cursor_siguiente', v_cursor_siguiente, 'total', v_total)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'DEPRECIACIONES_PENDIENTES_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar las depreciaciones pendientes');
+END;
+$$;
+
+-- ---- fn_listar_depreciaciones_mensuales ----
+CREATE OR REPLACE FUNCTION fn_listar_depreciaciones_mensuales(
+  p_id_empresa UUID,
+  p_id_activo UUID DEFAULT NULL,
+  p_id_contrato UUID DEFAULT NULL,
+  p_id_periodo UUID DEFAULT NULL,
+  p_busqueda STRING DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_limite_pagina INT;
+  v_busqueda STRING;
+  v_pagina JSONB;
+  v_existen_mas BOOL;
+  v_cantidad INT;
+  v_cursor_siguiente JSONB;
+  v_total INT;
+  v_total_depreciado DECIMAL(18,2);
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_id_periodo IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM periodo WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PERIODO_NO_VALIDO', 'mensaje', 'El periodo no existe o no pertenece a la empresa');
+  END IF;
+
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+  v_busqueda := NULLIF(btrim(p_busqueda), '');
+
+  SELECT count(*), COALESCE(SUM(dam.importe_depreciado), 0)
+  INTO v_total, v_total_depreciado
+  FROM depreciacion_activo_mensual dam
+  JOIN activo a ON a.id = dam.id_activo
+  WHERE dam.id_empresa = p_id_empresa
+    AND (p_id_activo IS NULL OR dam.id_activo = p_id_activo)
+    AND (p_id_contrato IS NULL OR dam.id_contrato = p_id_contrato)
+    AND (p_id_periodo IS NULL OR dam.id_periodo = p_id_periodo)
+    AND (v_busqueda IS NULL OR a.codigo ILIKE '%' || v_busqueda || '%' OR a.descripcion ILIKE '%' || v_busqueda || '%');
+
+  WITH depreciaciones AS (
+    SELECT dam.id, dam.id_activo, a.codigo AS activo_codigo, a.descripcion AS activo_descripcion,
+           dam.id_contrato, dam.id_periodo,
+           dam.dias_asignados, dam.depreciacion_diaria, dam.importe_depreciado,
+           dam.fecha_desde, dam.fecha_hasta,
+           a.fecha_inicio_depreciacion, a.fecha_fin_depreciacion,
+           dam.creado_en, dam.creado_por_usuario_id,
+           row_number() OVER (ORDER BY dam.creado_en DESC, dam.id DESC) AS orden_en_pagina
+    FROM depreciacion_activo_mensual dam
+    JOIN activo a ON a.id = dam.id_activo
+    WHERE dam.id_empresa = p_id_empresa
+      AND (p_id_activo IS NULL OR dam.id_activo = p_id_activo)
+      AND (p_id_contrato IS NULL OR dam.id_contrato = p_id_contrato)
+      AND (p_id_periodo IS NULL OR dam.id_periodo = p_id_periodo)
+      AND (v_busqueda IS NULL OR a.codigo ILIKE '%' || v_busqueda || '%' OR a.descripcion ILIKE '%' || v_busqueda || '%')
+      AND (p_cursor_creado_en IS NULL OR (dam.creado_en, dam.id) < (p_cursor_creado_en, p_cursor_id))
+    ORDER BY dam.creado_en DESC, dam.id DESC
+    LIMIT v_limite_pagina + 1
+  )
+  SELECT
+    COALESCE(
+      jsonb_agg(to_jsonb(depreciaciones) - 'orden_en_pagina' ORDER BY depreciaciones.orden_en_pagina)
+      FILTER (WHERE depreciaciones.orden_en_pagina <= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) > v_limite_pagina
+  INTO v_pagina, v_existen_mas
+  FROM depreciaciones;
+
+  v_cantidad := jsonb_array_length(v_pagina);
+  IF v_existen_mas AND v_cantidad > 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_pagina -> (v_cantidad - 1) -> 'creado_en',
+      'id', v_pagina -> (v_cantidad - 1) -> 'id'
+    );
+  ELSE
+    v_cursor_siguiente := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'DEPRECIACIONES_LISTADAS',
+    'mensaje', 'Listado de depreciaciones mensuales obtenido',
+    'datos', jsonb_build_object(
+      'items', v_pagina,
+      'total_depreciado', v_total_depreciado,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas, 'cursor_siguiente', v_cursor_siguiente, 'total', v_total)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'DEPRECIACIONES_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar las depreciaciones mensuales');
+END;
+$$;
+
+-- ---- fn_obtener_depreciacion_por_contrato ----
+CREATE OR REPLACE FUNCTION fn_obtener_depreciacion_por_contrato(
+  p_id_empresa UUID,
+  p_id_periodo UUID,
+  p_id_contrato UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_por_contrato JSONB;
+  v_total_general DECIMAL(18,2);
+  v_total_activos INT;
+  v_contratos INT;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_id_periodo IS NULL OR NOT EXISTS (
+    SELECT 1 FROM periodo WHERE id = p_id_periodo AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PERIODO_NO_VALIDO', 'mensaje', 'Debe seleccionar un periodo valido para ver la depreciacion por contrato');
+  END IF;
+
+  IF p_id_contrato IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM contrato WHERE id = p_id_contrato AND id_empresa = p_id_empresa AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CONTRATO_NO_VALIDO', 'mensaje', 'El contrato no existe o no pertenece a la empresa');
+  END IF;
+
+  WITH agrupado AS (
+    SELECT dam.id_contrato,
+           SUM(dam.importe_depreciado) AS total_depreciado,
+           SUM(dam.dias_asignados) AS dias_totales,
+           count(*) AS activos_count
+    FROM depreciacion_activo_mensual dam
+    WHERE dam.id_empresa = p_id_empresa
+      AND dam.id_periodo = p_id_periodo
+      AND (p_id_contrato IS NULL OR dam.id_contrato = p_id_contrato)
+    GROUP BY dam.id_contrato
+  )
+  SELECT
+    COALESCE(SUM(total_depreciado), 0),
+    COALESCE(SUM(activos_count), 0),
+    count(*),
+    COALESCE(jsonb_agg(jsonb_build_object(
+      'id_contrato', id_contrato,
+      'total_depreciado', total_depreciado,
+      'dias_totales', dias_totales,
+      'activos_count', activos_count
+    ) ORDER BY total_depreciado DESC), '[]'::jsonb)
+  INTO v_total_general, v_total_activos, v_contratos, v_por_contrato
+  FROM agrupado;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'DEPRECIACION_POR_CONTRATO_OBTENIDA',
+    'mensaje', 'Depreciacion por contrato obtenida',
+    'datos', jsonb_build_object(
+      'total_general', v_total_general,
+      'total_activos', v_total_activos,
+      'contratos', v_contratos,
+      'por_contrato', v_por_contrato
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'DEPRECIACION_POR_CONTRATO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al obtener la depreciacion por contrato');
+END;
+$$;
+
+-- ---- fn_calcular_depreciacion_contable_acumulada ----
+CREATE OR REPLACE FUNCTION calcular_depreciacion_contable_acumulada(
+  p_fecha_inicio_depreciacion DATE,
+  p_depreciacion_mensual DECIMAL,
+  p_tiempo_vida_meses INT,
+  p_importe_base_recuperable DECIMAL,
+  p_costo_adquisicion DECIMAL
+) RETURNS DECIMAL
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT CASE
+    WHEN p_fecha_inicio_depreciacion IS NULL OR p_depreciacion_mensual IS NULL THEN NULL
+    ELSE LEAST(
+      LEAST(
+        GREATEST(
+          (EXTRACT(YEAR FROM age(current_date::TIMESTAMPTZ, p_fecha_inicio_depreciacion::TIMESTAMPTZ)) * 12
+           + EXTRACT(MONTH FROM age(current_date::TIMESTAMPTZ, p_fecha_inicio_depreciacion::TIMESTAMPTZ)))::INT,
+          0
+        ),
+        COALESCE(p_tiempo_vida_meses, 2147483647)
+      ) * p_depreciacion_mensual,
+      COALESCE(p_importe_base_recuperable, p_costo_adquisicion)
+    )
+  END
+$$;
+
+
+
+-- ---- fn_asignar_responsable_asignacion ----
+CREATE OR REPLACE FUNCTION fn_asignar_responsable_asignacion(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_asignacion UUID,
+  p_id_usuario_responsable UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+  v_responsable_actual UUID;
+  v_id_historial UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  SELECT estado, id_usuario_responsable INTO v_estado, v_responsable_actual
+  FROM activo_asignacion_contrato
+  WHERE id = p_id_asignacion AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ASIGNACION_NO_ENCONTRADA', 'mensaje', 'La asignacion no existe o no pertenece a la empresa');
+  END IF;
+
+  IF v_estado <> 'ACTIVO' THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ASIGNACION_NO_ACTIVA', 'mensaje', 'Solo se puede asignar responsable a una asignacion activa');
+  END IF;
+
+  IF p_id_usuario_responsable IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'RESPONSABLE_OBLIGATORIO', 'mensaje', 'Debe indicar el usuario responsable');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM usuario WHERE id = p_id_usuario_responsable) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'USUARIO_NO_VALIDO', 'mensaje', 'El usuario responsable no existe');
+  END IF;
+
+  IF v_responsable_actual IS NOT NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'RESPONSABLE_YA_ASIGNADO', 'mensaje', 'La asignacion ya tiene responsable; usa cambiar responsable');
+  END IF;
+
+  UPDATE activo_asignacion_contrato
+    SET id_usuario_responsable = p_id_usuario_responsable,
+        actualizado_en = now(),
+        actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_asignacion AND id_empresa = p_id_empresa;
+
+  INSERT INTO asignacion_responsable_historial (
+    id_empresa, id_asignacion, id_usuario_responsable_anterior, id_usuario_responsable_nuevo, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_asignacion, NULL, p_id_usuario_responsable, p_id_usuario_accion
+  ) RETURNING id INTO v_id_historial;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'RESPONSABLE_ASIGNADO',
+    'mensaje', 'El responsable fue asignado correctamente',
+    'datos', jsonb_build_object('id_asignacion', p_id_asignacion, 'id_usuario_responsable', p_id_usuario_responsable, 'id_historial', v_id_historial)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'RESPONSABLE_ASIGNACION_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al asignar el responsable');
+END;
+$$;
+
+-- ---- fn_cambiar_responsable_asignacion ----
+CREATE OR REPLACE FUNCTION fn_cambiar_responsable_asignacion(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_asignacion UUID,
+  p_id_usuario_responsable UUID,
+  p_motivo STRING DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+  v_responsable_actual UUID;
+  v_id_historial UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  SELECT estado, id_usuario_responsable INTO v_estado, v_responsable_actual
+  FROM activo_asignacion_contrato
+  WHERE id = p_id_asignacion AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ASIGNACION_NO_ENCONTRADA', 'mensaje', 'La asignacion no existe o no pertenece a la empresa');
+  END IF;
+
+  IF v_estado <> 'ACTIVO' THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ASIGNACION_NO_ACTIVA', 'mensaje', 'Solo se puede cambiar el responsable de una asignacion activa');
+  END IF;
+
+  IF p_id_usuario_responsable IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'RESPONSABLE_OBLIGATORIO', 'mensaje', 'Debe indicar el nuevo usuario responsable');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM usuario WHERE id = p_id_usuario_responsable) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'USUARIO_NO_VALIDO', 'mensaje', 'El usuario responsable no existe');
+  END IF;
+
+  IF v_responsable_actual IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'RESPONSABLE_NO_ASIGNADO', 'mensaje', 'La asignacion no tiene responsable; usa asignar responsable');
+  END IF;
+
+  IF v_responsable_actual = p_id_usuario_responsable THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'RESPONSABLE_SIN_CAMBIO', 'mensaje', 'El nuevo responsable es el mismo que el actual');
+  END IF;
+
+  UPDATE activo_asignacion_contrato
+    SET id_usuario_responsable = p_id_usuario_responsable,
+        actualizado_en = now(),
+        actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_asignacion AND id_empresa = p_id_empresa;
+
+  INSERT INTO asignacion_responsable_historial (
+    id_empresa, id_asignacion, id_usuario_responsable_anterior, id_usuario_responsable_nuevo, motivo, creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_asignacion, v_responsable_actual, p_id_usuario_responsable, NULLIF(trim(p_motivo), ''), p_id_usuario_accion
+  ) RETURNING id INTO v_id_historial;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'RESPONSABLE_CAMBIADO',
+    'mensaje', 'El responsable fue cambiado correctamente',
+    'datos', jsonb_build_object(
+      'id_asignacion', p_id_asignacion,
+      'id_usuario_responsable_anterior', v_responsable_actual,
+      'id_usuario_responsable', p_id_usuario_responsable,
+      'id_historial', v_id_historial
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'RESPONSABLE_CAMBIO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al cambiar el responsable');
+END;
+$$;
+
+-- ---- fn_listar_historial_responsables ----
+CREATE OR REPLACE FUNCTION fn_listar_historial_responsables(
+  p_id_empresa UUID,
+  p_id_asignacion UUID DEFAULT NULL,
+  p_id_usuario UUID DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_limite_pagina INT;
+  v_pagina JSONB;
+  v_existen_mas BOOL;
+  v_cantidad INT;
+  v_cursor_siguiente JSONB;
+  v_total INT;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  SELECT count(*) INTO v_total
+  FROM asignacion_responsable_historial h
+  WHERE h.id_empresa = p_id_empresa
+    AND h.eliminado_en IS NULL
+    AND (p_id_asignacion IS NULL OR h.id_asignacion = p_id_asignacion)
+    AND (p_id_usuario IS NULL OR h.id_usuario_responsable_nuevo = p_id_usuario OR h.id_usuario_responsable_anterior = p_id_usuario);
+
+  WITH historial AS (
+    SELECT h.id, h.id_asignacion,
+           aac.id_activo, a.codigo AS activo_codigo, a.descripcion AS activo_descripcion,
+           aac.id_contrato, aac.estado AS asignacion_estado,
+           h.id_usuario_responsable_anterior, h.id_usuario_responsable_nuevo,
+           h.motivo, h.creado_en, h.creado_por_usuario_id,
+           row_number() OVER (ORDER BY h.creado_en DESC, h.id DESC) AS orden_en_pagina
+    FROM asignacion_responsable_historial h
+    JOIN activo_asignacion_contrato aac ON aac.id = h.id_asignacion
+    LEFT JOIN activo a ON a.id = aac.id_activo
+    WHERE h.id_empresa = p_id_empresa
+      AND h.eliminado_en IS NULL
+      AND (p_id_asignacion IS NULL OR h.id_asignacion = p_id_asignacion)
+      AND (p_id_usuario IS NULL OR h.id_usuario_responsable_nuevo = p_id_usuario OR h.id_usuario_responsable_anterior = p_id_usuario)
+      AND (p_cursor_creado_en IS NULL OR (h.creado_en, h.id) < (p_cursor_creado_en, p_cursor_id))
+    ORDER BY h.creado_en DESC, h.id DESC
+    LIMIT v_limite_pagina + 1
+  )
+  SELECT
+    COALESCE(
+      jsonb_agg(to_jsonb(historial) - 'orden_en_pagina' ORDER BY historial.orden_en_pagina)
+      FILTER (WHERE historial.orden_en_pagina <= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) > v_limite_pagina
+  INTO v_pagina, v_existen_mas
+  FROM historial;
+
+  v_cantidad := jsonb_array_length(v_pagina);
+  IF v_existen_mas AND v_cantidad > 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_pagina -> (v_cantidad - 1) -> 'creado_en',
+      'id', v_pagina -> (v_cantidad - 1) -> 'id'
+    );
+  ELSE
+    v_cursor_siguiente := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'HISTORIAL_RESPONSABLES_LISTADO',
+    'mensaje', 'Historial de responsables obtenido',
+    'datos', jsonb_build_object(
+      'items', v_pagina,
+      'paginacion', jsonb_build_object('limite', v_limite_pagina, 'hay_mas', v_existen_mas, 'cursor_siguiente', v_cursor_siguiente, 'total', v_total)
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'HISTORIAL_RESPONSABLES_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar el historial de responsables');
+END;
+$$;
+
+-- ---- fn_listar_activos_sin_asignacion ----
+CREATE OR REPLACE FUNCTION fn_listar_activos_sin_asignacion(
+  p_id_empresa UUID,
+  p_estado STRING DEFAULT NULL,
+  p_id_clasificacion_activo UUID DEFAULT NULL,
+  p_busqueda STRING DEFAULT NULL,
+  p_limite INT DEFAULT NULL,
+  p_cursor_creado_en TIMESTAMPTZ DEFAULT NULL,
+  p_cursor_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_limite_pagina INT;
+  v_activos_pagina JSONB;
+  v_existen_mas_activos BOOL;
+  v_cantidad_activos_pagina INT;
+  v_cursor_siguiente JSONB;
+  v_total INT;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  v_limite_pagina := LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100);
+
+  SELECT count(*) INTO v_total
+  FROM activo a
+  WHERE a.id_empresa = p_id_empresa
+    AND a.eliminado_en IS NULL
+    AND (p_estado IS NULL OR a.estado = p_estado)
+    AND (p_id_clasificacion_activo IS NULL OR a.id_clasificacion_activo = p_id_clasificacion_activo)
+    AND (p_busqueda IS NULL OR a.codigo ILIKE '%' || p_busqueda || '%' OR a.descripcion ILIKE '%' || p_busqueda || '%' OR a.placa ILIKE '%' || p_busqueda || '%')
+    AND NOT EXISTS (
+      SELECT 1 FROM activo_asignacion_contrato aac
+      WHERE aac.id_activo = a.id AND aac.eliminado_en IS NULL AND aac.estado = 'ACTIVO'
+    );
+
+  WITH activos_ordenados_para_listado AS (
+    SELECT a.id, a.codigo, a.descripcion, a.estado, a.placa, a.marca, a.modelo,
+           a.anio_fabricacion, a.costo_adquisicion, a.id_clasificacion_activo,
+           a.id_tipo_adquisicion_activo, a.creado_en,
+           row_number() OVER (ORDER BY a.creado_en DESC, a.id DESC) AS orden_en_pagina
+    FROM activo a
+    WHERE a.id_empresa = p_id_empresa
+      AND a.eliminado_en IS NULL
+      AND (p_estado IS NULL OR a.estado = p_estado)
+      AND (p_id_clasificacion_activo IS NULL OR a.id_clasificacion_activo = p_id_clasificacion_activo)
+      AND (p_busqueda IS NULL OR a.codigo ILIKE '%' || p_busqueda || '%' OR a.descripcion ILIKE '%' || p_busqueda || '%' OR a.placa ILIKE '%' || p_busqueda || '%')
+      AND NOT EXISTS (
+        SELECT 1 FROM activo_asignacion_contrato aac
+        WHERE aac.id_activo = a.id AND aac.eliminado_en IS NULL AND aac.estado = 'ACTIVO'
+      )
+      AND (p_cursor_creado_en IS NULL OR (a.creado_en, a.id) < (p_cursor_creado_en, p_cursor_id))
+    ORDER BY a.creado_en DESC, a.id DESC
+    LIMIT v_limite_pagina + 1
+  )
+  SELECT
+    COALESCE(
+      jsonb_agg(to_jsonb(activos_ordenados_para_listado) - 'orden_en_pagina' ORDER BY activos_ordenados_para_listado.orden_en_pagina)
+      FILTER (WHERE activos_ordenados_para_listado.orden_en_pagina <= v_limite_pagina),
+      '[]'::jsonb
+    ),
+    count(*) > v_limite_pagina
+  INTO v_activos_pagina, v_existen_mas_activos
+  FROM activos_ordenados_para_listado;
+
+  v_cantidad_activos_pagina := jsonb_array_length(v_activos_pagina);
+  IF v_existen_mas_activos AND v_cantidad_activos_pagina > 0 THEN
+    v_cursor_siguiente := jsonb_build_object(
+      'creado_en', v_activos_pagina -> (v_cantidad_activos_pagina - 1) -> 'creado_en',
+      'id', v_activos_pagina -> (v_cantidad_activos_pagina - 1) -> 'id'
+    );
+  ELSE
+    v_cursor_siguiente := NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'ACTIVOS_SIN_ASIGNACION_LISTADOS',
+    'mensaje', 'Listado de activos sin asignacion vigente obtenido',
+    'datos', jsonb_build_object(
+      'items', v_activos_pagina,
+      'paginacion', jsonb_build_object(
+        'limite', v_limite_pagina,
+        'hay_mas', v_existen_mas_activos,
+        'cursor_siguiente', v_cursor_siguiente,
+        'total', v_total
+      )
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVOS_SIN_ASIGNACION_LISTADO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al listar los activos sin asignacion');
+END;
+$$;
+
+-- ---- fn_obtener_datos_economicos ----
+CREATE OR REPLACE FUNCTION fn_obtener_datos_economicos(
+  p_id_empresa UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_totales JSONB;
+  v_por_clasificacion JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  WITH base AS (
+    SELECT a.id,
+           a.costo_adquisicion,
+           a.depreciacion_mensual,
+           a.importe_base_recuperable,
+           a.tiempo_vida_meses,
+           a.fecha_inicio_depreciacion,
+           COALESCE(c.descripcion, 'Sin clasificar') AS clasificacion
+    FROM activo a
+    LEFT JOIN clasificacion_activo c ON c.id = a.id_clasificacion_activo
+    WHERE a.id_empresa = p_id_empresa
+      AND a.eliminado_en IS NULL
+      AND a.estado <> 'BAJA'
+  ),
+  inversion AS (
+    SELECT x.id_activo,
+           SUM(x.inversion_asignada - x.saldo_inversion_pendiente) AS recuperado,
+           SUM(x.saldo_inversion_pendiente) AS saldo
+    FROM activo_asignacion_contrato x
+    JOIN base b ON b.id = x.id_activo
+    WHERE x.id_empresa = p_id_empresa
+      AND x.eliminado_en IS NULL
+      AND x.fecha_inicio <= current_date
+    GROUP BY x.id_activo
+  ),
+  calculo AS (
+    SELECT b.clasificacion,
+           b.costo_adquisicion,
+           COALESCE(b.depreciacion_mensual, 0) AS depreciacion_mensual,
+           COALESCE(b.importe_base_recuperable, 0) AS importe_base_recuperable,
+           COALESCE(i.recuperado, 0) AS recuperado,
+           COALESCE(i.saldo, 0) AS saldo,
+           COALESCE(
+             CASE
+               WHEN b.fecha_inicio_depreciacion IS NULL OR b.depreciacion_mensual IS NULL THEN NULL
+               ELSE LEAST(
+                 LEAST(
+                   GREATEST(
+                     (EXTRACT(YEAR FROM age(current_date::TIMESTAMPTZ, b.fecha_inicio_depreciacion::TIMESTAMPTZ)) * 12
+                      + EXTRACT(MONTH FROM age(current_date::TIMESTAMPTZ, b.fecha_inicio_depreciacion::TIMESTAMPTZ)))::INT,
+                     0
+                   ),
+                   COALESCE(b.tiempo_vida_meses, 2147483647)
+                 ) * b.depreciacion_mensual,
+                 COALESCE(b.importe_base_recuperable, b.costo_adquisicion)
+               )
+             END,
+             0
+           ) AS contable
+    FROM base b
+    LEFT JOIN inversion i ON i.id_activo = b.id
+  ),
+  agrupado AS (
+    SELECT clasificacion,
+           count(*) AS cantidad,
+           COALESCE(SUM(costo_adquisicion), 0) AS costo,
+           COALESCE(SUM(depreciacion_mensual), 0) AS depreciacion_mensual,
+           COALESCE(SUM(importe_base_recuperable), 0) AS base_recuperable,
+           COALESCE(SUM(recuperado), 0) AS recuperado,
+           COALESCE(SUM(saldo), 0) AS saldo,
+           COALESCE(SUM(contable), 0) AS contable
+    FROM calculo
+    GROUP BY clasificacion
+  )
+  SELECT
+    jsonb_build_object(
+      'activos_incluidos', COALESCE(SUM(cantidad), 0),
+      'inversion_total', COALESCE(SUM(costo), 0),
+      'depreciacion_mensual_total', COALESCE(SUM(depreciacion_mensual), 0),
+      'base_recuperable_total', COALESCE(SUM(base_recuperable), 0),
+      'recuperado_total', COALESCE(SUM(recuperado), 0),
+      'saldo_pendiente_total', COALESCE(SUM(saldo), 0),
+      'depreciacion_contable_total', COALESCE(SUM(contable), 0)
+    ),
+    COALESCE(jsonb_agg(jsonb_build_object(
+      'clasificacion', clasificacion,
+      'cantidad', cantidad,
+      'costo', costo,
+      'base_recuperable', base_recuperable,
+      'recuperado', recuperado,
+      'contable', contable
+    ) ORDER BY costo DESC), '[]'::jsonb)
+  INTO v_totales, v_por_clasificacion
+  FROM agrupado;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'DATOS_ECONOMICOS_OBTENIDOS',
+    'mensaje', 'Datos economicos de activos obtenidos',
+    'datos', jsonb_build_object(
+      'totales', v_totales,
+      'por_clasificacion', v_por_clasificacion
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'DATOS_ECONOMICOS_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al obtener los datos economicos');
+END;
+$$;
+
+-- ---- fn_registrar_activo ----
+CREATE OR REPLACE FUNCTION fn_registrar_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_clasificacion_activo UUID,
+  p_id_tipo_adquisicion_activo UUID DEFAULT NULL,
+  p_codigo STRING DEFAULT NULL,
+  p_descripcion STRING DEFAULT NULL,
+  p_placa STRING DEFAULT NULL,
+  p_marca STRING DEFAULT NULL,
+  p_modelo STRING DEFAULT NULL,
+  p_numero_serie STRING DEFAULT NULL,
+  p_anio_fabricacion INT2 DEFAULT NULL,
+  p_costo_adquisicion DECIMAL DEFAULT NULL,
+  p_tiempo_vida_meses INT DEFAULT NULL,
+  p_depreciacion_mensual DECIMAL DEFAULT NULL,
+  p_importe_base_recuperable DECIMAL DEFAULT NULL,
+  p_fecha_inicio_depreciacion DATE DEFAULT NULL,
+  p_fecha_fin_depreciacion DATE DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_id_activo UUID;
+  v_anio_minimo INT;
+  v_requiere_placa BOOL;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  IF p_descripcion IS NULL OR char_length(trim(p_descripcion)) = 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'DESCRIPCION_OBLIGATORIA', 'mensaje', 'La descripcion del activo es obligatoria');
+  END IF;
+
+  IF p_costo_adquisicion IS NULL OR p_costo_adquisicion <= 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'COSTO_INVALIDO', 'mensaje', 'El costo de adquisicion debe ser mayor a 0');
+  END IF;
+
+  v_anio_minimo := 1980;
+  SELECT NULLIF(regexp_replace(valor, '[^0-9]', '', 'g'), '')::INT INTO v_anio_minimo
+  FROM parametro_activos_inversion
+  WHERE id_empresa = p_id_empresa AND categoria = 'PARAMETRO_ACTIVO' AND clave = 'ANIO_FABRICACION_MINIMO'
+    AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  LIMIT 1;
+  v_anio_minimo := COALESCE(v_anio_minimo, 1980);
+
+  IF p_anio_fabricacion IS NOT NULL AND p_anio_fabricacion < v_anio_minimo THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ANIO_FABRICACION_INVALIDO', 'mensaje', 'El anio de fabricacion es menor al minimo permitido por la configuracion');
+  END IF;
+
+  IF p_fecha_inicio_depreciacion IS NOT NULL AND p_fecha_fin_depreciacion IS NOT NULL
+     AND p_fecha_inicio_depreciacion > p_fecha_fin_depreciacion THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'FECHA_DEPRECIACION_INVALIDA', 'mensaje', 'El inicio de depreciacion no puede ser posterior al fin de depreciacion');
+  END IF;
+
+  IF p_fecha_inicio_depreciacion IS NOT NULL AND p_anio_fabricacion IS NOT NULL
+     AND EXTRACT(YEAR FROM p_fecha_inicio_depreciacion) < p_anio_fabricacion THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'FECHA_DEPRECIACION_ANTERIOR_A_FABRICACION', 'mensaje', 'El inicio de depreciacion no puede ser anterior al anio de fabricacion del activo');
+  END IF;
+
+  v_requiere_placa := false;
+  SELECT upper(trim(valor)) IN ('SI', 'TRUE', '1') INTO v_requiere_placa
+  FROM parametro_activos_inversion
+  WHERE id_empresa = p_id_empresa AND categoria = 'PARAMETRO_ACTIVO' AND clave = 'REQUIERE_PLACA_VEHICULO'
+    AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  LIMIT 1;
+
+  IF COALESCE(v_requiere_placa, false) AND char_length(COALESCE(trim(p_placa), '')) = 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'PLACA_OBLIGATORIA', 'mensaje', 'La placa es obligatoria segun la configuracion del modulo');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM clasificacion_activo
+    WHERE id = p_id_clasificacion_activo AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CLASIFICACION_ACTIVO_NO_VALIDA', 'mensaje', 'La clasificacion no existe o no pertenece a la empresa');
+  END IF;
+
+  IF p_id_tipo_adquisicion_activo IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM tipo_adquisicion_activo
+    WHERE id = p_id_tipo_adquisicion_activo AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_ADQUISICION_NO_VALIDO', 'mensaje', 'El tipo de adquisicion no existe o no pertenece a la empresa');
+  END IF;
+
+  INSERT INTO activo (
+    id_empresa, id_clasificacion_activo, id_tipo_adquisicion_activo,
+    codigo, descripcion, placa, marca, modelo, numero_serie,
+    anio_fabricacion, costo_adquisicion, tiempo_vida_meses,
+    depreciacion_mensual, importe_base_recuperable,
+    fecha_inicio_depreciacion, fecha_fin_depreciacion,
+    creado_por_usuario_id
+  ) VALUES (
+    p_id_empresa, p_id_clasificacion_activo, p_id_tipo_adquisicion_activo,
+    NULLIF(trim(p_codigo), ''), trim(p_descripcion), NULLIF(trim(p_placa), ''),
+    NULLIF(trim(p_marca), ''), NULLIF(trim(p_modelo), ''), NULLIF(trim(p_numero_serie), ''),
+    p_anio_fabricacion, p_costo_adquisicion, p_tiempo_vida_meses,
+    p_depreciacion_mensual, p_importe_base_recuperable,
+    p_fecha_inicio_depreciacion, p_fecha_fin_depreciacion,
+    p_id_usuario_accion
+  ) RETURNING id INTO v_id_activo;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'ACTIVO_REGISTRADO',
+    'mensaje', 'El activo fue registrado correctamente',
+    'datos', jsonb_build_object('id_activo', v_id_activo)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_REGISTRO_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al registrar el activo');
+END;
+$$;
+
+-- ---- fn_actualizar_activo ----
+CREATE OR REPLACE FUNCTION fn_actualizar_activo(
+  p_id_empresa UUID,
+  p_id_usuario_accion UUID,
+  p_id_activo UUID,
+  p_id_clasificacion_activo UUID,
+  p_id_tipo_adquisicion_activo UUID,
+  p_codigo STRING,
+  p_descripcion STRING,
+  p_placa STRING,
+  p_marca STRING,
+  p_modelo STRING,
+  p_numero_serie STRING,
+  p_anio_fabricacion INT2,
+  p_costo_adquisicion DECIMAL,
+  p_tiempo_vida_meses INT,
+  p_depreciacion_mensual DECIMAL,
+  p_importe_base_recuperable DECIMAL,
+  p_fecha_inicio_depreciacion DATE,
+  p_fecha_fin_depreciacion DATE
+) RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_estado STRING;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM empresa WHERE id = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'EMPRESA_NO_VIGENTE', 'mensaje', 'La empresa no existe o no esta vigente');
+  END IF;
+
+  SELECT estado INTO v_estado
+  FROM activo
+  WHERE id = p_id_activo AND id_empresa = p_id_empresa AND eliminado_en IS NULL;
+
+  IF v_estado IS NULL THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_NO_ENCONTRADO', 'mensaje', 'El activo no existe o no pertenece a la empresa');
+  END IF;
+
+  IF v_estado = 'BAJA' THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_DADO_DE_BAJA', 'mensaje', 'El activo esta dado de baja; reactivelo antes de editar sus datos');
+  END IF;
+
+  IF p_descripcion IS NULL OR char_length(trim(p_descripcion)) = 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'DESCRIPCION_OBLIGATORIA', 'mensaje', 'La descripcion del activo es obligatoria');
+  END IF;
+
+  IF p_costo_adquisicion IS NULL OR p_costo_adquisicion <= 0 THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'COSTO_INVALIDO', 'mensaje', 'El costo de adquisicion debe ser mayor a 0');
+  END IF;
+
+  IF p_fecha_inicio_depreciacion IS NOT NULL AND p_fecha_fin_depreciacion IS NOT NULL
+     AND p_fecha_inicio_depreciacion > p_fecha_fin_depreciacion THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'FECHA_DEPRECIACION_INVALIDA', 'mensaje', 'El inicio de depreciacion no puede ser posterior al fin de depreciacion');
+  END IF;
+
+  IF p_fecha_inicio_depreciacion IS NOT NULL AND p_anio_fabricacion IS NOT NULL
+     AND EXTRACT(YEAR FROM p_fecha_inicio_depreciacion) < p_anio_fabricacion THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'FECHA_DEPRECIACION_ANTERIOR_A_FABRICACION', 'mensaje', 'El inicio de depreciacion no puede ser anterior al anio de fabricacion del activo');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM clasificacion_activo
+    WHERE id = p_id_clasificacion_activo AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'CLASIFICACION_ACTIVO_NO_VALIDA', 'mensaje', 'La clasificacion no existe o no pertenece a la empresa');
+  END IF;
+
+  IF p_id_tipo_adquisicion_activo IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM tipo_adquisicion_activo
+    WHERE id = p_id_tipo_adquisicion_activo AND id_empresa = p_id_empresa AND estado = 'ACTIVO' AND eliminado_en IS NULL
+  ) THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'TIPO_ADQUISICION_NO_VALIDO', 'mensaje', 'El tipo de adquisicion no existe o no pertenece a la empresa');
+  END IF;
+
+  UPDATE activo SET
+    id_clasificacion_activo = p_id_clasificacion_activo,
+    id_tipo_adquisicion_activo = p_id_tipo_adquisicion_activo,
+    codigo = NULLIF(trim(p_codigo), ''),
+    descripcion = trim(p_descripcion),
+    placa = NULLIF(trim(p_placa), ''),
+    marca = NULLIF(trim(p_marca), ''),
+    modelo = NULLIF(trim(p_modelo), ''),
+    numero_serie = NULLIF(trim(p_numero_serie), ''),
+    anio_fabricacion = p_anio_fabricacion,
+    costo_adquisicion = p_costo_adquisicion,
+    tiempo_vida_meses = p_tiempo_vida_meses,
+    depreciacion_mensual = p_depreciacion_mensual,
+    importe_base_recuperable = p_importe_base_recuperable,
+    fecha_inicio_depreciacion = p_fecha_inicio_depreciacion,
+    fecha_fin_depreciacion = p_fecha_fin_depreciacion,
+    actualizado_en = now(),
+    actualizado_por_usuario_id = p_id_usuario_accion
+  WHERE id = p_id_activo AND id_empresa = p_id_empresa;
+
+  RETURN jsonb_build_object(
+    'exito', true,
+    'codigo', 'ACTIVO_ACTUALIZADO',
+    'mensaje', 'El activo fue actualizado correctamente',
+    'datos', jsonb_build_object('id_activo', p_id_activo)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('exito', false, 'codigo_error', 'ACTIVO_ACTUALIZACION_ERROR_NO_CONTROLADO', 'mensaje', 'Ocurrio un error no controlado al actualizar el activo');
+END;
+$$;

@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fórmulas del Grupo 5 · Activos e Inversión · SESGA REYSER</title>
+<style>
+  :root{
+    --bg:#f5f6fb; --surface:#ffffff; --ink:#181b27; --muted:#697086;
+    --line:#e6e8f0; --soft:#f0f2f8; --accent:#4f46e5;
+    --dep:#6d28d9; --dep-bg:#ede9fe;
+    --rec:#047857; --rec-bg:#d1fae5;
+    --sal:#b45309; --sal-bg:#fdecc8;
+    --azul:#1d4ed8; --azul-bg:#dbeafe;
+    --shadow:0 1px 2px rgba(20,23,40,.06),0 8px 24px rgba(20,23,40,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+    font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  code,.mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace}
+  a{color:var(--accent)}
+  header.top{background:linear-gradient(120deg,#0f172a 0%,#312e81 55%,#4338ca 100%);color:#fff;padding:40px 24px 34px}
+  header.top .wrap{max-width:1040px;margin:0 auto}
+  header.top .eyebrow{letter-spacing:.18em;text-transform:uppercase;font-size:12px;color:#c7d2fe;font-weight:700;margin:0 0 10px}
+  header.top h1{margin:0 0 8px;font-size:30px;line-height:1.15}
+  header.top p.sub{margin:0;color:#dbe1ff;max-width:70ch}
+  .nav{max-width:1040px;margin:18px auto 0;padding:0 24px;display:flex;flex-wrap:wrap;gap:8px}
+  .nav a{background:#ffffff22;border:1px solid #ffffff44;color:#fff;text-decoration:none;
+    padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600}
+  .nav a:hover{background:#ffffff33}
+  main{max-width:1040px;margin:0 auto;padding:28px 24px 60px}
+  .intro{color:var(--muted);margin:0 0 26px;max-width:78ch}
+  .familia{margin:0 0 34px}
+  .familia > h2{display:flex;align-items:center;gap:10px;font-size:20px;margin:0 0 4px}
+  .pill{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:999px}
+  .pill.dep{color:var(--dep);background:var(--dep-bg)}
+  .pill.rec{color:var(--rec);background:var(--rec-bg)}
+  .pill.sal{color:var(--sal);background:var(--sal-bg)}
+  .familia > p.desc{color:var(--muted);margin:6px 0 16px;max-width:80ch}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px;box-shadow:var(--shadow)}
+  .card h3{margin:0 0 10px;font-size:16px}
+  .formula{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px 14px;font-family:"SFMono-Regular",Consolas,Menlo,monospace;
+    font-size:13.5px;line-height:1.5;overflow-x:auto;border-left:4px solid var(--accent);white-space:pre-wrap;word-break:break-word}
+  .formula .op{color:#a5b4fc}
+  .formula .cmt{color:#94a3b8}
+  .card p{margin:12px 0 0;color:#33384a}
+  .card .label{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:14px 0 4px}
+  .eg{background:var(--soft);border-radius:10px;padding:11px 13px;margin-top:6px;font-size:14px}
+  .eg .mono{color:var(--azul);font-weight:700}
+  ul.notas{margin:12px 0 0;padding-left:18px;color:#33384a}
+  ul.notas li{margin:4px 0}
+  .fuente{margin-top:12px;font-size:12px;color:var(--muted)}
+  .fuente code{background:var(--soft);padding:1px 6px;border-radius:6px}
+  footer{max-width:1040px;margin:0 auto;padding:22px 24px 50px;border-top:1px solid var(--line);color:var(--muted);font-size:13px;display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between}
+  footer .links a{margin-right:14px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <p class="eyebrow">Plataforma SESGA REYSER · Grupo 5 · Activos e Inversión</p>
+    <h1>Fórmulas del módulo</h1>
+    <p class="sub">Cómo se calcula cada cifra del módulo de activos e inversión, tomado del código real de los procedimientos. Cada tarjeta trae la fórmula, de dónde sale y un ejemplo numérico.</p>
+  </div>
+  <nav class="nav">
+    <a href="index.html">← Mapeo de SP</a>
+    <a href="comandos.html">Runbook</a>
+    <a href="metodologia-backend.html">Metodología backend</a>
+    <a href="metodologia-frontend.html">Metodología frontend</a>
+  </nav>
+</header>
+
+<main>
+  <p class="intro">El módulo maneja dos lentes de <strong>depreciación</strong> (por uso real y contable/calendario) y el flujo de <strong>recuperación</strong> de la inversión con su <strong>saldo</strong>. Nada de esto es un número suelto: cada uno sale de un procedimiento en la base de datos, y aquí está explicado tal cual lo calcula.</p>
+
+  <!-- ============ DEPRECIACIÓN ============ -->
+  <section class="familia">
+    <h2>Depreciación <span class="pill dep">2 lentes</span></h2>
+    <p class="desc">Un activo pierde valor de dos maneras que respondemos por separado: por el <strong>uso</strong> que le da un contrato mes a mes (prorrateada por días), y por el <strong>calendario</strong> contable (lineal desde que empieza a depreciar).</p>
+    <div class="cards">
+
+      <div class="card">
+        <h3>Depreciación diaria</h3>
+        <div class="formula">diaria <span class="op">=</span> ( depreciación_mensual  <span class="cmt">/* o */</span>  costo ÷ vida_útil_meses ) ÷ 30</div>
+        <p>La cuota mensual del activo repartida en 30 días. Si no se cargó una depreciación mensual, se deriva del costo entre su vida útil en meses.</p>
+        <div class="label">Ejemplo</div>
+        <div class="eg">Mensual <b>S/ 2,000</b> → diaria = 2000 ÷ 30 = <span class="mono">S/ 66.6667</span></div>
+        <div class="fuente">Fuente: <code>fn_ejecutar_depreciacion_periodo</code></div>
+      </div>
+
+      <div class="card">
+        <h3>Días depreciados en el mes</h3>
+        <div class="formula">ventana_desde <span class="op">=</span> MAYOR( inicio_asignación , inicio_periodo , inicio_deprec_activo )
+ventana_hasta <span class="op">=</span> MENOR( fin_asignación , fin_periodo , fin_deprec_activo )
+días <span class="op">=</span> MIN( hasta − desde + 1 , 30 )</div>
+        <p>Solo cuentan los días en que el activo <strong>realmente estuvo</strong> asignado al contrato dentro del mes. Si cubre el mes entero, son 30. Se toma el tramo más ajustado entre la asignación, el periodo y la fecha en que el activo empieza a depreciar.</p>
+        <div class="label">Ejemplo</div>
+        <div class="eg">Asignado desde el <b>día 13</b> del mes → 30 − 13 + 1 = <span class="mono">18 días</span></div>
+        <div class="fuente">Fuente: <code>fn_ejecutar_depreciacion_periodo</code></div>
+      </div>
+
+      <div class="card">
+        <h3>Importe depreciado del mes (por uso)</h3>
+        <div class="formula">importe <span class="op">=</span> diaria × días</div>
+        <p>Lo que el activo depreció ese mes por su uso en el contrato. Es el número que alimenta la pantalla de <em>Depreciación mensual</em> y el desglose por contrato.</p>
+        <div class="label">Ejemplo</div>
+        <div class="eg">66.6667 × 18 = <span class="mono">S/ 1,200.00</span></div>
+        <div class="fuente">Fuente: <code>fn_ejecutar_depreciacion_periodo</code> · <code>fn_obtener_depreciacion_por_contrato</code></div>
+      </div>
+
+      <div class="card">
+        <h3>Depreciación contable acumulada</h3>
+        <div class="formula">meses <span class="op">=</span> meses_completos( inicio_deprec → hoy )
+acumulada <span class="op">=</span> MENOR(
+   MENOR( meses , vida_útil_meses ) × depreciación_mensual ,
+   base_recuperable  <span class="cmt">/* tope */</span>
+)</div>
+        <p>La lente de <strong>calendario</strong>: lineal desde la fecha en que el activo empieza a depreciar, sin importar contratos. Nunca pasa de su vida útil ni de lo que vale (el importe base recuperable).</p>
+        <div class="label">Ejemplo</div>
+        <div class="eg">Mensual S/ 2,000, empezó ene-2024, hoy jul-2026 → 30 meses (vida 60) → <span class="mono">S/ 60,000.00</span></div>
+        <div class="fuente">Fuente: <code>calcular_depreciacion_contable_acumulada</code></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ RECUPERACIÓN ============ -->
+  <section class="familia">
+    <h2>Recuperación mensual de la inversión <span class="pill rec">flujo</span></h2>
+    <p class="desc">Cada contrato devuelve la inversión del activo en cuotas mensuales fijas. La cuota se cobra solo si el activo trabajó ese mes; si estuvo parado, ese mes no recupera nada.</p>
+    <div class="cards">
+
+      <div class="card">
+        <h3>Cuota mensual</h3>
+        <div class="formula">cuota <span class="op">=</span> inversión_asignada ÷ plazo_meses</div>
+        <p>Fija y plana, igual que en el Excel de recuperación de inversión. Se define al asignar el activo al contrato.</p>
+        <div class="label">Ejemplo (del Excel)</div>
+        <div class="eg"><span class="mono">=167802.99 / 30</span> = S/ 5,593.43 al mes</div>
+        <div class="fuente">Fuente: <code>fn_asignar_activo_a_contrato</code> (guarda la cuota)</div>
+      </div>
+
+      <div class="card">
+        <h3>Importe recuperado del mes</h3>
+        <div class="formula">importe <span class="op">=</span> parado ? <b>0</b> : MENOR( cuota , saldo_pendiente )</div>
+        <p>Si el activo estuvo <strong>parado</strong> (sin trabajo) ese mes, recupera 0. Si trabajó, cobra la cuota — pero nunca más de lo que falta por recuperar. Un activo-contrato-periodo solo se recupera una vez (no se cobra doble).</p>
+        <div class="label">Ejemplo</div>
+        <div class="eg">Mes con trabajo → <span class="mono">S/ 5,593.43</span> · Mes parado → <span class="mono">S/ 0.00</span></div>
+        <div class="fuente">Fuente: <code>fn_ejecutar_recuperacion_mensual</code></div>
+      </div>
+
+      <div class="card">
+        <h3>Saldo después del mes</h3>
+        <div class="formula">saldo_después <span class="op">=</span> saldo_antes − importe_recuperado</div>
+        <p>Cada recuperación baja el saldo pendiente del activo en ese contrato. Cuando llega a 0, la inversión está recuperada.</p>
+        <div class="label">Ejemplo</div>
+        <div class="eg">167,802.99 − 5,593.43 = <span class="mono">S/ 162,209.56</span> pendiente</div>
+        <div class="fuente">Fuente: <code>fn_ejecutar_recuperacion_mensual</code></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ SALDO / AJUSTES ============ -->
+  <section class="familia">
+    <h2>Saldo por recuperar y ajustes <span class="pill sal">control</span></h2>
+    <p class="desc">El saldo pendiente es la verdad del cuánto falta. Sale de la inversión menos todo lo recuperado y menos los ajustes que contabilidad haya aprobado.</p>
+    <div class="cards">
+
+      <div class="card">
+        <h3>Saldo por recuperar</h3>
+        <div class="formula">saldo <span class="op">=</span> inversión_asignada − Σ recuperado − Σ ajustes_aprobados</div>
+        <p>Se recalcula sobre las recuperaciones ejecutadas y los ajustes aprobados. Un ajuste sin aprobar no mueve el saldo.</p>
+        <div class="label">Ejemplo</div>
+        <div class="eg">167,802.99 − 33,560.58 (6 meses) − 0 = <span class="mono">S/ 134,242.41</span></div>
+        <div class="fuente">Fuente: <code>fn_recalcular_recuperacion_periodo</code> · <code>fn_aprobar_ajuste_recuperacion</code></div>
+      </div>
+
+      <div class="card">
+        <h3>Regla de arranque de depreciación</h3>
+        <div class="formula">si inicio_deprec_activo <b>vacío</b>:
+   arranca <span class="op">=</span> fecha de la asignación al contrato
+
+muro (registro/edición):
+   inicio_deprec ≤ fin_deprec
+   inicio_deprec ≥ año de fabricación</div>
+        <p>Si no se fija fecha de inicio, el activo empieza a depreciar cuando se asigna a un contrato. El sistema rechaza fechas imposibles (inicio después del fin, o antes de que el activo existiera).</p>
+        <div class="fuente">Fuente: <code>fn_ejecutar_depreciacion_periodo</code> · <code>fn_registrar_activo</code> · <code>fn_actualizar_activo</code></div>
+      </div>
+
+    </div>
+  </section>
+
+  <p class="intro" style="margin-top:8px">Todas las cifras redondean a 2 decimales (la depreciación diaria a 4 para no arrastrar error de prorrateo). Los importes están en soles (PEN), la moneda base de la operación.</p>
+</main>
+
+<footer>
+  <div class="links">
+    <a href="index.html">Mapeo de SP</a>
+    <a href="comandos.html">Runbook</a>
+    <a href="metodologia-backend.html">Backend</a>
+    <a href="metodologia-frontend.html">Frontend</a>
+  </div>
+  <div>Grupo 5 · Activos e Inversión · SESGA REYSER</div>
+</footer>
+</body>
+</html>

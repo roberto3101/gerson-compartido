@@ -191,13 +191,14 @@
     <div class="chips">
       <span class="chip">Grupo 5 · Jose &amp; Gerson</span>
       <span class="chip">CockroachDB</span>
-      <span class="chip">18 tablas · 2 capacidades</span>
-      <span class="chip">85 procedimientos · Grupo 5 completo</span>
+      <span class="chip">20 tablas · 2 capacidades</span>
+      <span class="chip">95 procedimientos · Grupo 5 completo</span>
       <a href="#seccion-lecturas" class="chip" style="background:#fff;color:#312e81;font-weight:800;text-decoration:none;border-color:#fff;cursor:pointer">Listados (lectura) →</a>
       <a href="#seccion-indices" class="chip" style="background:#fff;color:#312e81;font-weight:800;text-decoration:none;border-color:#fff;cursor:pointer">Índices: por qué y para qué →</a>
       <a href="#pagina-cierre" class="chip" style="background:#fff;color:#312e81;font-weight:800;text-decoration:none;border-color:#fff;cursor:pointer">Cierre mensual: código y fórmulas explicados →</a>
       <a href="metodologia-backend.html" class="chip" style="background:#22c55e;color:#06281a;font-weight:800;text-decoration:none;border-color:#22c55e;cursor:pointer">⚙ Metodología backend componible →</a>
       <a href="metodologia-frontend.html" class="chip" style="background:#38bdf8;color:#062c3a;font-weight:800;text-decoration:none;border-color:#38bdf8;cursor:pointer">🖥 Metodología frontend (rutas + validación) →</a>
+      <a href="formulas.html" class="chip" style="background:#f59e0b;color:#3a2606;font-weight:800;text-decoration:none;border-color:#f59e0b;cursor:pointer">🧮 Fórmulas (depreciación · recuperación · saldo) →</a>
     </div>
     <div class="descargas" style="margin-top:20px;display:flex;flex-wrap:wrap;gap:12px;align-items:center">
       <span style="color:#c7d2fe;font-weight:700;font-size:13px;letter-spacing:.02em">Descargas:</span>
@@ -207,6 +208,46 @@
     </div>
   </div>
 </header>
+
+<section style="background:#faf7ff">
+  <div class="wrap">
+    <p class="eyebrow">Novedades · 2026-07-20</p>
+    <h2>10 procedimientos nuevos · depreciación, responsables y disponibilidad</h2>
+    <p class="lead">Última actualización de la capacidad: depreciación mensual <b>por uso</b> (prorrateada por días) y <b>por contrato</b>, historial de <b>responsables</b> de asignación, activos <b>sin asignar</b>, datos económicos, y un <b>muro de fechas</b> en el registro/edición del activo. Suman 2 tablas (<code>depreciacion_activo_mensual</code>, <code>asignacion_responsable_historial</code>). Las fórmulas están explicadas en <a href="formulas.html" style="color:#7c3aed;font-weight:700">🧮 Fórmulas</a>.</p>
+    <style>
+      .nov-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:13px;margin-top:16px}
+      .nov-card{background:#fff;border:1px solid #e6e8f0;border-radius:12px;padding:14px 15px;box-shadow:0 1px 2px rgba(20,23,40,.05),0 6px 18px rgba(20,23,40,.05)}
+      .nov-card .sp{font-family:"SFMono-Regular",Consolas,Menlo,monospace;font-size:13.5px;font-weight:700;color:#312e81;word-break:break-word}
+      .nov-card .verb{font-size:10.5px;font-weight:800;letter-spacing:.06em;padding:2px 7px;border-radius:999px;margin-left:6px;vertical-align:middle}
+      .nov-card .get{background:#dbeafe;color:#1d4ed8}
+      .nov-card .post{background:#d1fae5;color:#047857}
+      .nov-card p{margin:8px 0 0;color:#4a4f61;font-size:13.5px;line-height:1.5}
+      .nov-tag{display:inline-block;margin-top:14px;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#6d28d9;background:#ede9fe;padding:3px 9px;border-radius:999px}
+    </style>
+
+    <span class="nov-tag">Depreciación</span>
+    <div class="nov-grid">
+      <div class="nov-card"><span class="sp">ejecutar_depreciacion_periodo</span><span class="verb post">POST</span><p>Corre la depreciación por uso del periodo: prorratea por los días que cada activo estuvo en su contrato.</p></div>
+      <div class="nov-card"><span class="sp">listar_depreciaciones_pendientes</span><span class="verb get">GET</span><p>Activos que faltan depreciar en un periodo, listos para ejecutar.</p></div>
+      <div class="nov-card"><span class="sp">listar_depreciaciones_mensuales</span><span class="verb get">GET</span><p>Histórico de depreciación por activo, contrato y periodo (con cursor).</p></div>
+      <div class="nov-card"><span class="sp">obtener_depreciacion_por_contrato</span><span class="verb get">GET</span><p>Desglose de lo depreciado en el periodo, agrupado por contrato.</p></div>
+      <div class="nov-card"><span class="sp">calcular_depreciacion_contable_acumulada</span><p>Función escalar: depreciación contable lineal desde el inicio, topada a vida útil y base recuperable.</p></div>
+    </div>
+
+    <span class="nov-tag" style="color:#047857;background:#d1fae5">Responsables</span>
+    <div class="nov-grid">
+      <div class="nov-card"><span class="sp">asignar_responsable_asignacion</span><span class="verb post">POST</span><p>Define quién responde por una asignación activo↔contrato.</p></div>
+      <div class="nov-card"><span class="sp">cambiar_responsable_asignacion</span><span class="verb post">POST</span><p>Cambia el responsable dejando el motivo; guarda el traspaso en el historial.</p></div>
+      <div class="nov-card"><span class="sp">listar_historial_responsables</span><span class="verb get">GET</span><p>Quién respondió por cada asignación y cuándo cambió.</p></div>
+    </div>
+
+    <span class="nov-tag" style="color:#b45309;background:#fdecc8">Disponibilidad y economía</span>
+    <div class="nov-grid">
+      <div class="nov-card"><span class="sp">listar_activos_sin_asignacion</span><span class="verb get">GET</span><p>Activos operativos que no están en ningún contrato: libres para asignar.</p></div>
+      <div class="nov-card"><span class="sp">obtener_datos_economicos</span><span class="verb get">GET</span><p>Indicadores económicos del módulo (inversión, recuperado, saldo, depreciación).</p></div>
+    </div>
+  </div>
+</section>
 
 <section>
   <div class="wrap">
@@ -286,7 +327,7 @@
   <div class="wrap">
     <p class="eyebrow">Modelo de datos</p>
     <h2>Diagrama de nuestras capacidades</h2>
-    <p class="lead">Estructura y relaciones de las 18 tablas del Grupo 5, coloreadas por tipo DDD. Las cajas en gris punteado pertenecen a otras capacidades: las consumimos por FK, no las tocamos. Usa los controles para ampliar, reducir o ver en pantalla completa.</p>
+    <p class="lead">Estructura y relaciones de las 20 tablas del Grupo 5, coloreadas por tipo DDD. Las cajas en gris punteado pertenecen a otras capacidades: las consumimos por FK, no las tocamos. Usa los controles para ampliar, reducir o ver en pantalla completa.</p>
     <div class="legend" style="margin-bottom:18px">
       <span class="item"><span class="dot d-raiz"></span>Raíz de Agregado</span>
       <span class="item"><span class="dot d-entidad"></span>Entidad</span>
@@ -1004,7 +1045,7 @@ ALTER TABLE cierre_mensual ADD CONSTRAINT fk_cierre_mensual_eliminado_por FOREIG
   <div class="wrap">
     <p class="eyebrow">Ampliación 2026 · lo más nuevo</p>
     <h2>Módulos nuevos · mantenimiento, incidencias, intervenciones, ajustes y parámetros</h2>
-    <p class="lead">Cinco módulos incorporados después del mapeo inicial, con el mismo molde del grupo (tenant + 6 campos de auditoría + retorno JSONB). Suman <b>5 entidades</b>, <b>41 procedimientos</b> y <b>2 pantallas senior</b>. Con esto la capacidad pasa de 41 a <b>85 procedimientos</b> y de 13 a <b>18 tablas</b>. El código PL/pgSQL completo de cada uno está en los SQL descargables (arriba).</p>
+    <p class="lead">Cinco módulos incorporados después del mapeo inicial, con el mismo molde del grupo (tenant + 6 campos de auditoría + retorno JSONB). Suman <b>5 entidades</b>, <b>41 procedimientos</b> y <b>2 pantallas senior</b>. Con esto la capacidad pasa de 41 a <b>95 procedimientos</b> y de 13 a <b>20 tablas</b>. El código PL/pgSQL completo de cada uno está en los SQL descargables (arriba).</p>
 
     <style>
       .mods{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin:22px 0}

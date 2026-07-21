@@ -14,7 +14,7 @@
 - **El Grupo 5 es dueño de 2 capacidades:**
   - **`activos_e_inversion`** — activos fijos, herramientas, su asignación a contratos, traslados, trabajos, recuperación de inversión, mantenimiento, incidencias, intervenciones de herramienta, ajustes de recuperación y parámetros de la capacidad. **75 endpoints.**
   - **`cierre_mensual`** — estado de resultados por contrato/período, penalidades, provisiones. **10 endpoints.**
-  - **Total Grupo 5: 85 endpoints.**
+  - **Total Grupo 5: 91 endpoints.**
 - **Repos:**
   - Código del producto: `CODEPLEX-SAC/plataforma-sesga-reyser` (local: `C:/Users/user/Desktop/CSRAYSER/plataforma-sesga-reyser`).
   - Páginas/descargables de documentación (Vercel): `roberto3101/gerson-compartido` (local: `C:/Users/user/Desktop/gerson-compartido`).
@@ -92,13 +92,13 @@ powershell -ExecutionPolicy Bypass -File .\herramientas\componibilidad\generar_f
 
 > **Gotcha:** `activos_e_inversion` y `cierre_mensual` son 100% generadas. Solo `contratos`, `gobierno_central` y `produccion` tienen handlers personalizados (`$codigosPersonalizados`).
 
-## 6. Inventario de endpoints (82) — la superficie completa
+## 6. Inventario de endpoints (91) — la superficie completa
 
 Base de URL: `http://localhost:8080/api/v1/<capacidad>/<operacion>`. Cabecera obligatoria `X-Empresa-Id`; las acciones piden además `X-Usuario-Id`.
 
-### activos_e_inversion — 72 (26 GET + 30 POST + 10 PUT + 6 DELETE)
-- **GET (lectura):** `listar_activos`, `obtener_detalle_activo`, `listar_herramientas`, `obtener_detalle_herramienta`, `listar_movimientos_herramienta`, `listar_asignaciones_activo`, `listar_traslados_activo`, `listar_trabajos_activo`, `listar_recuperaciones_inversion`, `listar_clasificaciones_activo`, `listar_tipos_adquisicion_activo`, `listar_tipos_herramienta`, `obtener_resumen_activos_inversion`, `listar_periodos_disponibles`, `listar_alertas_activos`, `listar_activos_detalle`
-- **POST:** `registrar_activo`, `registrar_herramienta`, `asignar_activo_a_contrato`, `mover_herramienta`, `registrar_trabajo_activo`, `registrar_traslado_activo`, `ejecutar_recuperacion_mensual`, `registrar_clasificacion_activo`, `registrar_tipo_adquisicion_activo`, `registrar_tipo_herramienta`, `reactivar_activo`, `finalizar_asignacion_activo`
+### activos_e_inversion — 81 (32 GET + 33 POST + 10 PUT + 6 DELETE)
+- **GET (lectura):** `listar_activos`, `obtener_detalle_activo`, `listar_herramientas`, `obtener_detalle_herramienta`, `listar_movimientos_herramienta`, `listar_asignaciones_activo`, `listar_traslados_activo`, `listar_trabajos_activo`, `listar_recuperaciones_inversion`, `listar_clasificaciones_activo`, `listar_tipos_adquisicion_activo`, `listar_tipos_herramienta`, `obtener_resumen_activos_inversion`, `listar_periodos_disponibles`, `listar_alertas_activos`, `listar_activos_detalle`, `listar_activos_sin_asignacion`, `listar_depreciaciones_pendientes`, `listar_depreciaciones_mensuales`, `obtener_depreciacion_por_contrato`, `obtener_datos_economicos`, `listar_historial_responsables`
+- **POST:** `registrar_activo`, `registrar_herramienta`, `asignar_activo_a_contrato`, `mover_herramienta`, `registrar_trabajo_activo`, `registrar_traslado_activo`, `ejecutar_recuperacion_mensual`, `registrar_clasificacion_activo`, `registrar_tipo_adquisicion_activo`, `registrar_tipo_herramienta`, `reactivar_activo`, `finalizar_asignacion_activo`, `ejecutar_depreciacion_periodo`, `asignar_responsable_asignacion`, `cambiar_responsable_asignacion`
 - **PUT:** `actualizar_activo`, `actualizar_herramienta`
 - **DELETE:** `dar_de_baja_activo`
 
@@ -108,13 +108,13 @@ Base de URL: `http://localhost:8080/api/v1/<capacidad>/<operacion>`. Cabecera ob
 
 > **Gotcha:** `consultar_resultado_contrato` es semánticamente una lectura, pero se publica como **POST** porque el prefijo `consultar_` no está en la lista GET del generador (cae en default=POST). Para que fuera GET habría que renombrarlo a `obtener_`/`listar_` o ampliar el switch.
 
-## 7. Modelo de datos (18 tablas) e índices
+## 7. Modelo de datos (20 tablas) e índices
 
-### activos_e_inversion (10 tablas)
+### activos_e_inversion (12 tablas)
 - **Raíces:** `activo` (estados `ACTIVO/PARADO/EN_TRASLADO/BAJA`; `costo_adquisicion>0`), `herramienta` (estados `ACTIVO/BAJA`).
 - **Catálogos:** `clasificacion_activo`, `tipo_adquisicion_activo`, `tipo_herramienta` (estados `ACTIVO/INACTIVO`).
 - **Entidad:** `activo_asignacion_contrato` (vincula activo↔contrato↔zona, rastrea `saldo_inversion_pendiente`; estados `ACTIVO/CERRADO/TRASLADADO`; UNIQUE por `id_activo,id_contrato,id_zona,fecha_inicio`).
-- **Eventos (append-only):** `activo_traslado`, `activo_registro_trabajo`, `herramienta_movimiento` (`tipo_movimiento ENTRADA/SALIDA/TRASLADO/BAJA`), `recuperacion_inversion_mensual` (UNIQUE `id_activo,id_contrato,id_periodo` → idempotente).
+- **Eventos (append-only):** `activo_traslado`, `activo_registro_trabajo`, `herramienta_movimiento` (`tipo_movimiento ENTRADA/SALIDA/TRASLADO/BAJA`), `recuperacion_inversion_mensual` (UNIQUE `id_activo,id_contrato,id_periodo` → idempotente), `depreciacion_activo_mensual` (depreciación por uso prorrateada; UNIQUE `id_activo,id_contrato,id_periodo`), `asignacion_responsable_historial` (quién respondió por cada asignación).
 
 ### cierre_mensual (3 tablas)
 - `cierre_mensual` (la más ancha; ~18 montos `DECIMAL(18,2)`; estados `BORRADOR/CERRADO/REABIERTO`; UNIQUE `id_contrato,id_periodo`).
@@ -161,7 +161,7 @@ $CR = "C:\cockroachdb26\cockroach-v26.2.1.windows-6.2-amd64\cockroach.exe"
 & $CR sql --insecure --host=localhost:26260 --file sesga_global_completo.sql
 ```
 
-> **Dos bases distintas, no las confundas:** la API local apunta a **`sesga_test`** (solo Grupo 5, base de trabajo). **`sesga_global`** es la descarga unificada de demostración (todas las capacidades + semillas; el script hace DROP/CREATE de esa base). El `sesga_global_completo.sql` deja la base **poblada con datos demo en todas las capacidades**, en una sola corrida (DROP/CREATE + esquema + índices + los 85 SP del Grupo 5 + semillas).
+> **Dos bases distintas, no las confundas:** la API local apunta a **`sesga_test`** (solo Grupo 5, base de trabajo). **`sesga_global`** es la descarga unificada de demostración (todas las capacidades + semillas; el script hace DROP/CREATE de esa base). El `sesga_global_completo.sql` deja la base **poblada con datos demo en todas las capacidades**, en una sola corrida (DROP/CREATE + esquema + índices + los 95 SP del Grupo 5 + semillas).
 
 ## 9. Cómo probar
 
@@ -198,7 +198,7 @@ utilidad_final = utilidad_neta − penalidades
 
 ## 11. Estado actual y lo que falta
 
-**Cerrado y verificado (2026-07-03):** 85 endpoints, todos generados desde SQL, `go build`/`go vet` limpios, probados (lógica + HTTP). En GitHub: `capacidad/activos-e-inversion` (75) y `capacidad/cierre-mensual` (10). El ciclo de vida de activos está completo, **incluido el CRUD de los 3 catálogos** (`actualizar_/dar_de_baja_/reactivar_` de `clasificacion_activo`, `tipo_adquisicion_activo`, `tipo_herramienta`) y `reactivar_herramienta` — todos ya dentro de los 75. Los listados operativos aceptan filtros transversales (por contrato, zona y responsable) y devuelven el `total` para la paginación por cursor.
+**Cerrado y verificado (2026-07-03):** 91 endpoints, todos generados desde SQL, `go build`/`go vet` limpios, probados (lógica + HTTP). En GitHub: `capacidad/activos-e-inversion` (75) y `capacidad/cierre-mensual` (10). El ciclo de vida de activos está completo, **incluido el CRUD de los 3 catálogos** (`actualizar_/dar_de_baja_/reactivar_` de `clasificacion_activo`, `tipo_adquisicion_activo`, `tipo_herramienta`) y `reactivar_herramienta` — todos ya dentro de los 75. Los listados operativos aceptan filtros transversales (por contrato, zona y responsable) y devuelven el `total` para la paginación por cursor.
 
 **Frontend (`activos_e_inversion`):** completo a nivel producción — CRUD de activos/herramientas/catálogos; asignaciones (asignar/finalizar/retirar); traslados; trabajos; movimientos de herramienta; recuperación mensual; mantenimiento/incidencias/intervenciones/ajustes/parámetros; y las vistas operativas (uso operativo, control de disponibilidad, asignaciones por responsable, trazabilidad, resumen con exportación Excel/PDF/PNG). Cada tabla tiene "ver detalle" con toda la información del registro, y los buscadores resuelven nombres reales (contrato/zona/usuario/operario).
 
@@ -287,4 +287,4 @@ plataforma-sesga-reyser/
 
 ---
 
-*Documento generado el 2026-06-23, actualizado el 2026-07-03. Refleja el estado del Grupo 5 con 85 endpoints (75 activos_e_inversion + 10 cierre_mensual) y el frontend de ambas capacidades completo. Si algo aquí contradice el código, el código manda: re-verifica contra `infraestructura/base-de-datos/procedimientos/` y `aplicaciones/api/interno/servidor/operaciones_generadas_*.go`.*
+*Documento generado el 2026-06-23, actualizado el 2026-07-03. Refleja el estado del Grupo 5 con 91 endpoints (75 activos_e_inversion + 10 cierre_mensual) y el frontend de ambas capacidades completo. Si algo aquí contradice el código, el código manda: re-verifica contra `infraestructura/base-de-datos/procedimientos/` y `aplicaciones/api/interno/servidor/operaciones_generadas_*.go`.*
